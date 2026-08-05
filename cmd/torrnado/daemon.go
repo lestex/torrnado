@@ -55,6 +55,7 @@ func runDaemon() error {
 		UploadRateLimit:   int64(cfg.RateLimit.Upload),
 		DownloadRateLimit: int64(cfg.RateLimit.Download),
 		Seed:              cfg.Network.Seed,
+		StateDir:          cfg.StateDir,
 		Logger:            lg.Logger,
 		LibraryLevel:      libLevel,
 	})
@@ -65,6 +66,17 @@ func runDaemon() error {
 	// clients first, then stop the engine underneath them. Deferred calls
 	// run last-in-first-out, which gives that for free.
 	defer eng.Close()
+
+	// Restored before the socket is listening, so the first client to
+	// connect sees the full list rather than one filling in underneath
+	// it. A broken session file is logged and skipped: refusing to start
+	// over one bad record would be worse than starting with fewer
+	// torrents.
+	if n, err := eng.RestoreSession(); err != nil {
+		lg.Error("restoring the session failed", "err", err)
+	} else if n > 0 {
+		lg.Info("session restored", "torrents", n)
+	}
 
 	// The stream server carries file data for previews; it cannot ride
 	// the IPC socket (see internal/stream). Started first so its URL
