@@ -19,21 +19,31 @@ const (
 	colUp     = 12
 	colETA    = 7
 
-	// The progress column: a bar, a space, then the percentage. Sized so
-	// "100%" fits without the column jumping a cell wider at the end of a
-	// download.
-	barWidth    = 16
-	colPercent  = 4
-	colProgress = barWidth + colGap + colPercent
+	// The progress column is a bar, a space, then the percentage. Four
+	// cells for the number, so "100%" fits without the column jumping a
+	// cell wider at the end of a download.
+	colPercent = 4
+
+	// The bar grows with the terminal: 16 cells is fine at 120 columns
+	// and looks like a rounding error across a 4K screen. It stops at 48
+	// -- past that it is measuring nothing anyone needs measured that
+	// finely -- and never drops below 16.
+	minBarWidth = 16
+	maxBarWidth = 48
+
+	// roomyName is the Name column the bar will not encroach on. The bar
+	// only spends width left over once Name has this much, which is what
+	// makes growing it safe: comfortably more than minNameWidth, so a
+	// pane that fits the full column set with the smallest bar still fits
+	// it with a grown one.
+	roomyName = 40
 
 	// colGap is the single space between columns. Every column except the
-	// marker is preceded by one, so fixedColumns -- everything the Name
-	// column does NOT get -- counts seven of them: one per fixed column
-	// plus Name's own. Getting this off by one lets a row exceed the pane
+	// marker is preceded by one, so the fixed columns -- everything Name
+	// does NOT get -- count seven of them: one per fixed column plus
+	// Name's own. Getting this off by one lets a row exceed the pane
 	// width, and lipgloss then wraps it onto a second line.
-	colGap       = 1
-	fixedColumns = colMark + 7*colGap +
-		colProgress + colSize + colStatus + colDown + colUp + colETA
+	colGap = 1
 
 	// rowLines is how many terminal rows one torrent occupies. Progress
 	// used to be an underline beneath the name, which made it two.
@@ -44,6 +54,36 @@ const (
 	minNameWidth = 12
 )
 
+// barWidth returns the progress bar's width for a pane of the given
+// content width.
+//
+// It spends only what is left after Name has a roomy column, so a wider
+// bar can never cost a pane its Size/Status/speed columns -- growing the
+// bar must not take anything away.
+func barWidth(contentW int) int {
+	surplus := contentW - fixedColumnsWith(minBarWidth) - roomyName
+	if surplus <= 0 {
+		return minBarWidth
+	}
+	// Half the surplus, so the extra room is shared with Name rather
+	// than swallowed by the bar.
+	return min(maxBarWidth, minBarWidth+surplus/2)
+}
+
+// progressWidth is the whole progress column: the bar, a space and the
+// percentage.
+func progressWidth(contentW int) int {
+	return barWidth(contentW) + colGap + colPercent
+}
+
+// fixedColumnsWith returns everything the Name column does not get, for a
+// given bar width.
+func fixedColumnsWith(bar int) int {
+	return colMark + 7*colGap +
+		bar + colGap + colPercent +
+		colSize + colStatus + colDown + colUp + colETA
+}
+
 // nameWidth returns the elastic Name column width for a pane of the given
 // content width, and whether the full column set fits at all.
 //
@@ -51,9 +91,9 @@ const (
 // which of a torrent's numbers survives a narrow terminal is a choice,
 // and how far along it is beats how fast it is going.
 func nameWidth(contentW int) (int, bool) {
-	w := contentW - fixedColumns
+	w := contentW - fixedColumnsWith(barWidth(contentW))
 	if w < minNameWidth {
-		return max(1, contentW-colMark-colGap-colProgress-colGap), false
+		return max(1, contentW-colMark-colGap-progressWidth(contentW)-colGap), false
 	}
 	return w, true
 }
@@ -64,7 +104,7 @@ func (m Model) renderListHeader(p panes) string {
 	var b strings.Builder
 	b.WriteString(strings.Repeat(" ", colMark+colGap))
 	b.WriteString(padRight("Name", nameW))
-	b.WriteString(" " + padRight("Progress", colProgress))
+	b.WriteString(" " + padRight("Progress", progressWidth(p.listContentW)))
 	if wide {
 		b.WriteString(" " + padRight("Size", colSize))
 		b.WriteString(" " + padRight("Status", colStatus))
@@ -123,7 +163,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	b.WriteString(mark)
 	b.WriteString(" ")
 	b.WriteString(padRight(truncate(t.Name, nameW), nameW))
-	b.WriteString(" " + progressCell(t.Progress))
+	b.WriteString(" " + progressCell(t.Progress, barWidth(p.listContentW)))
 	// Every column is left-aligned, headings included, so a heading sits
 	// directly above the values it names. Numbers lose the decimal-point
 	// alignment that ragged-right columns give them; a table that reads
@@ -149,8 +189,8 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	return []string{style.Render(b.String())}
 }
 
-// progressCell renders a fraction as a bar followed by its percentage,
-// exactly colProgress cells wide.
+// progressCell renders a fraction as a bar of barW cells followed by its
+// percentage.
 //
 // Drawn in one colour rather than two, unlike the underline this
 // replaced. A row is rendered with a single style so that a cursor or
@@ -158,7 +198,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 // halves separately would end that style mid-row and leave a hole in the
 // highlight. The glyphs carry the bar on their own -- "━" is filled, "─"
 // is track.
-func progressCell(frac float64) string {
+func progressCell(frac float64, barW int) string {
 	// Clamped once, so the bar and the number cannot disagree: a
 	// fraction over 1 (bytes received but not yet verified are counted)
 	// would otherwise print a full bar beside "120%", and a percentage
@@ -169,8 +209,8 @@ func progressCell(frac float64) string {
 	if frac < 0 {
 		frac = 0
 	}
-	filled := int(frac * barWidth)
-	bar := strings.Repeat("━", filled) + strings.Repeat("─", barWidth-filled)
+	filled := int(frac * float64(barW))
+	bar := strings.Repeat("━", filled) + strings.Repeat("─", barW-filled)
 	return bar + " " + padRight(percentCell(frac)+"%", colPercent)
 }
 

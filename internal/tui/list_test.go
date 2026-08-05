@@ -10,38 +10,42 @@ import (
 )
 
 func TestProgressCellDrawsTheFraction(t *testing.T) {
-	// Expectations are expressed in terms of barWidth rather than as cell
-	// counts, so widening the bar stays a one-constant change.
+	// Expectations are fractions of the bar rather than cell counts, so
+	// they hold at whatever width the bar is drawn.
 	cases := []struct {
 		frac       float64
-		wantFilled int
+		wantFilled func(bar int) int
 		wantText   string
 	}{
-		{0, 0, "0%"},
-		{0.25, barWidth / 4, "25%"},
-		{0.5, barWidth / 2, "50%"},
-		{1, barWidth, "100%"},
+		{0, func(int) int { return 0 }, "0%"},
+		{0.25, func(bar int) int { return bar / 4 }, "25%"},
+		{0.5, func(bar int) int { return bar / 2 }, "50%"},
+		{1, func(bar int) int { return bar }, "100%"},
 		// Progress can read fractionally over 1 while unverified bytes
 		// are counted; the bar must not grow a cell wider than its column.
-		{1.2, barWidth, "100%"},
-		{-0.1, 0, "0%"},
+		{1.2, func(bar int) int { return bar }, "100%"},
+		{-0.1, func(int) int { return 0 }, "0%"},
 	}
-	for _, c := range cases {
-		got := progressCell(c.frac)
+	for _, bar := range []int{minBarWidth, 20, maxBarWidth} {
+		for _, c := range cases {
+			got := progressCell(c.frac, bar)
 
-		if n := strings.Count(got, "━"); n != c.wantFilled {
-			t.Errorf("progressCell(%v) has %d filled cells, want %d (%q)",
-				c.frac, n, c.wantFilled, got)
-		}
-		if n := strings.Count(got, "━") + strings.Count(got, "─"); n != barWidth {
-			t.Errorf("progressCell(%v) drew a %d-cell bar, want %d (%q)",
-				c.frac, n, barWidth, got)
-		}
-		if !strings.Contains(got, c.wantText) {
-			t.Errorf("progressCell(%v) = %q, want it to contain %q", c.frac, got, c.wantText)
-		}
-		if w := lipgloss.Width(got); w != colProgress {
-			t.Errorf("progressCell(%v) is %d columns, want exactly %d", c.frac, w, colProgress)
+			if n := strings.Count(got, "━"); n != c.wantFilled(bar) {
+				t.Errorf("progressCell(%v, %d) has %d filled cells, want %d (%q)",
+					c.frac, bar, n, c.wantFilled(bar), got)
+			}
+			if n := strings.Count(got, "━") + strings.Count(got, "─"); n != bar {
+				t.Errorf("progressCell(%v, %d) drew a %d-cell bar, want %d (%q)",
+					c.frac, bar, n, bar, got)
+			}
+			if !strings.Contains(got, c.wantText) {
+				t.Errorf("progressCell(%v, %d) = %q, want it to contain %q",
+					c.frac, bar, got, c.wantText)
+			}
+			if w := lipgloss.Width(got); w != bar+colGap+colPercent {
+				t.Errorf("progressCell(%v, %d) is %d columns, want %d",
+					c.frac, bar, w, bar+colGap+colPercent)
+			}
 		}
 	}
 }
@@ -49,7 +53,7 @@ func TestProgressCellDrawsTheFraction(t *testing.T) {
 // Percentages floor rather than round, so a bar with a gap in it is never
 // labelled 100%.
 func TestProgressCellDoesNotRoundUpToComplete(t *testing.T) {
-	got := progressCell(0.996)
+	got := progressCell(0.996, minBarWidth)
 	if strings.Contains(got, "100%") {
 		t.Errorf("progressCell(0.996) = %q, want it to stay below 100%%", got)
 	}
