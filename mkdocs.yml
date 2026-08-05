@@ -1,0 +1,89 @@
+site_name: torrnado
+site_description: A terminal BitTorrent client with a vim-like TUI and a daemon that keeps running without it.
+site_url: https://torrnado.dev
+repo_url: https://github.com/lestex/torrnado
+repo_name: lestex/torrnado
+edit_uri: edit/master/docs/
+copyright: MIT-licensed. Built with anacrolix/torrent and bubbletea.
+
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    # The terminal is usually dark, so the site starts that way and can
+    # be switched.
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lestex/torrnado
+      name: torrnado on GitHub
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quick start: getting-started/quick-start.md
+  - Guide:
+      - The TUI: guide/tui.md
+      - Command line: guide/cli.md
+      - Configuration: guide/configuration.md
+      - Themes: guide/themes.md
+      - Streaming preview: guide/streaming.md
+  - Running a server:
+      - The daemon: server/daemon.md
+      - systemd: server/systemd.md
+      - Docker: server/docker.md
+  - Reference:
+      - Library limitations: reference/limitations.md
+      - Non-goals and caveats: reference/caveats.md
+      - Development: reference/development.md

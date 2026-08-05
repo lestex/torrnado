@@ -40,7 +40,10 @@ unexport GOROOT
 
 IMAGE := torrnado
 
-.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test systemd-test
+VENV := .venv
+PIP  := $(VENV)/bin/pip
+
+.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test systemd-test docs-deps docs-serve docs-build
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -109,5 +112,22 @@ systemd-test: ## Test the systemd unit against a real systemd, in a container
 		docker rm -f $(IMAGE)-systemd >/dev/null; \
 		exit $$status
 
+# The docs site is MkDocs Material, pinned in docs-requirements.txt so a
+# local build and the CI build produce the same pages.
+$(VENV): docs-requirements.txt
+	python3 -m venv $(VENV)
+	$(PIP) install --quiet --upgrade pip
+	$(PIP) install --quiet -r docs-requirements.txt
+	@touch $(VENV)
+
+docs-deps: $(VENV) ## Create the docs virtualenv
+
+docs-serve: $(VENV) ## Serve the docs site locally with live reload
+	$(VENV)/bin/mkdocs serve
+
+docs-build: $(VENV) ## Build the docs site the way CI does
+	$(VENV)/bin/mkdocs build --strict
+
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out
+	rm -rf site
