@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -527,29 +528,27 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 		})
 	}
 
-	// NumPieces has the same requirement as Files: it reads through
-	// metadata that may not be there, and crashes rather than failing.
+	// NumPieces and PieceStateRuns have the same requirement as Files:
+	// they read through metadata that may not be there, and crash rather
+	// than failing.
 	var numPieces int
-	if tr.t.Info() != nil {
+	var pieceLength int64
+	var pieces []PieceRun
+	if info := tr.t.Info(); info != nil {
 		numPieces = tr.t.NumPieces()
+		pieceLength = info.PieceLength
+		for _, run := range tr.t.PieceStateRuns() {
+			pieces = append(pieces, PieceRun{
+				Length:   run.Length,
+				Known:    run.Ok,
+				Complete: run.Ok && run.Complete,
+				Partial:  run.Partial,
+				Checking: run.Hashing || run.QueuedForHash,
+			})
+		}
 	}
 
-	var peers []PeerInfo
-	for _, pc := range tr.t.PeerConns() {
-		stats := pc.Peer.Stats()
-		var progress float64
-		if numPieces > 0 {
-			progress = float64(stats.RemotePieceCount) / float64(numPieces)
-		}
-		peers = append(peers, PeerInfo{
-			Addr:        fmt.Sprint(pc.RemoteAddr),
-			Client:      clientName(pc.PeerClientName.Load()),
-			Source:      string(pc.Discovery),
-			DownloadBPS: stats.DownloadRate,
-			Progress:    progress,
-			Encrypted:   pc.PeerPrefersEncryption,
-		})
-	}
+	peers := e.peerInfo(tr, numPieces)
 
 	// Only the static list from the torrent's own metadata. The library
 	// exposes no live announce status -- no last announce time, no error,
@@ -565,17 +564,120 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 		trackers = append(trackers, TrackerInfo{URL: mi.Announce, Tier: 0})
 	}
 
-	return TorrentDetail{Snapshot: snap, Files: files, Peers: peers, Trackers: trackers}, nil
+	return TorrentDetail{
+		Snapshot:    snap,
+		Files:       files,
+		Peers:       peers,
+		Trackers:    trackers,
+		Pieces:      pieces,
+		NumPieces:   numPieces,
+		PieceLength: pieceLength,
+	}, nil
 }
 
-// clientName resolves a peer's self-reported name.
-//
-// PeerClientName is an atomic.Value holding nothing until the peer's
-// extended handshake supplies a name, so printing it directly renders the
-// literal string "<nil>" as the client name.
-func clientName(v any) string {
-	if s, ok := v.(string); ok {
+// peerInfo builds the per-peer view for tr, deriving instantaneous
+// download/upload speeds from the byte counters recorded on the previous
+// call (see tracked.lastPeers for why the library's own rates can't be
+// used). numPieces is 0 before metadata arrives.
+func (e *Engine) peerInfo(tr *tracked, numPieces int) []PeerInfo {
+	conns := tr.t.PeerConns()
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(tr.lastPeersAt).Seconds()
+	if tr.lastPeersAt.IsZero() {
+		elapsed = 0
+	}
+	// Rebuilt from scratch each call so peers that have disconnected drop
+	// out rather than accumulating forever.
+	current := make(map[string]peerBytes, len(conns))
+
+	peers := make([]PeerInfo, 0, len(conns))
+	for _, pc := range conns {
+		stats := pc.Peer.Stats()
+		addr := fmt.Sprint(pc.RemoteAddr)
+		down := stats.BytesReadUsefulData.Int64()
+		up := stats.BytesWrittenData.Int64()
+
+		prev, seen := tr.lastPeers[addr]
+		downBPS, upBPS := prev.downBPS, prev.upBPS
+		if seen && elapsed > 0 {
+			downBPS = math.Max(0, float64(down-prev.down)/elapsed)
+			upBPS = math.Max(0, float64(up-prev.up)/elapsed)
+		}
+		current[addr] = peerBytes{down: down, up: up, downBPS: downBPS, upBPS: upBPS}
+
+		var progress float64
+		if numPieces > 0 {
+			progress = float64(stats.RemotePieceCount) / float64(numPieces)
+		}
+		id := peerIDPrefix(pc.PeerID)
+		peers = append(peers, PeerInfo{
+			Addr:        addr,
+			Client:      clientName(pc.PeerClientName.Load(), id),
+			PeerID:      id,
+			Source:      peerSourceName(pc.Discovery),
+			DownloadBPS: downBPS,
+			UploadBPS:   upBPS,
+			PiecesHave:  stats.RemotePieceCount,
+			PiecesTotal: numPieces,
+			Progress:    progress,
+			Encrypted:   pc.PeerPrefersEncryption,
+		})
+	}
+
+	tr.lastPeers = current
+	tr.lastPeersAt = now
+	return peers
+}
+
+// peerSourceName renders how a peer was discovered. anacrolix/torrent's
+// PeerSource values are the terse letter codes it puts on the wire ("Hg",
+// "Tr", "X"), which mean nothing to a user reading a peers table.
+func peerSourceName(s torrent.PeerSource) string {
+	switch s {
+	case torrent.PeerSourceTracker:
+		return "tracker"
+	case torrent.PeerSourceIncoming:
+		return "incoming"
+	case torrent.PeerSourceDhtGetPeers, torrent.PeerSourceDhtAnnouncePeer:
+		return "dht"
+	case torrent.PeerSourcePex:
+		return "pex"
+	case torrent.PeerSourceUtHolepunch:
+		return "holepunch"
+	case torrent.PeerSourceDirect:
+		return "direct"
+	default:
+		return string(s)
+	}
+}
+
+// clientName resolves a peer's display name. PeerClientName is an
+// atomic.Value that holds nothing until the extended handshake supplies a
+// name, so a bare fmt.Sprint of it renders the literal string "<nil>".
+func clientName(v any, peerID string) string {
+	if s, ok := v.(string); ok && s != "" {
 		return s
 	}
-	return ""
+	return peerID
+}
+
+// peerIDPrefix renders the leading, human-meaningful part of a 20-byte
+// peer ID (BEP 20's "-XXnnnn-" client/version prefix), replacing
+// unprintable bytes so a hostile peer can't inject control sequences into
+// the terminal.
+func peerIDPrefix(id torrent.PeerID) string {
+	const n = 8
+	out := make([]rune, 0, n)
+	for _, b := range id[:n] {
+		if b < 0x20 || b > 0x7e {
+			out = append(out, '.')
+			continue
+		}
+		out = append(out, rune(b))
+	}
+	return string(out)
 }
