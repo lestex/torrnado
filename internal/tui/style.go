@@ -48,9 +48,14 @@ type styles struct {
 }
 
 func newStyles(t theme.Theme) styles {
+	// The padding sits inside the width the pane is given (lipgloss wraps
+	// at width minus horizontal padding), so it costs the text area, not
+	// the frame. layout() subtracts the same panePadX from what the
+	// render functions are told they have.
 	pane := lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(t.Border)
+		BorderForeground(t.Border).
+		Padding(0, panePadX)
 
 	return styles{
 		theme: t,

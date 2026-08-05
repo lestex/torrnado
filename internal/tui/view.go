@@ -34,18 +34,18 @@ func (m Model) View() string {
 		helpW, helpH := m.width-borderWidth, m.height-1-borderHeight
 		return lipgloss.JoinVertical(lipgloss.Left,
 			m.styles.Pane.Width(helpW).Height(helpH).
-				Render(m.renderHelp(helpW-2, helpH)),
+				Render(m.renderHelp(helpW-2*panePadX, helpH)),
 			m.renderFooter(p),
 		)
 	}
 
 	sidebar := m.styles.pane(m.focus == focusSidebar).
-		Width(p.sidebarContentW).
+		Width(p.sidebarBoxW).
 		Height(p.sidebarContentH).
 		Render(clampBlock(m.renderSidebar(p), p.sidebarContentH))
 
 	list := m.styles.pane(m.focus == focusList).
-		Width(p.listContentW).
+		Width(p.listBoxW).
 		Height(p.listContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderListHeader(p),
@@ -53,7 +53,7 @@ func (m Model) View() string {
 		), p.listContentH))
 
 	detail := m.styles.pane(m.focus == focusDetail).
-		Width(p.detailContentW).
+		Width(p.detailBoxW).
 		Height(p.detailContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderDetailTabs(p),
