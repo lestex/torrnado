@@ -65,8 +65,8 @@ func (m Model) renderListHeader(p panes) string {
 	return m.styles.ColHeader.Render(b.String())
 }
 
-func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot) string {
-	height := p.listContentH - 1 // the header owns one row
+func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH int) string {
+	height := paneH - 1 // the header owns one row
 	if len(m.torrents) == 0 {
 		return m.styles.Muted.Render(" no torrents yet -- add one with `torrnado add`")
 	}

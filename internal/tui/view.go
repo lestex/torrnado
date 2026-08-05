@@ -32,13 +32,17 @@ func (m Model) View() string {
 		Height(p.sidebarContentH).
 		Render(clampBlock(m.renderSidebar(p), p.sidebarContentH))
 
+	// The detail pane will take the lower part of this column later; for
+	// now the list has the whole height, so the two columns line up.
+	listH := p.sidebarContentH
+
 	list := m.styles.Pane.
 		Width(p.listContentW).
-		Height(p.listContentH).
+		Height(listH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderListHeader(p),
-			m.renderListBody(p, m.visibleTorrents()),
-		), p.listContentH))
+			m.renderListBody(p, m.visibleTorrents(), listH),
+		), listH))
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, list)
 	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
