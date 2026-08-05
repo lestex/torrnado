@@ -142,7 +142,14 @@ func (s TorrentSnapshot) StatusText() string {
 	// one moment a user most wants a number. A torrent waiting on a
 	// magnet's metadata is StateChecking with nothing being checked, and
 	// still reads as plain "checking".
-	if s.Checking {
+	//
+	// The second half of the condition is for a daemon older than the
+	// Checking field. The daemon outlives the client by design -- that is
+	// the point of the whole split -- so a new TUI talking to a daemon
+	// that has been up for a week is normal, and gob leaves a field it
+	// has never heard of at its zero value. Anything the daemon can still
+	// tell us is worth using.
+	if s.Checking || (s.State == StateChecking && s.CheckProgress > 0) {
 		return fmt.Sprintf("checking %d%%", int(s.CheckProgress*100))
 	}
 	return s.State.String()
