@@ -1,4 +1,5 @@
-// Package theme provides the color palettes torrnado's TUI renders with.
+// Package theme provides the color palettes torrnado's TUI renders
+// with: a set of built-in themes plus user-supplied TOML overrides.
 //
 // Palettes are stored as lipgloss.Color hex strings. Graceful degradation
 // for terminals without truecolor is handled by lipgloss/termenv itself --
@@ -13,13 +14,16 @@ package theme
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
+	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
 
-// Theme is a named palette. Built-ins always populate every field.
+// Theme is a named palette. Every field is required to be non-empty when
+// loaded from an override file; built-ins always populate all of them.
 type Theme struct {
 	Name string
 
@@ -76,16 +80,42 @@ func Names() []string {
 	return names
 }
 
-// Load resolves a theme by name, falling back to the default when the
-// name is empty.
-func Load(name string) (Theme, error) {
+// Load resolves a theme by name: a user's own themesDir/<name>.toml
+// first, then a built-in of that name.
+//
+// The user's file wins, which is what lets a built-in be customised by
+// dropping a file of the same name next to it rather than having to
+// invent a new one.
+func Load(name, themesDir string) (Theme, error) {
 	if name == "" {
 		name = "dracula"
 	}
+
+	overridePath := filepath.Join(themesDir, name+".toml")
+	if data, err := os.ReadFile(overridePath); err == nil {
+		var t Theme
+		meta, err := toml.Decode(string(data), &t)
+		if err != nil {
+			return Theme{}, fmt.Errorf("theme %s (%s): %w", name, overridePath, err)
+		}
+		// An unknown key is a typo, and a silently ignored colour is a
+		// theme that looks broken for no visible reason.
+		if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+			return Theme{}, fmt.Errorf("theme %s (%s): unknown key(s): %v", name, overridePath, undecoded)
+		}
+		t.Name = name
+		if missing := t.missingFields(); len(missing) > 0 {
+			return Theme{}, fmt.Errorf("theme %s (%s): missing required color(s): %v", name, overridePath, missing)
+		}
+		return t, nil
+	}
+
 	if t, ok := builtins[name]; ok {
 		return t, nil
 	}
-	return Theme{}, fmt.Errorf("unknown theme %q (built-in themes: %v)", name, Names())
+
+	return Theme{}, fmt.Errorf("unknown theme %q (built-in themes: %v; or place %s.toml in %s)",
+		name, Names(), name, themesDir)
 }
 
 // TruecolorSupported reports whether the terminal (per COLORTERM and

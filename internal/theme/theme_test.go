@@ -10,7 +10,7 @@ import (
 // harder to notice than a build failure.
 func TestBuiltinsAreComplete(t *testing.T) {
 	for _, name := range Names() {
-		th, err := Load(name)
+		th, err := Load(name, t.TempDir())
 		if err != nil {
 			t.Fatalf("Load(%q): %v", name, err)
 		}
@@ -24,7 +24,7 @@ func TestBuiltinsAreComplete(t *testing.T) {
 }
 
 func TestLoadDefaultsWhenUnnamed(t *testing.T) {
-	th, err := Load("")
+	th, err := Load("", t.TempDir())
 	if err != nil {
 		t.Fatalf("Load(\"\"): %v", err)
 	}
@@ -35,7 +35,7 @@ func TestLoadDefaultsWhenUnnamed(t *testing.T) {
 
 // An unknown name lists what is available, so the fix is in the error.
 func TestLoadUnknownNameListsTheChoices(t *testing.T) {
-	_, err := Load("no-such-theme")
+	_, err := Load("no-such-theme", t.TempDir())
 	if err == nil {
 		t.Fatal("an unknown theme should be an error")
 	}
@@ -60,7 +60,7 @@ func TestNamesAreSorted(t *testing.T) {
 // The "plain" theme exists for terminals with no real colour support, so
 // it must not use hex values -- those are what it is avoiding.
 func TestPlainThemeAvoidsHexColours(t *testing.T) {
-	th, err := Load("plain")
+	th, err := Load("plain", t.TempDir())
 	if err != nil {
 		t.Fatalf("Load(plain): %v", err)
 	}
