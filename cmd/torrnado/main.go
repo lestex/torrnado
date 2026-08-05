@@ -40,6 +40,7 @@ func main() {
 		newLimitCmd(),
 		newMoveCmd(),
 		newListCmd(),
+		newPreviewCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

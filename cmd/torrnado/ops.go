@@ -13,6 +13,7 @@ import (
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/player"
 )
 
 // withClient connects to (or spawns) the daemon, runs fn, and always
@@ -195,6 +196,46 @@ func newMoveCmd() *cobra.Command {
 			})
 		},
 	}
+}
+
+func newPreviewCmd() *cobra.Command {
+	var play bool
+
+	cmd := &cobra.Command{
+		Use:   "preview <torrent-id> <file-index>",
+		Short: "Print a local streaming URL for a file (playable while downloading)",
+		Long: "Prints a loopback HTTP URL serving one file's data. The URL is playable\n" +
+			"immediately -- reads block until the pieces arrive, and watching drives\n" +
+			"which pieces are fetched first -- so it works long before the torrent\n" +
+			"finishes. Asking for it resumes the torrent and raises the file's\n" +
+			"priority, since a paused or unwanted file cannot stream.\n\n" +
+			"The URL carries a token and is only valid for the life of the daemon\n" +
+			"that issued it.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			idx, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("file-index must be a number: %w", err)
+			}
+			cfg, _, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			return withClient(func(c *ipc.Client) error {
+				url, err := c.PreviewURL(engine.TorrentID(args[0]), idx)
+				if err != nil {
+					return err
+				}
+				if play {
+					return player.Launch(cfg.Player, url)
+				}
+				fmt.Println(url)
+				return nil
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&play, "play", false, "open the URL in the configured player instead of printing it")
+	return cmd
 }
 
 func newListCmd() *cobra.Command {
