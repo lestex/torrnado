@@ -334,3 +334,35 @@ func TestTheBarNeverCostsTheOtherColumns(t *testing.T) {
 		}
 	}
 }
+
+// Names come first. A pane that cannot afford both shows the percentage
+// alone and spends the room on the name instead -- a name truncated
+// beside a stub of a bar serves nobody.
+func TestATightPaneSpendsTheRoomOnTheName(t *testing.T) {
+	// Wide enough for the full column set, not wide enough for a bar.
+	const tight = 116
+
+	if bar := barWidth(tight); bar != 0 {
+		t.Fatalf("a %d-column pane drew a %d-cell bar; this test needs the tight case",
+			tight, bar)
+	}
+	nameW, wide := nameWidth(tight)
+	if !wide {
+		t.Fatalf("a %d-column pane should still fit the full column set", tight)
+	}
+
+	// The name is longer by exactly what the bar would have cost.
+	withBar, _ := nameWidth(tight + 2*(minBarWidth+colGap))
+	if nameW <= withBar-minBarWidth {
+		t.Errorf("name is %d columns without a bar; a bar would have left it %d",
+			nameW, withBar)
+	}
+
+	// And the heading names what is actually shown.
+	if got := progressHeading(0); got != "%" {
+		t.Errorf("heading over a bare percentage is %q, want %q", got, "%")
+	}
+	if got := progressHeading(minBarWidth); got != "Progress" {
+		t.Errorf("heading over a bar is %q, want %q", got, "Progress")
+	}
+}
