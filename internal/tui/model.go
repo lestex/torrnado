@@ -157,6 +157,9 @@ type Model struct {
 
 	status      string
 	statusIsErr bool
+	// statusSeq counts status messages, so the timer that clears one can
+	// tell whether it is still the message on screen.
+	statusSeq int
 
 	width, height int
 	quitting      bool
@@ -292,7 +295,51 @@ func (m *Model) syncDetail() tea.Cmd {
 	return loadDetail(m.client, t.ID)
 }
 
-func (m *Model) setStatus(msg statusMsg) {
+// How long a status message stays on screen. Errors linger, because they
+// are usually the answer to "why did nothing happen" and are worth
+// reading twice; a confirmation has done its job as soon as it is seen.
+const (
+	statusTTL      = 5 * time.Second
+	statusErrorTTL = 12 * time.Second
+)
+
+// setStatus shows a message and returns the command that will clear it.
+//
+// A status bar reporting "rechecking 1 torrent(s)" is describing
+// something that happened, not something that is still true -- and the
+// message outlived the recheck by however long the TUI stayed open,
+// which reads as a job that never finished.
+//
+// A caller that drops the returned command gets the old behaviour: a
+// message that stays until something replaces it. That is deliberate for
+// a lost connection, which is a condition rather than an event.
+func (m *Model) setStatus(msg statusMsg) tea.Cmd {
 	m.status = msg.text
 	m.statusIsErr = msg.isErr
+	m.statusSeq++
+
+	ttl := statusTTL
+	if msg.isErr {
+		ttl = statusErrorTTL
+	}
+	return expireStatusCmd(m.statusSeq, ttl)
+}
+
+// expireStatusCmd asks for a status to be cleared after a delay. Split
+// out so a test can exercise it with a delay it does not have to sit
+// through -- tea.Tick's command really does wait.
+func expireStatusCmd(seq int, after time.Duration) tea.Cmd {
+	return tea.Tick(after, func(time.Time) tea.Msg {
+		return statusExpiredMsg{seq: seq}
+	})
+}
+
+// clearStatus removes the message with the given sequence number, and
+// does nothing if a newer one has replaced it.
+func (m *Model) clearStatus(seq int) {
+	if seq != m.statusSeq {
+		return
+	}
+	m.status = ""
+	m.statusIsErr = false
 }

@@ -33,18 +33,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(listenForEvents(m.events), m.syncDetail())
 
 	case engineClosedMsg:
+		// Set directly, with no expiry: the daemon being gone is a
+		// standing condition, not an event that has passed.
 		m.status = "lost connection to daemon"
 		m.statusIsErr = true
 		return m, nil
 
 	case statusMsg:
-		m.setStatus(msg)
+		return m, m.setStatus(msg)
+
+	case statusExpiredMsg:
+		m.clearStatus(msg.seq)
 		return m, nil
 
 	case detailLoadedMsg:
 		if msg.err != nil {
-			m.setStatus(errStatus(msg.err))
-			return m, nil
+			return m, m.setStatus(errStatus(msg.err))
 		}
 		// A reply for a torrent the cursor has already left is stale;
 		// dropping it stops a slow fetch overwriting the pane after the

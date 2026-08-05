@@ -15,6 +15,11 @@ type statusMsg struct {
 	isErr bool
 }
 
+// statusExpiredMsg asks for the status bar to be cleared. It carries the
+// sequence number of the message it was scheduled for, so a stale timer
+// cannot wipe a newer message.
+type statusExpiredMsg struct{ seq int }
+
 // detailLoadedMsg carries the result of an async Detail call.
 type detailLoadedMsg struct {
 	detail engine.TorrentDetail
