@@ -45,6 +45,11 @@ type Config struct {
 
 	Seed bool
 
+	// StateDir is where the session file and saved metainfo live, so a
+	// restart can pick the torrent list back up. Empty disables
+	// persistence entirely.
+	StateDir string
+
 	// Logger receives the engine's own messages and the torrent
 	// library's. Nil discards both.
 	Logger *slog.Logger
@@ -64,6 +69,10 @@ type tracked struct {
 	addedAt  time.Time
 	paused   bool
 	savePath string
+	// magnet is the URI this was added from, if it was. Kept for the
+	// session file: a torrent whose metadata never arrived has no
+	// metainfo to be re-added from, only this.
+	magnet string
 	// ownStorage is set when this torrent was given a dedicated save
 	// path, rather than using the engine's shared default storage. It
 	// must be closed when the torrent is removed.
@@ -118,6 +127,10 @@ type Engine struct {
 	cfg    Config
 	client *torrent.Client
 	log    *slog.Logger
+
+	// restoring suppresses session saves while a restore is in progress
+	// (see persist).
+	restoring bool
 
 	upLimiter   *rate.Limiter
 	downLimiter *rate.Limiter
@@ -225,6 +238,10 @@ func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Cli
 
 // Close stops the tick loop and closes every subscriber's channel.
 func (e *Engine) Close() error {
+	// Saved before anything is torn down: a clean shutdown should leave
+	// the session on disk matching what was running.
+	e.persist()
+
 	close(e.closeCh)
 	e.wg.Wait()
 

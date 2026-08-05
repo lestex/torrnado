@@ -39,7 +39,7 @@ func (e *Engine) AddMagnet(uri string, opts AddOpts) (TorrentID, error) {
 	if err != nil {
 		return "", fmt.Errorf("parse magnet uri: %w", err)
 	}
-	return e.addSpec(spec, opts)
+	return e.addSpec(spec, opts, uri)
 }
 
 // AddTorrentFile adds a torrent from a local .torrent file.
@@ -52,10 +52,14 @@ func (e *Engine) AddTorrentFile(path string, opts AddOpts) (TorrentID, error) {
 	if err != nil {
 		return "", fmt.Errorf("parse torrent file %s: %w", path, err)
 	}
-	return e.addSpec(spec, opts)
+	// No magnet URI: a torrent added from a file is re-added from the
+	// copy of its metainfo the session keeps.
+	return e.addSpec(spec, opts, "")
 }
 
-func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, error) {
+// addSpec adds a torrent from an already-parsed spec. magnetURI is the
+// URI it came from, or empty for a .torrent file.
+func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI string) (TorrentID, error) {
 	// The client has a single default storage for everything, so a
 	// torrent that wants its own download directory gets its own storage
 	// instance -- which then has to be closed when it is removed.
@@ -90,6 +94,7 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, er
 		e.torrents[id] = &tracked{
 			t:          t,
 			addedAt:    time.Now(),
+			magnet:     magnetURI,
 			paused:     opts.Paused,
 			savePath:   savePath,
 			ownStorage: ownStorage,
@@ -111,10 +116,14 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, er
 		if !opts.Paused {
 			downloadAllFiles(t)
 		}
+		// Now there is a metainfo to save, which is what makes the next
+		// restart able to re-add this torrent without finding a peer.
+		e.persist()
 		e.snapshotAndBroadcastNow()
 	}()
 
 	e.log.Info("torrent added", "id", id, "name", t.Name(), "save_path", savePath, "paused", opts.Paused)
+	e.persist()
 
 	e.snapshotAndBroadcastNow()
 	return id, nil
@@ -179,6 +188,8 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 		removeEmptyDirs(tr.savePath, paths)
 	}
 	e.log.Info("torrent removed", "id", id, "deleted_data", deleteData)
+	e.removeMetainfo(id)
+	e.persist()
 
 	e.snapshotAndBroadcastNow()
 	return nil
@@ -231,6 +242,7 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 		}
 	}
 
+	e.persist()
 	e.snapshotAndBroadcastNow()
 	return nil
 }
@@ -264,6 +276,7 @@ func (e *Engine) SetFilePriority(id TorrentID, fileIndex int, prio Priority) err
 		return fmt.Errorf("file index %d out of range (0..%d)", fileIndex, len(files)-1)
 	}
 	files[fileIndex].SetPriority(toLibPriority(prio))
+	e.persist()
 	e.snapshotAndBroadcastNow()
 	return nil
 }
@@ -431,6 +444,7 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 	}
 	e.mu.Unlock()
 
+	e.persist()
 	e.snapshotAndBroadcastNow()
 	return nil
 }
