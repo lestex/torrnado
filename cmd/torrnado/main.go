@@ -26,6 +26,7 @@ func main() {
 
 	root.AddCommand(
 		newDaemonCmd(),
+		newListCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
