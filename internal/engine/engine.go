@@ -222,7 +222,14 @@ func New(cfg Config) (*Engine, error) {
 // after a restart.
 func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Client, error) {
 	if low <= 0 {
-		return torrent.NewClient(tc) // port 0: let the OS choose
+		// Explicitly zero, not merely left alone: the library's default
+		// config carries a fixed port (42069), so leaving it untouched
+		// pins every client that asked for "any" to the same one. Two
+		// daemons on a machine, or two tests running in parallel, then
+		// fail with "address already in use" while the config said the OS
+		// would choose.
+		tc.ListenPort = 0
+		return torrent.NewClient(tc)
 	}
 	if high < low {
 		high = low
