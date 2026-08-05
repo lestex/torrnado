@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -335,4 +336,40 @@ func names(snaps []engine.TorrentSnapshot) string {
 		out[i] = s.Name
 	}
 	return strings.Join(out, " ")
+}
+
+// vim's dd: two presses remove, one does nothing.
+func TestDDChordNeedsBothPresses(t *testing.T) {
+	m := testModel("a", "b")
+
+	m = press(m, "d")
+	if !m.pendingDD {
+		t.Fatal("the first d did not start a chord")
+	}
+	if m.quitting {
+		t.Error("a single d should do nothing on its own")
+	}
+
+	// Anything else abandons it, so d-then-j is not half a deletion.
+	m = press(m, "j")
+	if m.pendingDD {
+		t.Error("another key should abandon a half-typed chord")
+	}
+}
+
+// A "d" from minutes ago must not turn the next one into a deletion.
+func TestDDChordExpires(t *testing.T) {
+	m := testModel("a", "b")
+	m.pendingDD = true
+	m.pendingAt = time.Now().Add(-time.Hour)
+
+	next, cmd := m.handleListKey("d")
+	m = next.(Model)
+
+	if cmd != nil {
+		t.Error("a stale chord should not have completed a removal")
+	}
+	if !m.pendingDD {
+		t.Error("the stale d should have started a fresh chord")
+	}
 }
