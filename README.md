@@ -328,6 +328,23 @@ surface. The player is detached, so it keeps playing after you quit the TUI.
 > not torrnado: approve it once in System Settings → Privacy & Security, or
 > `xattr -d com.apple.quarantine /Applications/<player>.app`.
 
+### Switching themes
+
+`:theme` opens a floating picker over the panes. Moving through it
+applies each theme as you go -- the list, sidebar and detail pane
+underneath recolour live, so you judge a theme on your own torrents
+rather than on a swatch. `enter` keeps it, `esc` puts back the one you
+started with. Your own themes from the themes directory are listed
+alongside the built-ins and marked `(user)`; one that fails to parse is
+reported and stepped over rather than applied.
+
+`:theme nord` switches straight to a named theme without opening the
+picker.
+
+The choice lasts for the session. torrnado will not rewrite your
+`config.toml` -- doing so would re-encode the file and lose its comments
+and ordering -- so to keep a theme, put `theme = "nord"` in it yourself.
+
 ## TUI keybinds
 
 Vim-like navigation, not vim's editing model -- there's no insert/visual
@@ -371,6 +388,7 @@ always apply to the list's selection or cursor row.
 | `:limit-up <rate>` / `:limit-down <rate>`               | set the *global* rate limit (`500k`, `2M`, `unlimited`) |
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
+| `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
 | `:q` / `:quit`                                          | quit the TUI                              |
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
