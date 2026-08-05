@@ -128,6 +128,9 @@ type Engine struct {
 	client *torrent.Client
 	log    *slog.Logger
 
+	closeOnce sync.Once
+	closeErr  error
+
 	// restoring suppresses session saves while a restore is in progress
 	// (see persist).
 	restoring bool
@@ -237,7 +240,15 @@ func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Cli
 }
 
 // Close stops the tick loop and closes every subscriber's channel.
+//
+// Safe to call more than once: shutdown paths overlap -- a deferred close
+// and an explicit one -- and closing the same channel twice panics.
 func (e *Engine) Close() error {
+	e.closeOnce.Do(func() { e.closeErr = e.closeNow() })
+	return e.closeErr
+}
+
+func (e *Engine) closeNow() error {
 	// Saved before anything is torn down: a clean shutdown should leave
 	// the session on disk matching what was running.
 	e.persist()
