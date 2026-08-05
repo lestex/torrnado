@@ -150,3 +150,79 @@ func TestNarrowPanesKeepNameAndProgress(t *testing.T) {
 		t.Errorf("a narrow row kept the speed columns: %q", row)
 	}
 }
+
+func TestTruncateTailKeepsTheEnd(t *testing.T) {
+	cases := []struct {
+		in, want string
+		width    int
+	}{
+		{"short", "short", 10},
+		{"magnet:?xt=urn:btih:abc", "…btih:abc", 9},
+		{"abcdef", "…f", 2},
+		{"abcdef", "…", 1},
+		{"abcdef", "", 0},
+	}
+	for _, c := range cases {
+		if got := truncateTail(c.in, c.width); got != c.want {
+			t.Errorf("truncateTail(%q, %d) = %q, want %q", c.in, c.width, got, c.want)
+		}
+		if got := truncateTail(c.in, c.width); lipgloss.Width(got) > c.width {
+			t.Errorf("truncateTail(%q, %d) = %q, %d columns wide",
+				c.in, c.width, got, lipgloss.Width(got))
+		}
+	}
+}
+
+// The prompt is a plain input line. It used to be rendered with
+// SelectedRow, the list's selection highlight, which drew a block of
+// background around whatever had been typed.
+func TestPromptDoesNotWearTheSelectionHighlight(t *testing.T) {
+	m := testModel("a")
+
+	got := m.renderPrompt(":", "add test", 80)
+
+	if bg := m.styles.SelectedRow.Render("x"); strings.Contains(got, ansiPrefix(bg)) {
+		t.Errorf("the prompt is drawn with the selection style: %q", got)
+	}
+	if !strings.Contains(got, "add test") {
+		t.Errorf("the prompt lost what was typed: %q", got)
+	}
+	if !strings.Contains(got, ":") {
+		t.Errorf("the prompt lost its sigil: %q", got)
+	}
+}
+
+// A long paste has to scroll rather than overflow the line the layout
+// allocated -- and the trim must not cut through the styling's escape
+// sequences.
+func TestPromptFitsTheFooter(t *testing.T) {
+	m := testModel("a")
+	long := "add magnet:?xt=urn:btih:" + strings.Repeat("f", 200)
+
+	for _, width := range []int{80, 40, 12, 4, 2} {
+		got := m.renderPrompt(":", long, width)
+		if w := lipgloss.Width(got); w > width {
+			t.Errorf("width %d: prompt is %d columns: %q", width, w, got)
+		}
+	}
+}
+
+// While typing, what matters is what was just entered.
+func TestPromptShowsTheEndOfALongLine(t *testing.T) {
+	m := testModel("a")
+
+	got := m.renderPrompt(":", "add "+strings.Repeat("x", 100)+"TAIL", 30)
+
+	if !strings.Contains(got, "TAIL") {
+		t.Errorf("the prompt scrolled the wrong way: %q", got)
+	}
+}
+
+// ansiPrefix returns the escape sequence a style opens with, so one
+// style's rendering can be told apart from another's.
+func ansiPrefix(rendered string) string {
+	if i := strings.Index(rendered, "m"); i > 0 {
+		return rendered[:i+1]
+	}
+	return rendered
+}
