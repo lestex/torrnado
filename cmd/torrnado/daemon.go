@@ -109,10 +109,25 @@ func runDaemon() error {
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately
 	// and the deferred shutdown would tear everything down.
+	//
+	// SIGHUP is the convention for "reopen your log file", which is how
+	// logrotate finishes a rotation: it renames the file away, and a
+	// process that keeps writing to the same handle is writing to an
+	// unlinked inode -- the log goes nowhere and the disk never gets the
+	// space back.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-sigCh
-
-	lg.Info("daemon shutting down", "signal", sig.String())
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	for sig := range sigCh {
+		if sig == syscall.SIGHUP {
+			if err := lg.Reopen(); err != nil {
+				lg.Error("reopening the log file failed", "err", err)
+				continue
+			}
+			lg.Info("log file reopened")
+			continue
+		}
+		lg.Info("daemon shutting down", "signal", sig.String())
+		return nil
+	}
 	return nil
 }
