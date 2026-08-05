@@ -82,6 +82,7 @@ than silently ignoring it.
 download_dir  = "~/Downloads/torrnado"                     # default download directory
 daemon_socket = "~/.local/share/torrnado/daemon.sock"       # IPC socket path
 state_dir     = "~/.local/share/torrnado"                    # session file + saved metainfo
+                                                              # (a second daemon needs its own)
 theme         = "dracula"                                     # see Themes below
 player        = "mpv"                                          # used by preview; may carry flags
 
@@ -234,6 +235,12 @@ leave stderr attached to something.
   not an oversight: there is no authentication anywhere in torrnado
   beyond the filesystem permissions on the socket, so nothing it serves
   should be reachable from a network.
+
+Running a second daemon alongside the first means giving it its own
+`daemon_socket` **and** its own `state_dir`. Only the socket is guarded
+against sharing (by a lock file); two daemons pointed at one state
+directory will each restore the other's torrents and overwrite the
+other's session file.
 
 There is no remote control protocol. The socket is local by
 construction, and SSH already solves the problem properly.
