@@ -27,6 +27,9 @@ func main() {
 	root.AddCommand(
 		newDaemonCmd(),
 		newAddCmd(),
+		newRemoveCmd(),
+		newPauseCmd(),
+		newResumeCmd(),
 		newListCmd(),
 	)
 

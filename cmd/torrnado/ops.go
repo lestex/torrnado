@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
 )
@@ -23,6 +24,71 @@ func withClient(fn func(*ipc.Client) error) error {
 	}
 	defer client.Close()
 	return fn(client)
+}
+
+// eachTorrent runs fn for every id given, reporting failures as it goes
+// but carrying on. One bad id should not stop the rest, though the exit
+// status still has to reflect that something went wrong.
+func eachTorrent(ids []string, fn func(*ipc.Client, engine.TorrentID) error) error {
+	return withClient(func(c *ipc.Client) error {
+		var failed int
+		for _, id := range ids {
+			if err := fn(c, engine.TorrentID(id)); err != nil {
+				fmt.Printf("failed on %s: %v\n", id, err)
+				failed++
+			}
+		}
+		if failed > 0 {
+			return fmt.Errorf("%d of %d failed", failed, len(ids))
+		}
+		return nil
+	})
+}
+
+func newRemoveCmd() *cobra.Command {
+	var deleteData bool
+
+	cmd := &cobra.Command{
+		Use:   "remove <torrent-id>...",
+		Short: "Remove one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.Remove(id, deleteData)
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&deleteData, "delete-data", false, "also delete the downloaded files")
+	return cmd
+}
+
+// Pause and resume are separate commands rather than one that toggles.
+// A script that says "pause" has to mean it, whatever state the torrent
+// happens to be in.
+func newPauseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pause <torrent-id>...",
+		Short: "Pause one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.SetPaused(id, true)
+			})
+		},
+	}
+}
+
+func newResumeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "resume <torrent-id>...",
+		Short: "Resume one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.SetPaused(id, false)
+			})
+		},
+	}
 }
 
 func newListCmd() *cobra.Command {
