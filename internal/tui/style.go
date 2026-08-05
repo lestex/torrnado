@@ -62,7 +62,10 @@ func newStyles(t theme.Theme) styles {
 
 		Base: lipgloss.NewStyle().Foreground(t.Foreground),
 
-		StatusBar: lipgloss.NewStyle().Foreground(t.Muted),
+		// Foreground rather than Muted: the footer carries the transfer
+		// totals and whatever just happened, which is worth reading
+		// without leaning in.
+		StatusBar: lipgloss.NewStyle().Foreground(t.Foreground),
 
 		StatusErr: lipgloss.NewStyle().
 			Foreground(t.Error).
@@ -77,7 +80,12 @@ func newStyles(t theme.Theme) styles {
 
 		CursorRow: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 
-		ColHeader: lipgloss.NewStyle().Foreground(t.Muted).Bold(true),
+		// A table's own labels should not be the same colour as the
+		// chrome around it. This is the list's column headings, the
+		// sidebar's section titles and the detail pane's headers, so
+		// lightening it here keeps the three panes speaking with one
+		// voice.
+		ColHeader: lipgloss.NewStyle().Foreground(t.Foreground).Bold(true),
 
 		ProgressFill:  lipgloss.NewStyle().Foreground(t.Accent),
 		ProgressTrack: lipgloss.NewStyle().Foreground(t.Border),
