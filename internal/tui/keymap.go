@@ -12,6 +12,7 @@ type KeyMap struct {
 	Pause, Recheck             string
 	Back, Quit                 string
 	Search, Command, Help      string
+	Preview                    string
 
 	// Pane focus and detail-pane tab movement.
 	FocusNext, FocusPrev   string
@@ -40,6 +41,7 @@ func DefaultKeyMap() KeyMap {
 		Search:  "/",
 		Command: ":",
 		Help:    "h",
+		Preview: "v",
 
 		FocusNext: "tab",
 		FocusPrev: "shift+tab",
@@ -78,6 +80,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Search, "search")
 	apply(&k.Command, "command")
 	apply(&k.Help, "help")
+	apply(&k.Preview, "preview")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")
 	apply(&k.FocusNext, "focus_next")

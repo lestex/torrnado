@@ -64,7 +64,7 @@ var KnownActions = []string{
 	"select", "remove", "remove_data",
 	"pause", "recheck",
 	"search", "command", "back", "quit",
-	"help",
+	"help", "preview",
 	"focus_next", "focus_prev",
 	"tab_next", "tab_prev",
 	"filter_next", "filter_prev",

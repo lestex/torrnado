@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -68,6 +69,9 @@ func (m Model) handleDetailKey(key string) (tea.Model, tea.Cmd) {
 
 	case key == "-" || key == "_":
 		return m.adjustFilePriority(-1)
+
+	case key == km.Preview:
+		return m.previewFile()
 	}
 
 	return m.handleListKey(key)
@@ -178,13 +182,26 @@ func (m Model) filesTab(p panes, height int) []string {
 			mark, style = ">", m.styles.CursorRow
 		}
 		row := mark + " " +
-			padRight(f.Path, pathW) +
+			padRight(mediaMarker(f.Path)+f.Path, pathW) +
 			" " + padLeft(formatBytes(f.Length), fileColSize) +
 			" " + padLeft(percentCell(fileProgress(f)), fileColPct) +
 			" " + padRight(f.Priority.String(), fileColPrio)
 		lines = append(lines, style.Render(truncate(row, p.detailContentW)))
 	}
 	return lines
+}
+
+// previewFile streams the file under the Files-tab cursor to the
+// configured player.
+//
+// Any file is allowed, not just recognized video: players handle audio
+// too, and an extension whitelist would only refuse things that work.
+// The mediaMarker in the file list is the discoverability hint instead.
+func (m Model) previewFile() (tea.Model, tea.Cmd) {
+	if m.detailTab != tabFiles || m.detailCursor >= len(m.detail.Files) {
+		return m, nil
+	}
+	return m, previewCmd(m.client, m.player, m.detail.Snapshot.ID, m.detail.Files[m.detailCursor])
 }
 
 func (m Model) adjustFilePriority(delta int) (tea.Model, tea.Cmd) {
@@ -216,4 +233,24 @@ func (m Model) piecesTab(p panes, height int) []string {
 		lines = append(lines, strings.Split(bitmap, "\n")...)
 	}
 	return lines
+}
+
+// mediaExtensions are the file types worth flagging as playable in the
+// file list. This drives the marker only -- preview is never refused on
+// the strength of an extension.
+var mediaExtensions = map[string]bool{
+	".mkv": true, ".mp4": true, ".avi": true, ".mov": true, ".m4v": true,
+	".webm": true, ".flv": true, ".wmv": true, ".mpg": true, ".mpeg": true,
+	".ts": true, ".m2ts": true, ".ogv": true,
+	".mp3": true, ".flac": true, ".m4a": true, ".ogg": true, ".opus": true,
+	".wav": true, ".aac": true,
+}
+
+func mediaMarker(p string) string {
+	// path, not filepath: FileInfo.Path is always '/'-separated as it
+	// comes off the wire, regardless of the host OS.
+	if mediaExtensions[strings.ToLower(path.Ext(p))] {
+		return "▸"
+	}
+	return " "
 }
