@@ -18,13 +18,19 @@ import (
 type Method string
 
 const (
-	MethodPing           Method = "Ping"
-	MethodAddMagnet      Method = "AddMagnet"
-	MethodAddTorrentFile Method = "AddTorrentFile"
-	MethodRemove         Method = "Remove"
-	MethodSetPaused      Method = "SetPaused"
-	MethodList           Method = "List"
-	MethodDetail         Method = "Detail"
+	MethodPing                   Method = "Ping"
+	MethodAddMagnet              Method = "AddMagnet"
+	MethodAddTorrentFile         Method = "AddTorrentFile"
+	MethodRemove                 Method = "Remove"
+	MethodSetPaused              Method = "SetPaused"
+	MethodForceRecheck           Method = "ForceRecheck"
+	MethodSetFilePriority        Method = "SetFilePriority"
+	MethodSetGlobalUploadLimit   Method = "SetGlobalUploadLimit"
+	MethodSetGlobalDownloadLimit Method = "SetGlobalDownloadLimit"
+	MethodSetTorrentRateLimit    Method = "SetTorrentRateLimit"
+	MethodMoveStorage            Method = "MoveStorage"
+	MethodList                   Method = "List"
+	MethodDetail                 Method = "Detail"
 )
 
 // Request is a kitchen-sink call envelope: only the fields relevant to
@@ -43,6 +49,14 @@ type Request struct {
 
 	DeleteData bool
 	Paused     bool
+
+	FileIndex int
+	Priority  engine.Priority
+
+	UploadBps   int64
+	DownloadBps int64
+
+	NewDir string
 }
 
 // Response is the reply envelope. Err is set (and OK false) on failure;
