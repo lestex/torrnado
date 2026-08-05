@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -32,6 +34,25 @@ func TestAddMagnetRejectsNonMagnet(t *testing.T) {
 	e := newTestEngine(t)
 	if _, err := e.AddMagnet("https://example.com/x.torrent", AddOpts{}); err == nil {
 		t.Error("a non-magnet URI should be rejected")
+	}
+}
+
+// Anything that is not a magnet is treated as a path to a .torrent file,
+// so a typo must be rejected rather than added as a torrent that can
+// never download.
+func TestAddTorrentFileRequiresTheFileToExist(t *testing.T) {
+	e := newTestEngine(t)
+
+	if _, err := e.AddTorrentFile(filepath.Join(t.TempDir(), "absent.torrent"), AddOpts{}); err == nil {
+		t.Error("adding a missing .torrent file should fail")
+	}
+
+	real := filepath.Join(t.TempDir(), "present.torrent")
+	if err := os.WriteFile(real, []byte("d8:announce0:e"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if _, err := e.AddTorrentFile(real, AddOpts{}); err != nil {
+		t.Errorf("adding an existing file failed: %v", err)
 	}
 }
 
