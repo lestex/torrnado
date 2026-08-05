@@ -100,6 +100,36 @@ assert_contains "its name comes from the metadata" "$out" "hello.txt"
 assert_not_contains "with metadata it is no longer checking" "$out" "$SAMPLE_IH  hello.txt  checking"
 
 echo
+echo "batch add"
+
+# A directory means every .torrent inside it, and a text file means one
+# magnet per line. Both are resolved by the client, against the directory
+# the user is standing in -- not the daemon's.
+BATCH_DIR="$E2E_TMP/batch"
+mkdir -p "$BATCH_DIR"
+cp "$SAMPLE" "$BATCH_DIR/one.torrent"
+
+cat >"$E2E_TMP/magnets.txt" <<EOF
+# torrents to fetch later
+magnet:?xt=urn:btih:dddddddddddddddddddddddddddddddddddddddd&dn=FromList
+
+magnet:?xt=urn:btih:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee&dn=AlsoFromList
+EOF
+
+assert_success "a directory of torrents can be added" "$TORRNADO" add "$BATCH_DIR"
+
+out=$("$TORRNADO" add "$E2E_TMP/magnets.txt" 2>&1)
+assert_contains "a magnet list file is expanded" "$out" "dddddddddddddddddddddddddddddddddddddddd"
+assert_contains "every line of the list is added" "$out" "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+out=$("$TORRNADO" list 2>&1)
+assert_contains "torrents from the list are tracked" "$out" "FromList"
+
+assert_success "a glob is expanded" "$TORRNADO" add "$BATCH_DIR/*.torrent"
+assert_failure "a glob matching nothing fails" "$TORRNADO" add "$E2E_TMP/nothing-here/*.torrent"
+assert_failure "an empty directory fails" "$TORRNADO" add "$E2E_TMP/custom-downloads"
+
+echo
 echo "pause and resume"
 
 # Pause is not just a flag: the daemon tells the torrent to stop asking
