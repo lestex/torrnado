@@ -293,3 +293,48 @@ func TestEachHeadingStartsWhereItsValuesDo(t *testing.T) {
 		}
 	}
 }
+
+// The bar grows with the pane, because 16 cells that look right at 120
+// columns look like a rounding error across a 4K screen.
+func TestTheBarGrowsWithThePane(t *testing.T) {
+	narrow := barWidth(40)
+	medium := barWidth(160)
+	wide := barWidth(400)
+
+	if narrow != minBarWidth {
+		t.Errorf("a narrow pane has a %d-cell bar, want the %d-cell minimum", narrow, minBarWidth)
+	}
+	if medium <= narrow {
+		t.Errorf("bar is %d cells at 160 columns and %d at 40; it should have grown", medium, narrow)
+	}
+	if wide != maxBarWidth {
+		t.Errorf("a very wide pane has a %d-cell bar, want it capped at %d", wide, maxBarWidth)
+	}
+	// Monotonic: a wider terminal never gets a shorter bar.
+	prev := 0
+	for w := 20; w <= 600; w++ {
+		got := barWidth(w)
+		if got < prev {
+			t.Fatalf("bar shrank from %d to %d between %d and %d columns", prev, got, w-1, w)
+		}
+		if got < minBarWidth || got > maxBarWidth {
+			t.Fatalf("bar is %d cells at %d columns, outside [%d,%d]",
+				got, w, minBarWidth, maxBarWidth)
+		}
+		prev = got
+	}
+}
+
+// Growing the bar must not take anything away: any pane that could show
+// the full column set with the smallest bar still shows it.
+func TestAWiderBarNeverCostsTheOtherColumns(t *testing.T) {
+	for w := 20; w <= 600; w++ {
+		fitsWithSmallestBar := w-fixedColumnsWith(minBarWidth) >= minNameWidth
+		_, wide := nameWidth(w)
+
+		if fitsWithSmallestBar && !wide {
+			t.Errorf("%d columns fit the full set with a %d-cell bar but dropped to the "+
+				"narrow layout with a %d-cell one", w, minBarWidth, barWidth(w))
+		}
+	}
+}
