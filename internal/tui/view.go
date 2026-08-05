@@ -64,7 +64,16 @@ func (m Model) View() string {
 		sidebar,
 		lipgloss.JoinVertical(lipgloss.Left, list, detail),
 	)
-	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
+	frame := lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
+
+	// Spliced over the finished frame rather than joined to it, so the
+	// panes stay on screen underneath and a theme is previewed on the
+	// real interface.
+	if m.themePicker {
+		box, x, y := m.renderThemePicker()
+		return overlay(frame, box, x, y)
+	}
+	return frame
 }
 
 // clampBlock trims a rendered block to at most height lines, for the same

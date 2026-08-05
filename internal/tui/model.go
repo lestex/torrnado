@@ -138,6 +138,17 @@ type Model struct {
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool
 
+	// The theme picker: the palette it is choosing from, where the
+	// cursor is in it, what is applied, and what to put back on escape.
+	// themesDir is kept because a user's own themes live on disk and are
+	// re-read as the cursor moves.
+	themePicker bool
+	themeNames  []string
+	themeCursor int
+	theme       theme.Theme
+	themeSaved  theme.Theme
+	themesDir   string
+
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
 	pendingAt time.Time
@@ -165,16 +176,34 @@ type Model struct {
 	quitting      bool
 }
 
-// New builds the initial Model. client and its Events() channel must
+// Options is what a Model needs from the outside world.
+//
+// A struct rather than positional parameters: the list had grown to the
+// point of two adjacent strings, and a caller that swapped ThemesDir and
+// Player would compile and then behave strangely at runtime.
+type Options struct {
+	Client *ipc.Client
+	Keys   KeyMap
+	Theme  theme.Theme
+	// ThemesDir is where a user's own themes live, re-read when the
+	// theme picker changes selection.
+	ThemesDir string
+	// Player is the command used to preview a file.
+	Player string
+}
+
+// New builds the initial Model. The client and its Events() channel must
 // already be connected.
-func New(client *ipc.Client, km KeyMap, th theme.Theme, player string) Model {
+func New(o Options) Model {
 	return Model{
-		client:   client,
-		events:   client.Events(),
-		keymap:   km,
-		styles:   newStyles(th),
-		player:   player,
-		selected: map[engine.TorrentID]bool{},
+		client:    o.Client,
+		events:    o.Client.Events(),
+		keymap:    o.Keys,
+		styles:    newStyles(o.Theme),
+		theme:     o.Theme,
+		themesDir: o.ThemesDir,
+		player:    o.Player,
+		selected:  map[engine.TorrentID]bool{},
 	}
 }
 

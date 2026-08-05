@@ -83,6 +83,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The theme picker takes every key while it is open. A floating
+	// window that let keys through would move a cursor nobody can see.
+	if m.themePicker {
+		return m.handleThemeKey(key)
+	}
+
 	// While typing at a prompt, keys are text rather than commands.
 	switch m.mode {
 	case modeSearch:
