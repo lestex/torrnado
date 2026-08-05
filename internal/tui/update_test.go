@@ -179,3 +179,106 @@ func TestBackClearsSelectionThenFilter(t *testing.T) {
 		t.Error("second escape should clear the filter")
 	}
 }
+
+func TestSearchNarrowsTheList(t *testing.T) {
+	m := testModel("ubuntu.iso", "debian.iso", "ubuntu-server.iso")
+
+	m = press(m, "/")
+	if m.mode != modeSearch {
+		t.Fatal("/ did not enter search mode")
+	}
+	for _, r := range "ubuntu" {
+		m = press(m, string(r))
+	}
+
+	if got := len(m.visibleTorrents()); got != 2 {
+		t.Errorf("searching \"ubuntu\" left %d torrents, want 2", got)
+	}
+}
+
+// Matching ignores case: nobody types a torrent's capitalisation exactly.
+func TestSearchIgnoresCase(t *testing.T) {
+	m := testModel("Ubuntu.iso")
+	m.searchQuery = "ubuntu"
+
+	if got := len(m.visibleTorrents()); got != 1 {
+		t.Errorf("case-insensitive search found %d torrents, want 1", got)
+	}
+}
+
+// The search and the sidebar filter both apply -- they intersect rather
+// than one replacing the other.
+func TestSearchAndFilterIntersect(t *testing.T) {
+	m := testModel("ubuntu.iso", "ubuntu-server.iso")
+	m.torrents[1].State = engine.StateSeeding
+	m.torrents[1].TotalLength, m.torrents[1].Completed = 1, 1
+
+	m.searchQuery = "ubuntu"
+	m.filter = filterSeeding
+
+	got := m.visibleTorrents()
+	if len(got) != 1 || got[0].Name != "ubuntu-server.iso" {
+		t.Errorf("search+filter gave %v, want only the seeding match", got)
+	}
+}
+
+// Cancelling puts the list back, rather than leaving behind a filter that
+// was never confirmed.
+func TestEscapeCancelsSearch(t *testing.T) {
+	m := testModel("a", "b")
+	m = press(m, "/")
+	m = press(m, "a")
+
+	m = press(m, "esc")
+	if m.mode != modeNormal {
+		t.Error("escape did not leave search mode")
+	}
+	if m.searchQuery != "" {
+		t.Errorf("escape left the query %q behind", m.searchQuery)
+	}
+}
+
+// While typing, keys are text: "q" is a letter, not quit.
+func TestKeysAreTextWhileSearching(t *testing.T) {
+	m := testModel("a")
+	m = press(m, "/")
+
+	m = press(m, "q")
+	if m.quitting {
+		t.Fatal("typing q in a search quit the program")
+	}
+	if m.searchQuery != "q" {
+		t.Errorf("query = %q, want it to contain the typed letter", m.searchQuery)
+	}
+}
+
+// A paste arrives as one message carrying several runes. Anything that
+// handles only single-rune messages silently drops the rest.
+func TestSearchAcceptsMultiRuneInput(t *testing.T) {
+	m := testModel("ubuntu.iso")
+	m.mode = modeSearch
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ubuntu")})
+	m = next.(Model)
+
+	if m.searchQuery != "ubuntu" {
+		t.Errorf("query = %q, want the whole pasted string", m.searchQuery)
+	}
+}
+
+func TestHelpIsDismissedByAnyKey(t *testing.T) {
+	m := testModel("a")
+
+	m = press(m, "h")
+	if !m.showHelp {
+		t.Fatal("h did not open help")
+	}
+
+	m = press(m, "j")
+	if m.showHelp {
+		t.Error("a keypress did not close help")
+	}
+	if m.cursor != 0 {
+		t.Error("the key that closed help should not also have moved the cursor")
+	}
+}
