@@ -10,6 +10,7 @@ import (
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/logging"
 	"github.com/lestex/torrnado/internal/stream"
 )
 
@@ -33,6 +34,17 @@ func runDaemon() error {
 		return err
 	}
 
+	lg, err := logging.New(cfg.Log.Level, cfg.Log.File)
+	if err != nil {
+		return err
+	}
+	defer lg.Close()
+
+	libLevel, err := logging.ParseLevel(cfg.Log.LibraryLevel)
+	if err != nil {
+		return err
+	}
+
 	eng, err := engine.New(engine.Config{
 		DataDir:           cfg.DownloadDir,
 		ListenPortLow:     cfg.Port.Low,
@@ -43,6 +55,8 @@ func runDaemon() error {
 		UploadRateLimit:   int64(cfg.RateLimit.Upload),
 		DownloadRateLimit: int64(cfg.RateLimit.Download),
 		Seed:              cfg.Network.Seed,
+		Logger:            lg.Logger,
+		LibraryLevel:      libLevel,
 	})
 	if err != nil {
 		return fmt.Errorf("start engine: %w", err)
@@ -67,16 +81,24 @@ func runDaemon() error {
 	}
 	defer srv.Close()
 
-	fmt.Fprintf(os.Stderr, "torrnado daemon: config %s, data dir %s, socket %s, stream %s\n",
-		path, cfg.DownloadDir, cfg.DaemonSocket, stm.Addr())
+	// The pid is logged because the README tells people to kill the
+	// daemon by it, and until now no line actually carried one.
+	lg.Info("daemon started",
+		"pid", os.Getpid(),
+		"config", path,
+		"download_dir", cfg.DownloadDir,
+		"state_dir", cfg.StateDir,
+		"socket", cfg.DaemonSocket,
+		"stream", stm.Addr(),
+	)
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately
 	// and the deferred shutdown would tear everything down.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+	sig := <-sigCh
 
-	fmt.Fprintln(os.Stderr, "torrnado daemon: shutting down")
+	lg.Info("daemon shutting down", "signal", sig.String())
 	return nil
 }
