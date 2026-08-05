@@ -11,10 +11,13 @@ import (
 // press feeds one key to the model, the way bubbletea would.
 func press(m Model, key string) Model {
 	var msg tea.KeyMsg
-	if len(key) == 1 {
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
-	} else {
+	switch key {
+	case " ":
 		msg = tea.KeyMsg{Type: tea.KeySpace}
+	case "esc":
+		msg = tea.KeyMsg{Type: tea.KeyEsc}
+	default:
+		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 	}
 	next, _ := m.Update(msg)
 	return next.(Model)
@@ -120,5 +123,59 @@ func TestCursorIsClampedByTheFilter(t *testing.T) {
 	}
 	if m.cursor != 0 {
 		t.Errorf("cursor = %d with an empty list, want 0", m.cursor)
+	}
+}
+
+// An action applies to the marked torrents if any are marked, and to the
+// row under the cursor otherwise. That rule is what lets the same keys
+// work on one torrent or fifty with no separate mode.
+func TestTargetsPrefersSelectionOverCursor(t *testing.T) {
+	m := testModel("a", "b", "c")
+	visible := m.visibleTorrents()
+
+	m.cursor = 2
+	got := m.targets(visible)
+	if len(got) != 1 || got[0].Name != "c" {
+		t.Errorf("with nothing marked, targets = %v, want just the cursor row", got)
+	}
+
+	m.selected["a"] = true
+	m.selected["b"] = true
+	got = m.targets(visible)
+	if len(got) != 2 {
+		t.Fatalf("with two marked, targets = %v", got)
+	}
+	// List order, not map order: a status message counting them, or a
+	// partial failure, has to be reproducible.
+	if got[0].Name != "a" || got[1].Name != "b" {
+		t.Errorf("targets came back in %v, want list order", got)
+	}
+}
+
+func TestTargetsIsEmptyWhenNothingIsVisible(t *testing.T) {
+	m := testModel()
+	if got := m.targets(m.visibleTorrents()); len(got) != 0 {
+		t.Errorf("targets = %v on an empty list", got)
+	}
+}
+
+// Escape peels one layer at a time rather than clearing everything, so it
+// is never a surprise.
+func TestBackClearsSelectionThenFilter(t *testing.T) {
+	m := testModel("a", "b")
+	m.filter = filterDownloading
+	m.selected["a"] = true
+
+	m = press(m, "esc")
+	if len(m.selected) != 0 {
+		t.Error("first escape should clear the selection")
+	}
+	if m.filter != filterDownloading {
+		t.Error("first escape should leave the filter alone")
+	}
+
+	m = press(m, "esc")
+	if m.filter != filterAll {
+		t.Error("second escape should clear the filter")
 	}
 }
