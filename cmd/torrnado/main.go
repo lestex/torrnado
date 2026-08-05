@@ -24,6 +24,9 @@ func main() {
 		SilenceErrors: true,
 	}
 
+	root.PersistentFlags().StringVar(&configPathFlag, "config", "",
+		"path to config.toml (default: $XDG_CONFIG_HOME/torrnado/config.toml)")
+
 	root.AddCommand(
 		newDaemonCmd(),
 		newAddCmd(),

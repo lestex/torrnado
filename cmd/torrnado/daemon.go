@@ -27,22 +27,21 @@ func newDaemonCmd() *cobra.Command {
 }
 
 func runDaemon() error {
-	dir, err := downloadDir()
-	if err != nil {
-		return err
-	}
-	sock, err := socketPath()
+	cfg, path, err := loadConfig()
 	if err != nil {
 		return err
 	}
 
-	// Hardcoded for now, alongside the paths; all of it becomes
-	// configurable together later.
 	eng, err := engine.New(engine.Config{
-		DataDir:        dir,
-		ListenPortLow:  51413,
-		ListenPortHigh: 51433,
-		Seed:           true,
+		DataDir:           cfg.DownloadDir,
+		ListenPortLow:     cfg.Port.Low,
+		ListenPortHigh:    cfg.Port.High,
+		DisableDHT:        !cfg.Network.DHT,
+		DisablePEX:        !cfg.Network.PEX,
+		DisableEncryption: !cfg.Network.Encryption,
+		UploadRateLimit:   int64(cfg.RateLimit.Upload),
+		DownloadRateLimit: int64(cfg.RateLimit.Download),
+		Seed:              cfg.Network.Seed,
 	})
 	if err != nil {
 		return fmt.Errorf("start engine: %w", err)
@@ -52,13 +51,14 @@ func runDaemon() error {
 	// run last-in-first-out, which gives that for free.
 	defer eng.Close()
 
-	srv, err := ipc.Serve(sock, eng)
+	srv, err := ipc.Serve(cfg.DaemonSocket, eng)
 	if err != nil {
 		return fmt.Errorf("start ipc server: %w", err)
 	}
 	defer srv.Close()
 
-	fmt.Fprintf(os.Stderr, "torrnado daemon: data dir %s, socket %s\n", dir, sock)
+	fmt.Fprintf(os.Stderr, "torrnado daemon: config %s, data dir %s, socket %s\n",
+		path, cfg.DownloadDir, cfg.DaemonSocket)
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately

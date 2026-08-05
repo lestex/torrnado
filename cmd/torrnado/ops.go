@@ -21,7 +21,11 @@ import (
 // Every subcommand needs those three steps, and forgetting the close
 // leaks a connection on the daemon side, so they live here once.
 func withClient(fn func(*ipc.Client) error) error {
-	client, err := dialOrSpawn()
+	cfg, _, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	client, err := dialOrSpawn(cfg)
 	if err != nil {
 		return err
 	}
