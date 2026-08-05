@@ -449,6 +449,29 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 	return nil
 }
 
+// verifyPieces hashes every piece of tr, publishing how far it has got as
+// it goes.
+//
+// One piece at a time rather than through the library's whole-torrent
+// VerifyData, which is the only way the progress can be seen: that call
+// reports nothing at all until it returns, and on a large torrent that is
+// a very long silence in front of a user wondering whether anything is
+// happening.
+//
+// The caller sets tr.checking and tr.checkTotal before starting, and
+// clears them afterwards -- this only moves tr.checkDone.
+func (e *Engine) verifyPieces(tr *tracked, total int) error {
+	for i := 0; i < total; i++ {
+		if err := tr.t.Piece(i).VerifyDataContext(context.Background()); err != nil {
+			return err
+		}
+		e.mu.Lock()
+		tr.checkDone = i + 1
+		e.mu.Unlock()
+	}
+	return nil
+}
+
 // ForceRecheck re-verifies a torrent's on-disk data against its piece
 // hashes.
 //
@@ -477,20 +500,7 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 
 	go func() {
 		started := time.Now()
-		// Verified one piece at a time rather than through the library's
-		// whole-torrent VerifyData, so the progress is observable: that
-		// call reports nothing at all until it returns, which on a large
-		// torrent is a very long silence.
-		var failed error
-		for i := 0; i < total; i++ {
-			if err := tr.t.Piece(i).VerifyDataContext(context.Background()); err != nil {
-				failed = err
-				break
-			}
-			e.mu.Lock()
-			tr.checkDone = i + 1
-			e.mu.Unlock()
-		}
+		failed := e.verifyPieces(tr, total)
 
 		e.mu.Lock()
 		tr.checking = false
@@ -554,6 +564,18 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	}
 	spec.InfoHash = ih
 	spec.Storage = newStorage
+	// A v1 torrent has no piece layers, but Metainfo() still hands back a
+	// map for them -- allocated, then left empty because no file has a v2
+	// piece root. A non-nil map is what the library takes as "this is a
+	// v2 torrent", so on re-add it walks every file demanding a root that
+	// cannot be there and fails with "no piece root set for file".
+	//
+	// That made move fail for any file spanning more than one piece,
+	// which is every real torrent. It went unnoticed because the one in
+	// the tests is a single piece, and those are skipped by that check.
+	if len(spec.PieceLayers) == 0 {
+		spec.PieceLayers = nil
+	}
 
 	tr.t.Drop()
 	if oldStorage != nil {
@@ -562,7 +584,18 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 
 	t, _, err := e.client.AddTorrentSpec(spec)
 	if err != nil {
-		return fmt.Errorf("re-add torrent at new location: %w", err)
+		// The data has already been moved and the old torrent dropped, so
+		// there is no unbroken state to return to. Record it where the
+		// user will see it: otherwise the list goes on showing the stale
+		// figures of a torrent that is no longer running at all.
+		err = fmt.Errorf("re-add torrent at new location: %w", err)
+		e.mu.Lock()
+		tr.savePath = newDir
+		tr.lastErr = err.Error()
+		e.mu.Unlock()
+		e.log.Error("move failed after the data was moved", "id", id, "dir", newDir, "err", err)
+		e.snapshotAndBroadcastNow()
+		return err
 	}
 	// The re-added Torrent is a fresh instance with every file back at
 	// unset priority, so it needs the same downloadAllFiles() call
@@ -573,17 +606,27 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		downloadAllFiles(t)
 	}
 
+	total := t.NumPieces()
+
 	e.mu.Lock()
 	tr.t = t
 	tr.savePath = newDir
 	tr.ownStorage = newStorage
 	tr.checking = true
+	tr.checkDone = 0
+	tr.checkTotal = total
 	e.mu.Unlock()
 
 	go func() {
-		verifyErr := t.VerifyDataContext(context.Background())
+		// The same piece-at-a-time verification a recheck uses. It was
+		// the library's whole-torrent call here, which meant a move of a
+		// large torrent sat on a bare "checking" for as long as it took,
+		// with nothing to say whether it was a minute or an hour away.
+		verifyErr := e.verifyPieces(tr, total)
+
 		e.mu.Lock()
 		tr.checking = false
+		tr.checkDone, tr.checkTotal = 0, 0
 		if verifyErr != nil {
 			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
 		}
