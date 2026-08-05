@@ -19,6 +19,7 @@ type styles struct {
 	StatusErr   lipgloss.Style
 	SelectedRow lipgloss.Style
 	Row         lipgloss.Style
+	CursorRow   lipgloss.Style
 	ColHeader   lipgloss.Style
 
 	// The two halves of a progress underline: how far along, and the
@@ -58,6 +59,8 @@ func newStyles(t theme.Theme) styles {
 			Bold(true),
 
 		Row: lipgloss.NewStyle().Foreground(t.Foreground),
+
+		CursorRow: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 
 		ColHeader: lipgloss.NewStyle().Foreground(t.Muted).Bold(true),
 

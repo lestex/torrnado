@@ -74,9 +74,12 @@ func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH i
 		return m.styles.Muted.Render(" nothing matches status " + filterNames[m.filter])
 	}
 
+	// scrollWindow counts torrents, but each draws rowLines of them.
+	start, end := scrollWindow(m.cursor, len(visible), height/rowLines)
+
 	var lines []string
-	for _, t := range visible {
-		lines = append(lines, m.renderRow(p, t)...)
+	for i := start; i < end; i++ {
+		lines = append(lines, m.renderRow(p, visible[i], i == m.cursor)...)
 	}
 	return strings.Join(clampLines(lines, height), "\n")
 }
@@ -96,11 +99,18 @@ func clampLines(lines []string, height int) []string {
 
 // renderRow draws one torrent as rowLines lines: the data columns, then a
 // progress underline spanning the Name column.
-func (m Model) renderRow(p panes, t engine.TorrentSnapshot) []string {
+func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []string {
 	nameW, wide := nameWidth(p.listContentW)
 
-	var b strings.Builder
 	mark := " "
+	switch {
+	case isCursor:
+		mark = ">"
+	case m.selected[t.ID]:
+		mark = "*"
+	}
+
+	var b strings.Builder
 	b.WriteString(mark)
 	b.WriteString(" ")
 	b.WriteString(padRight(t.Name, nameW))
@@ -116,6 +126,12 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot) []string {
 	// The whole line takes one style, so a highlight cannot be broken
 	// partway through by a nested style's ANSI reset.
 	style := m.styles.Row
+	switch {
+	case isCursor:
+		style = m.styles.CursorRow
+	case m.selected[t.ID]:
+		style = m.styles.SelectedRow
+	}
 
 	return []string{
 		style.Render(b.String()),
@@ -164,4 +180,26 @@ func etaCell(t engine.TorrentSnapshot) string {
 		return ""
 	}
 	return formatETA(t.ETA)
+}
+
+// scrollWindow returns the [start,end) bounds of a height-row viewport
+// that keeps cursor visible within n rows.
+//
+// The cursor is kept near the middle rather than at an edge, so moving
+// through a long list shows what is coming rather than only what has
+// passed.
+func scrollWindow(cursor, n, height int) (int, int) {
+	if height <= 0 || n <= height {
+		return 0, n
+	}
+	start := cursor - height/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + height
+	if end > n {
+		end = n
+		start = end - height
+	}
+	return start, end
 }

@@ -37,7 +37,7 @@ func runAttach(cmd *cobra.Command, args []string) error {
 
 	// WithAltScreen switches the terminal to its alternate buffer, so
 	// quitting leaves the scrollback exactly as it was found.
-	if _, err := tea.NewProgram(tui.New(client, th), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(tui.New(client, tui.DefaultKeyMap().WithOverrides(cfg.Keybinds), th), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)
 	}
 	return nil

@@ -17,6 +17,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case engineEventMsg:
 		m.torrents = msg.Torrents
 		m.global = msg.Global
+		m.clampCursor(len(m.visibleTorrents()))
 		// Cmds run once, so listening again is what keeps the stream
 		// flowing.
 		return m, listenForEvents(m.events)
@@ -31,10 +32,55 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Quitting is all that is bound for now.
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
-			m.quitting = true
-			return m, tea.Quit
+		return m.handleKey(msg)
+	}
+
+	return m, nil
+}
+
+func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	km := m.keymap
+	visible := m.visibleTorrents()
+
+	switch {
+	// ctrl+c is not rebindable: it is what every terminal program does,
+	// and a config file should not be able to take it away.
+	case key == "ctrl+c", key == km.Quit:
+		m.quitting = true
+		return m, tea.Quit
+
+	case key == km.Up, key == "up":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+
+	case key == km.Down, key == "down":
+		if m.cursor < len(visible)-1 {
+			m.cursor++
+		}
+
+	case key == km.Top:
+		m.cursor = 0
+
+	case key == km.Bottom:
+		if len(visible) > 0 {
+			m.cursor = len(visible) - 1
+		}
+
+	case key == km.Select:
+		// Marking a row advances the cursor, so a run of torrents can be
+		// selected by holding one key rather than alternating two.
+		if len(visible) > 0 {
+			id := visible[m.cursor].ID
+			if m.selected[id] {
+				delete(m.selected, id)
+			} else {
+				m.selected[id] = true
+			}
+			if m.cursor < len(visible)-1 {
+				m.cursor++
+			}
 		}
 	}
 

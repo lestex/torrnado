@@ -36,6 +36,14 @@ type Model struct {
 	// so changing it is a cheap re-render rather than a refetch.
 	filter statusFilter
 
+	keymap KeyMap
+
+	// cursor indexes visibleTorrents, not torrents: it points at what is
+	// on screen, so filtering moves it with the list rather than leaving
+	// it aimed at a hidden row.
+	cursor   int
+	selected map[engine.TorrentID]bool
+
 	status      string
 	statusIsErr bool
 
@@ -45,11 +53,13 @@ type Model struct {
 
 // New builds the initial Model. client and its Events() channel must
 // already be connected.
-func New(client *ipc.Client, th theme.Theme) Model {
+func New(client *ipc.Client, km KeyMap, th theme.Theme) Model {
 	return Model{
-		client: client,
-		events: client.Events(),
-		styles: newStyles(th),
+		client:   client,
+		events:   client.Events(),
+		keymap:   km,
+		styles:   newStyles(th),
+		selected: map[engine.TorrentID]bool{},
 	}
 }
 
@@ -82,6 +92,31 @@ func (m Model) visibleTorrents() []engine.TorrentSnapshot {
 		}
 	}
 	return out
+}
+
+// cursorTorrent returns the torrent under the cursor, if any.
+func (m Model) cursorTorrent() (engine.TorrentSnapshot, bool) {
+	visible := m.visibleTorrents()
+	if m.cursor < 0 || m.cursor >= len(visible) {
+		return engine.TorrentSnapshot{}, false
+	}
+	return visible[m.cursor], true
+}
+
+// clampCursor keeps the cursor inside a list of n rows. Torrents come and
+// go while the user is looking at them, so the cursor has to be corrected
+// whenever the list changes rather than trusted.
+func (m *Model) clampCursor(n int) {
+	if n == 0 {
+		m.cursor = 0
+		return
+	}
+	if m.cursor >= n {
+		m.cursor = n - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
 }
 
 func (m *Model) setStatus(msg statusMsg) {
