@@ -114,6 +114,13 @@ systemd-test: ## Test the systemd unit against a real systemd, in a container
 
 # The docs site is MkDocs Material, pinned in docs-requirements.txt so a
 # local build and the CI build produce the same pages.
+#
+# NO_MKDOCS_2_WARNING silences a banner Material prints on every build
+# about breaking changes coming in MkDocs 2.0. It is a notice about the
+# upstream project's direction, not about this site: the versions here
+# are pinned, and nothing here uses a third-party plugin or a theme
+# override, which is what that release is said to break. Worth rereading
+# when the pins are bumped.
 $(VENV): docs-requirements.txt
 	python3 -m venv $(VENV)
 	$(PIP) install --quiet --upgrade pip
@@ -123,10 +130,10 @@ $(VENV): docs-requirements.txt
 docs-deps: $(VENV) ## Create the docs virtualenv
 
 docs-serve: $(VENV) ## Serve the docs site locally with live reload
-	$(VENV)/bin/mkdocs serve
+	NO_MKDOCS_2_WARNING=true $(VENV)/bin/mkdocs serve
 
 docs-build: $(VENV) ## Build the docs site the way CI does
-	$(VENV)/bin/mkdocs build --strict
+	NO_MKDOCS_2_WARNING=true $(VENV)/bin/mkdocs build --strict
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out
