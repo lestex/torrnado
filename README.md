@@ -373,6 +373,12 @@ always apply to the list's selection or cursor row.
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
 | `:q` / `:quit`                                          | quit the TUI                              |
 
+Arguments may be quoted with `'` or `"`, which is what makes an argument
+containing a space possible (`:move '/media/big disk'`). Quoting a magnet
+is unnecessary here -- the palette is not a shell, so nothing expands --
+but harmless, which matters because quoting one *is* necessary in zsh and
+the habit follows you into the palette.
+
 ### Batch add
 
 `:add` (and `torrnado add` on the CLI) accepts any mix of:
