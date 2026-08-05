@@ -40,6 +40,18 @@ func DefaultKeyMap() KeyMap {
 		Search:  "/",
 		Command: ":",
 		Help:    "h",
+
+		FocusNext: "tab",
+		FocusPrev: "shift+tab",
+
+		// "h"/"l" would be the vim-idiomatic pair for moving between
+		// tabs, but "h" is already help; brackets keep tab movement
+		// reachable from any pane without stealing a letter.
+		TabNext: "]",
+		TabPrev: "[",
+
+		FilterNext: "}",
+		FilterPrev: "{",
 	}
 }
 
