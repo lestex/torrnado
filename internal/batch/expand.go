@@ -9,14 +9,24 @@ package batch
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// httpFetchTimeout bounds how long Expand waits for a .torrent file to
+// download from an http(s) URL before giving up.
+const httpFetchTimeout = 30 * time.Second
 
 // Expand resolves each argument into zero or more sources. Rules, applied
 // per argument:
 //   - starts with "magnet:"            -> the URI itself
+//   - starts with "http://"/"https://" -> download it and use the local
+//     copy (checked before the glob rule below, since URLs routinely
+//     contain "?" and would otherwise be misread as a glob pattern)
 //   - is a directory                   -> every "*.torrent" file directly inside it
 //   - contains glob metacharacters     -> filepath.Glob it (covers shells/contexts
 //     that don't expand globs themselves, e.g. quoted arguments or Windows)
@@ -39,6 +49,14 @@ func Expand(args []string) ([]string, error) {
 func expandOne(arg string) ([]string, error) {
 	if strings.HasPrefix(arg, "magnet:") {
 		return []string{arg}, nil
+	}
+
+	if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
+		path, err := fetchTorrentFile(arg)
+		if err != nil {
+			return nil, err
+		}
+		return []string{path}, nil
 	}
 
 	if info, err := os.Stat(arg); err == nil {
@@ -117,4 +135,32 @@ func expandMagnetListFile(path string) ([]string, error) {
 		return nil, fmt.Errorf("%s: no magnet uris found", path)
 	}
 	return out, nil
+}
+
+// fetchTorrentFile downloads a .torrent file from an http(s) URL to a
+// temp file and returns its local path. It doesn't validate the content
+// beyond the HTTP status -- an invalid/non-torrent response surfaces as a
+// clear bencode-parse error from the daemon's AddTorrentFile instead.
+func fetchTorrentFile(url string) (string, error) {
+	client := &http.Client{Timeout: httpFetchTimeout}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("fetch %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetch %s: server returned %s", url, resp.Status)
+	}
+
+	tmp, err := os.CreateTemp("", "torrnado-*.torrent")
+	if err != nil {
+		return "", fmt.Errorf("create temp file for %s: %w", url, err)
+	}
+	defer tmp.Close()
+
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("save %s: %w", url, err)
+	}
+	return tmp.Name(), nil
 }

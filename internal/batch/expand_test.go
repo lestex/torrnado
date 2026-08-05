@@ -1,6 +1,8 @@
 package batch
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,5 +144,45 @@ func TestExpandCombinesArguments(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != magnetA {
 		t.Errorf("got %v, want the magnet then the file", got)
+	}
+}
+
+// The URL check has to come before the glob check: query strings are full
+// of "?" and "&", so a URL reaches the glob branch first if the order is
+// wrong and is reported as a pattern matching nothing.
+func TestExpandURLIsNotTreatedAsGlob(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("d4:infod4:name1:aee"))
+	}))
+	defer srv.Close()
+
+	got, err := Expand([]string{srv.URL + "/x.torrent?token=1&v=2"})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %v, want one downloaded file", got)
+	}
+	// The result is a local path, not the URL: the daemon reads a file.
+	if !strings.HasSuffix(got[0], ".torrent") || strings.HasPrefix(got[0], "http") {
+		t.Errorf("got %q, want a local .torrent path", got[0])
+	}
+	body, err := os.ReadFile(got[0])
+	if err != nil || string(body) != "d4:infod4:name1:aee" {
+		t.Errorf("downloaded file is wrong: %q, %v", body, err)
+	}
+	os.Remove(got[0])
+}
+
+// A server that says no must fail here, rather than handing the daemon an
+// HTML error page to parse as a torrent.
+func TestExpandURLReportsHTTPErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	if _, err := Expand([]string{srv.URL + "/missing.torrent"}); err == nil {
+		t.Error("a 404 should be an error")
 	}
 }
