@@ -108,6 +108,11 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		eta = time.Duration(float64(missing)/tr.lastDownBPS) * time.Second
 	}
 
+	var checkProgress float64
+	if tr.checking && tr.checkTotal > 0 {
+		checkProgress = float64(tr.checkDone) / float64(tr.checkTotal)
+	}
+
 	return TorrentSnapshot{
 		ID:            id,
 		Name:          t.Name(),
@@ -128,6 +133,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		SavePath:      tr.savePath,
 		AddedAt:       tr.addedAt,
 		Error:         tr.lastErr,
+		CheckProgress: checkProgress,
 		DownloadLimit: tr.downLimit,
 		UploadLimit:   tr.upLimit,
 	}
