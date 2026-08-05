@@ -140,6 +140,40 @@ assert_contains "the other torrents are untouched" "$out" "Second"
 assert_failure "removing an unknown id fails" "$TORRNADO" remove "not-a-real-id"
 
 echo
+echo "configuration"
+
+# A config file names the socket, so a daemon started with one is only
+# reachable by a client using the same file. That is the whole test: the
+# flag has to reach the spawned daemon, not just the client.
+CFG="$E2E_TMP/custom.toml"
+CUSTOM_SOCK="$E2E_TMP/custom.sock"
+cat >"$CFG" <<EOF
+download_dir  = "$E2E_TMP/custom-downloads"
+daemon_socket = "$CUSTOM_SOCK"
+EOF
+
+assert_success "a config file is accepted" "$TORRNADO" --config "$CFG" list
+
+if [ -S "$CUSTOM_SOCK" ]; then
+	pass "the daemon bound the socket named in the config"
+else
+	fail "the daemon bound the socket named in the config" "no socket at $CUSTOM_SOCK"
+fi
+
+# The two daemons are separate, so the torrents added earlier are not
+# visible through the other config.
+out=$("$TORRNADO" --config "$CFG" list 2>&1)
+assert_not_contains "a separate config sees its own daemon only" "$out" "$SAMPLE_IH"
+
+assert_failure "an unknown config key is rejected" \
+	sh -c "echo 'downlaod_dir = \"/tmp/x\"' > '$E2E_TMP/bad.toml'; '$TORRNADO' --config '$E2E_TMP/bad.toml' list"
+
+# Stop the second daemon before the run ends; teardown only knows about
+# the first one's socket.
+custom_pid=$(lsof -t "$CUSTOM_SOCK" 2>/dev/null | head -1)
+[ -n "$custom_pid" ] && kill "$custom_pid" 2>/dev/null
+
+echo
 echo "shutdown"
 
 pid=$(daemon_pid)
