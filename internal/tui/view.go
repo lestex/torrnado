@@ -39,24 +39,31 @@ func (m Model) View() string {
 		)
 	}
 
-	sidebar := m.styles.Pane.
+	sidebar := m.styles.pane(m.focus == focusSidebar).
 		Width(p.sidebarContentW).
 		Height(p.sidebarContentH).
 		Render(clampBlock(m.renderSidebar(p), p.sidebarContentH))
 
-	// The detail pane will take the lower part of this column later; for
-	// now the list has the whole height, so the two columns line up.
-	listH := p.sidebarContentH
-
-	list := m.styles.Pane.
+	list := m.styles.pane(m.focus == focusList).
 		Width(p.listContentW).
-		Height(listH).
+		Height(p.listContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderListHeader(p),
-			m.renderListBody(p, m.visibleTorrents(), listH),
-		), listH))
+			m.renderListBody(p, m.visibleTorrents(), p.listContentH),
+		), p.listContentH))
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, list)
+	detail := m.styles.pane(m.focus == focusDetail).
+		Width(p.detailContentW).
+		Height(p.detailContentH).
+		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
+			m.renderDetailTabs(p),
+			m.renderDetailBody(p),
+		), p.detailContentH))
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top,
+		sidebar,
+		lipgloss.JoinVertical(lipgloss.Left, list, detail),
+	)
 	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
 }
 

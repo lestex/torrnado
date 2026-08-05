@@ -67,7 +67,15 @@ func (m Model) renderSidebar(p panes) string {
 			lines = append(lines, m.styles.SidebarItemActive.Render(padRight(label, w)))
 			continue
 		}
-		lines = append(lines, m.styles.SidebarItem.Render(padRight(label, w)))
+		style := m.styles.SidebarItem
+		// With the sidebar focused its cursor can sit on a filter that
+		// is not applied yet, so it needs a cue distinct from the active
+		// one.
+		if m.focus == focusSidebar && i == m.sidebarCursor {
+			style = m.styles.CursorRow
+			label = ">" + name
+		}
+		lines = append(lines, style.Render(padRight(label, w)))
 	}
 
 	// Daemon-wide facts that used to live in the top stats bar; they sit

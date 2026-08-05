@@ -12,6 +12,11 @@ type KeyMap struct {
 	Pause, Recheck             string
 	Back, Quit                 string
 	Search, Command, Help      string
+
+	// Pane focus and detail-pane tab movement.
+	FocusNext, FocusPrev   string
+	TabNext, TabPrev       string
+	FilterNext, FilterPrev string
 }
 
 // DefaultKeyMap is torrnado's out-of-the-box vim-like binding set.
@@ -63,5 +68,11 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Help, "help")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")
+	apply(&k.FocusNext, "focus_next")
+	apply(&k.FocusPrev, "focus_prev")
+	apply(&k.TabNext, "tab_next")
+	apply(&k.TabPrev, "tab_prev")
+	apply(&k.FilterNext, "filter_next")
+	apply(&k.FilterPrev, "filter_prev")
 	return k
 }

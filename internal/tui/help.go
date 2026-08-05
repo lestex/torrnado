@@ -31,6 +31,8 @@ func (m Model) renderHelp(width, height int) string {
 	nav := []helpEntry{
 		{km.Up + " / " + km.Down, "move up / down"},
 		{km.Top + " / " + km.Bottom, "jump to top / bottom"},
+		{displayKey(km.FocusNext) + " / " + displayKey(km.FocusPrev), "move focus between the panes"},
+		{displayKey(km.TabNext) + " / " + displayKey(km.TabPrev) + ", 1-3", "switch the detail pane's tab"},
 		{km.Search, "search torrents by name"},
 		{displayKey(km.Select), "mark the row under the cursor"},
 		{km.Back, "clear the selection, then the search, then the filter"},

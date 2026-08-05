@@ -34,7 +34,13 @@ type styles struct {
 	Title         lipgloss.Style
 
 	// Pane is the bordered box every part of the interface sits in.
-	Pane lipgloss.Style
+	// PaneFocused differs only in border colour: which pane is
+	// highlighted is the only cue about where keystrokes will go.
+	Pane        lipgloss.Style
+	PaneFocused lipgloss.Style
+
+	TabActive   lipgloss.Style
+	TabInactive lipgloss.Style
 
 	SidebarTitle      lipgloss.Style
 	SidebarItem       lipgloss.Style
@@ -42,6 +48,10 @@ type styles struct {
 }
 
 func newStyles(t theme.Theme) styles {
+	pane := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(t.Border)
+
 	return styles{
 		theme: t,
 
@@ -77,12 +87,23 @@ func newStyles(t theme.Theme) styles {
 			Foreground(t.Accent).
 			Bold(true),
 
-		Pane: lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(t.Border),
+		Pane:        pane,
+		PaneFocused: pane.BorderForeground(t.Accent),
+
+		TabActive:   lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
+		TabInactive: lipgloss.NewStyle().Foreground(t.Muted),
 
 		SidebarTitle:      lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 		SidebarItem:       lipgloss.NewStyle().Foreground(t.Foreground),
 		SidebarItemActive: lipgloss.NewStyle().Foreground(t.SelectedFg).Background(t.SelectedBg).Bold(true),
 	}
+}
+
+// pane returns the border style for a pane, highlighted when it holds
+// focus.
+func (s styles) pane(focused bool) lipgloss.Style {
+	if focused {
+		return s.PaneFocused
+	}
+	return s.Pane
 }

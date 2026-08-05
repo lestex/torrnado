@@ -17,6 +17,34 @@ import (
 	"github.com/lestex/torrnado/internal/theme"
 )
 
+// paneFocus is which pane keystrokes are routed to.
+type paneFocus int
+
+const (
+	focusList paneFocus = iota
+	focusDetail
+	focusSidebar
+)
+
+func (f paneFocus) next() paneFocus { return (f + 1) % 3 }
+func (f paneFocus) prev() paneFocus { return (f + 2) % 3 }
+
+// detailTab is which page of the docked detail pane is showing.
+type detailTab int
+
+const (
+	tabPieces detailTab = iota
+	tabPeers
+	tabFiles
+)
+
+var detailTabNames = [...]string{tabPieces: "Pieces", tabPeers: "Peers", tabFiles: "Files"}
+
+func (t detailTab) next() detailTab { return (t + 1) % detailTab(len(detailTabNames)) }
+func (t detailTab) prev() detailTab {
+	return (t + detailTab(len(detailTabNames)) - 1) % detailTab(len(detailTabNames))
+}
+
 // inputMode is whether keystrokes are being read as commands or typed
 // into a prompt.
 type inputMode int
@@ -63,6 +91,19 @@ type Model struct {
 
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool
+
+	focus         paneFocus
+	sidebarCursor int
+
+	// detail always describes the torrent under the list cursor. The
+	// pane is docked rather than a separate view, so it is refetched
+	// whenever the cursor moves or fresh state arrives.
+	detail       engine.TorrentDetail
+	detailTab    detailTab
+	detailCursor int // file cursor, used by the Files tab
+	detailScroll int // scroll offset within the active tab
+	detailLoaded bool
+	detailID     engine.TorrentID
 
 	status      string
 	statusIsErr bool
@@ -143,6 +184,32 @@ func (m *Model) clampCursor(n int) {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+}
+
+// syncDetail fetches detail for the torrent under the cursor.
+//
+// Events carry snapshots only -- files, peers and pieces need their own
+// call -- so this runs on every tick as well as on cursor movement, which
+// keeps the pane no staler than the list beside it.
+func (m *Model) syncDetail() tea.Cmd {
+	t, ok := m.cursorTorrent()
+	if !ok {
+		m.detailLoaded = false
+		m.detail = engine.TorrentDetail{}
+		m.detailID = ""
+		return nil
+	}
+	if t.ID != m.detailID {
+		m.detailID = t.ID
+		m.detailLoaded = false
+		m.detailCursor = 0
+		m.detailScroll = 0
+		return loadDetail(m.client, t.ID)
+	}
+	// Same torrent: patch the summary from state we already have, and
+	// refresh the rest.
+	m.detail.Snapshot = t
+	return loadDetail(m.client, t.ID)
 }
 
 func (m *Model) setStatus(msg statusMsg) {

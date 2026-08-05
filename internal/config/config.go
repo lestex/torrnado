@@ -61,6 +61,9 @@ var KnownActions = []string{
 	"pause", "recheck",
 	"search", "command", "back", "quit",
 	"help",
+	"focus_next", "focus_prev",
+	"tab_next", "tab_prev",
+	"filter_next", "filter_prev",
 }
 
 // Default returns a Config with every field set to its XDG-aware default.

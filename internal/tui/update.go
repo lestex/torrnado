@@ -23,8 +23,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.global = msg.Global
 		m.clampCursor(len(m.visibleTorrents()))
 		// Cmds run once, so listening again is what keeps the stream
-		// flowing.
-		return m, listenForEvents(m.events)
+		// flowing. The docked pane is refreshed on the same tick.
+		return m, tea.Batch(listenForEvents(m.events), m.syncDetail())
 
 	case engineClosedMsg:
 		m.status = "lost connection to daemon"
@@ -33,6 +33,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusMsg:
 		m.setStatus(msg)
+		return m, nil
+
+	case detailLoadedMsg:
+		if msg.err != nil {
+			m.setStatus(errStatus(msg.err))
+			return m, nil
+		}
+		// A reply for a torrent the cursor has already left is stale;
+		// dropping it stops a slow fetch overwriting the pane after the
+		// user has moved on.
+		if msg.detail.Snapshot.ID != m.detailID {
+			return m, nil
+		}
+		m.detail = msg.detail
+		m.detailLoaded = true
+		if m.detailCursor >= len(m.detail.Files) {
+			m.detailCursor = max(0, len(m.detail.Files)-1)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -61,6 +79,74 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCommandKey(msg)
 	}
 
+	// Focus and tab movement work from any pane, so the detail tabs stay
+	// reachable without moving focus into them first.
+	switch key {
+	case km.FocusNext:
+		m.focus = m.focus.next()
+		return m, nil
+	case km.FocusPrev:
+		m.focus = m.focus.prev()
+		return m, nil
+	case km.TabNext:
+		return m.setDetailTab(m.detailTab.next())
+	case km.TabPrev:
+		return m.setDetailTab(m.detailTab.prev())
+	case "1":
+		return m.setDetailTab(tabPieces)
+	case "2":
+		return m.setDetailTab(tabPeers)
+	case "3":
+		return m.setDetailTab(tabFiles)
+	}
+
+	switch m.focus {
+	case focusSidebar:
+		return m.handleSidebarKey(key)
+	case focusDetail:
+		return m.handleDetailKey(key)
+	}
+	return m.handleListKey(key)
+}
+
+func (m Model) setDetailTab(t detailTab) (tea.Model, tea.Cmd) {
+	m.detailTab = t
+	m.detailScroll = 0
+	return m, nil
+}
+
+// setFilter applies a status filter, wrapping at the ends so the keys
+// cycle rather than dead-ending.
+func (m Model) setFilter(f statusFilter) (tea.Model, tea.Cmd) {
+	n := statusFilter(len(filterNames))
+	m.filter = (f%n + n) % n
+	m.sidebarCursor = int(m.filter)
+	m.clampCursor(len(m.visibleTorrents()))
+	return m, m.syncDetail()
+}
+
+// handleSidebarKey handles keys while the sidebar holds focus.
+//
+// The filter applies as the cursor moves rather than on a confirm key:
+// the sidebar shows exactly one highlighted entry, and a cursor that
+// could sit elsewhere would need a second highlight to explain itself.
+func (m Model) handleSidebarKey(key string) (tea.Model, tea.Cmd) {
+	km := m.keymap
+	switch {
+	case key == km.Up, key == "up":
+		return m.setFilter(m.filter - 1)
+	case key == km.Down, key == "down":
+		return m.setFilter(m.filter + 1)
+	case key == km.Top:
+		return m.setFilter(filterAll)
+	case key == km.Bottom:
+		return m.setFilter(statusFilter(len(filterNames) - 1))
+	}
+	return m.handleListKey(key)
+}
+
+func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
+	km := m.keymap
 	visible := m.visibleTorrents()
 
 	switch {
@@ -74,19 +160,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor > 0 {
 			m.cursor--
 		}
+		return m, m.syncDetail()
 
 	case key == km.Down, key == "down":
 		if m.cursor < len(visible)-1 {
 			m.cursor++
 		}
+		return m, m.syncDetail()
 
 	case key == km.Top:
 		m.cursor = 0
+		return m, m.syncDetail()
 
 	case key == km.Bottom:
 		if len(visible) > 0 {
 			m.cursor = len(visible) - 1
 		}
+		return m, m.syncDetail()
 
 	case key == km.Remove:
 		return m.removeTargets(visible, false)
@@ -144,6 +234,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		}
+		return m, m.syncDetail()
 	}
 
 	return m, nil

@@ -15,6 +15,12 @@ type statusMsg struct {
 	isErr bool
 }
 
+// detailLoadedMsg carries the result of an async Detail call.
+type detailLoadedMsg struct {
+	detail engine.TorrentDetail
+	err    error
+}
+
 func errStatus(err error) statusMsg {
 	return statusMsg{text: err.Error(), isErr: true}
 }

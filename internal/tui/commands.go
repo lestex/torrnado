@@ -93,3 +93,10 @@ func setPausedCmd(c *ipc.Client, ids []engine.TorrentID, paused bool) tea.Cmd {
 		return okStatus(fmt.Sprintf("%s %d torrent(s)", verb, len(ids)))
 	}
 }
+
+func loadDetail(c *ipc.Client, id engine.TorrentID) tea.Cmd {
+	return func() tea.Msg {
+		d, err := c.Detail(id)
+		return detailLoadedMsg{detail: d, err: err}
+	}
+}
