@@ -49,7 +49,7 @@ type styles struct {
 
 func newStyles(t theme.Theme) styles {
 	pane := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(t.Border)
 
 	return styles{
