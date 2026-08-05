@@ -81,6 +81,29 @@ func clampBlock(s string, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
+// renderPrompt draws the input line for search and command mode: the
+// sigil, what has been typed, and a block where the next character will
+// land.
+//
+// Plain text, the way vim's ex line is. This used to borrow SelectedRow
+// -- the list's selection highlight -- which painted a block of
+// background around the typed text and stopped dead at the end of it,
+// reading as a stray highlight rather than a prompt.
+//
+// Trimming happens before styling, not after: truncate measures printable
+// width but cuts runes, so trimming an already-styled string cuts through
+// its escape sequences.
+func (m Model) renderPrompt(sigil, buf string, width int) string {
+	// The leading space, the sigil and the cursor are a cell each.
+	room := width - 3
+	if room < 1 {
+		return truncate(" "+sigil, width)
+	}
+	return m.styles.Accent.Render(" "+sigil) +
+		m.styles.Base.Render(truncateTail(buf, room)) +
+		m.styles.Accent.Render("█")
+}
+
 // renderFooter draws the single bottom line: transfer totals on the left,
 // any transient status message on the right.
 func (m Model) renderFooter(p panes) string {
@@ -88,9 +111,9 @@ func (m Model) renderFooter(p panes) string {
 	// put it, and the totals are less useful than seeing what you typed.
 	switch m.mode {
 	case modeSearch:
-		return truncate(m.styles.SelectedRow.Render(" /"+m.searchQuery), p.footerW)
+		return m.renderPrompt("/", m.searchQuery, p.footerW)
 	case modeCommand:
-		return truncate(m.styles.SelectedRow.Render(" :"+m.commandBuf), p.footerW)
+		return m.renderPrompt(":", m.commandBuf, p.footerW)
 	}
 	if m.showHelp {
 		return m.styles.StatusBar.Render(" press any key to close help")
