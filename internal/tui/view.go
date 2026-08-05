@@ -27,6 +27,18 @@ func (m Model) View() string {
 
 	p := layout(m.width, m.height)
 
+	// The help screen replaces the panes rather than floating over them:
+	// at these sizes there is nowhere to float it that would not clip the
+	// reference it exists to show.
+	if m.showHelp {
+		helpW, helpH := m.width-borderWidth, m.height-1-borderHeight
+		return lipgloss.JoinVertical(lipgloss.Left,
+			m.styles.Pane.Width(helpW).Height(helpH).
+				Render(m.renderHelp(helpW-2, helpH)),
+			m.renderFooter(p),
+		)
+	}
+
 	sidebar := m.styles.Pane.
 		Width(p.sidebarContentW).
 		Height(p.sidebarContentH).
@@ -69,6 +81,9 @@ func (m Model) renderFooter(p panes) string {
 	// put it, and the totals are less useful than seeing what you typed.
 	if m.mode == modeSearch {
 		return truncate(m.styles.SelectedRow.Render(" /"+m.searchQuery), p.footerW)
+	}
+	if m.showHelp {
+		return m.styles.StatusBar.Render(" press any key to close help")
 	}
 	g := m.global
 	left := fmt.Sprintf(" ↓ %s  ↑ %s  │  %d torrents",
