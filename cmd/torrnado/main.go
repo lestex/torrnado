@@ -30,6 +30,8 @@ func main() {
 		newRemoveCmd(),
 		newPauseCmd(),
 		newResumeCmd(),
+		newRecheckCmd(),
+		newPriorityCmd(),
 		newListCmd(),
 	)
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -86,6 +87,44 @@ func newResumeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.SetPaused(id, false)
+			})
+		},
+	}
+}
+
+func newRecheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "recheck <torrent-id>...",
+		Short: "Re-verify downloaded data against the torrent's piece hashes",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.ForceRecheck(id)
+			})
+		},
+	}
+}
+
+func newPriorityCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "priority <torrent-id> <file-index> <none|low|normal|high|now>",
+		Short: "Set a file's download priority",
+		Long: "Sets how badly one file's data is wanted. File indexes are the\n" +
+			"positions shown by the detail view, counting from zero.\n\n" +
+			"Note that \"low\" is accepted but stored as \"normal\": the torrent\n" +
+			"library has no level between \"not wanted\" and \"wanted\".",
+		Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			idx, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("file-index must be a number: %w", err)
+			}
+			prio, ok := engine.ParsePriority(args[2])
+			if !ok {
+				return fmt.Errorf("unknown priority %q (want: none, low, normal, high, now)", args[2])
+			}
+			return withClient(func(c *ipc.Client) error {
+				return c.SetFilePriority(engine.TorrentID(args[0]), idx, prio)
 			})
 		},
 	}
