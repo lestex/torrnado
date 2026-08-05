@@ -213,14 +213,81 @@ func (e *Engine) ListTorrents() []TorrentSnapshot {
 	return out
 }
 
-// TorrentDetail returns the full detail view for one torrent.
+// TorrentDetail returns the files, peers and trackers for one torrent,
+// alongside its snapshot.
 func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	tr, ok := e.torrents[id]
-	if !ok {
-		return TorrentDetail{}, ErrNotFound
+	tr, err := e.lookup(id)
+	if err != nil {
+		return TorrentDetail{}, err
 	}
-	return TorrentDetail{Snapshot: e.snapshotLocked(id, tr)}, nil
+
+	e.mu.Lock()
+	snap := e.snapshotLocked(id, tr)
+	e.mu.Unlock()
+
+	// Everything below reads through the client's own locks, so the
+	// engine lock is released first -- holding both invites a deadlock
+	// and would block every other caller meanwhile.
+
+	var files []FileInfo
+	for i, f := range filesOrNil(tr.t) {
+		files = append(files, FileInfo{
+			Index:     i,
+			Path:      f.Path(),
+			Length:    f.Length(),
+			Completed: f.BytesCompleted(),
+		})
+	}
+
+	// NumPieces has the same requirement as Files: it reads through
+	// metadata that may not be there, and crashes rather than failing.
+	var numPieces int
+	if tr.t.Info() != nil {
+		numPieces = tr.t.NumPieces()
+	}
+
+	var peers []PeerInfo
+	for _, pc := range tr.t.PeerConns() {
+		stats := pc.Peer.Stats()
+		var progress float64
+		if numPieces > 0 {
+			progress = float64(stats.RemotePieceCount) / float64(numPieces)
+		}
+		peers = append(peers, PeerInfo{
+			Addr:        fmt.Sprint(pc.RemoteAddr),
+			Client:      clientName(pc.PeerClientName.Load()),
+			Source:      string(pc.Discovery),
+			DownloadBPS: stats.DownloadRate,
+			Progress:    progress,
+			Encrypted:   pc.PeerPrefersEncryption,
+		})
+	}
+
+	// Only the static list from the torrent's own metadata. The library
+	// exposes no live announce status -- no last announce time, no error,
+	// no seeder counts from the tracker's reply.
+	var trackers []TrackerInfo
+	mi := tr.t.Metainfo()
+	for tier, urls := range mi.AnnounceList {
+		for _, u := range urls {
+			trackers = append(trackers, TrackerInfo{URL: u, Tier: tier})
+		}
+	}
+	if len(trackers) == 0 && mi.Announce != "" {
+		trackers = append(trackers, TrackerInfo{URL: mi.Announce, Tier: 0})
+	}
+
+	return TorrentDetail{Snapshot: snap, Files: files, Peers: peers, Trackers: trackers}, nil
+}
+
+// clientName resolves a peer's self-reported name.
+//
+// PeerClientName is an atomic.Value holding nothing until the peer's
+// extended handshake supplies a name, so printing it directly renders the
+// literal string "<nil>" as the client name.
+func clientName(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
