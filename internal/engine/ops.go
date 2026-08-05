@@ -188,6 +188,11 @@ func removeEmptyDirs(savePath string, filePaths []string) {
 }
 
 // SetPaused pauses or resumes a torrent.
+//
+// The library has no pause. What it has is a pair of switches for whether
+// a torrent may request or serve piece data, so pausing means turning
+// both off. Peer connections stay up, which is why resuming is instant
+// rather than starting the discovery work again from nothing.
 func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	tr, err := e.lookup(id)
 	if err != nil {
@@ -197,8 +202,34 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	tr.paused = paused
 	e.mu.Unlock()
 
+	if paused {
+		tr.t.DisallowDataDownload()
+		tr.t.DisallowDataUpload()
+	} else {
+		tr.t.AllowDataDownload()
+		tr.t.AllowDataUpload()
+		// A torrent added paused never had its files marked wanted, and
+		// would otherwise sit at zero forever after being resumed. Skip
+		// it if any file already has a priority, so resuming does not
+		// discard choices made while it was paused.
+		if tr.t.Info() != nil && allFilesUnset(tr.t) {
+			downloadAllFiles(tr.t)
+		}
+	}
+
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// allFilesUnset reports whether no file has been given a priority yet.
+// Vacuously true before metadata arrives.
+func allFilesUnset(t *torrent.Torrent) bool {
+	for _, f := range filesOrNil(t) {
+		if f.Priority() != torrent.PiecePriorityNone {
+			return false
+		}
+	}
+	return true
 }
 
 // ListTorrents returns a snapshot of every tracked torrent.
