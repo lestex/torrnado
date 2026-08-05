@@ -1,10 +1,16 @@
 package tui
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
 )
+
+// ddChordWindow bounds how long a "d" waits for its partner before it
+// stops counting as the start of a chord.
+const ddChordWindow = 600 * time.Millisecond
 
 // Update handles one message and returns the next Model.
 //
@@ -149,7 +155,23 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	km := m.keymap
 	visible := m.visibleTorrents()
 
+	// Any key other than "d" abandons a half-typed chord.
+	if key != "d" {
+		m.pendingDD = false
+	}
+
 	switch {
+	case key == "d":
+		// The window matters: without it a "d" pressed minutes ago would
+		// silently turn the next one into a deletion.
+		if m.pendingDD && time.Since(m.pendingAt) <= ddChordWindow {
+			m.pendingDD = false
+			return m.removeTargets(visible, false)
+		}
+		m.pendingDD = true
+		m.pendingAt = time.Now()
+		return m, nil
+
 	// ctrl+c is not rebindable: it is what every terminal program does,
 	// and a config file should not be able to take it away.
 	case key == "ctrl+c", key == km.Quit:

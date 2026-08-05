@@ -10,6 +10,7 @@ package tui
 import (
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -136,6 +137,10 @@ type Model struct {
 
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool
+
+	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
+	pendingDD bool
+	pendingAt time.Time
 
 	focus         paneFocus
 	sidebarCursor int

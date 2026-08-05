@@ -39,7 +39,7 @@ func (m Model) renderHelp(width, height int) string {
 	}
 
 	actions := []helpEntry{
-		{km.Remove, "remove the marked torrents, keeping the data"},
+		{km.Remove + ", dd", "remove the marked torrents, keeping the data"},
 		{km.RemoveData, "remove them and delete the data too"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
