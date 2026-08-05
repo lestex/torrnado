@@ -8,6 +8,7 @@
 package tui
 
 import (
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,6 +46,47 @@ func (t detailTab) prev() detailTab {
 	return (t + detailTab(len(detailTabNames)) - 1) % detailTab(len(detailTabNames))
 }
 
+// sortMode is the column the list is ordered by.
+//
+// Some ordering is not optional: the daemon reports torrents from a map,
+// and Go randomises map iteration, so an unsorted list reshuffles itself
+// every tick with the cursor pointing at whatever landed under it.
+type sortMode int
+
+const (
+	sortName sortMode = iota
+	sortSize
+	sortProgress
+	sortRatio
+	sortETA
+	sortAdded
+	sortDown
+	sortUp
+)
+
+// ParseSortMode maps a column name to a sort mode.
+func ParseSortMode(s string) (sortMode, bool) {
+	switch s {
+	case "name":
+		return sortName, true
+	case "size":
+		return sortSize, true
+	case "progress":
+		return sortProgress, true
+	case "ratio":
+		return sortRatio, true
+	case "eta":
+		return sortETA, true
+	case "added":
+		return sortAdded, true
+	case "down":
+		return sortDown, true
+	case "up":
+		return sortUp, true
+	}
+	return 0, false
+}
+
 // inputMode is whether keystrokes are being read as commands or typed
 // into a prompt.
 type inputMode int
@@ -74,7 +116,9 @@ type Model struct {
 
 	// filter narrows the list to one status. The full set is kept above,
 	// so changing it is a cheap re-render rather than a refetch.
-	filter statusFilter
+	filter   statusFilter
+	sortBy   sortMode
+	sortDesc bool
 
 	keymap KeyMap
 	player string // command used to preview a file, from config
@@ -160,6 +204,35 @@ func (m Model) visibleTorrents() []engine.TorrentSnapshot {
 			out = append(out, t)
 		}
 	}
+
+	// SliceStable so torrents comparing equal keep a fixed relative
+	// order; an unstable sort would let them swap between ticks, which is
+	// the jitter this exists to remove.
+	sort.SliceStable(out, func(i, j int) bool {
+		var less bool
+		switch m.sortBy {
+		case sortSize:
+			less = out[i].TotalLength < out[j].TotalLength
+		case sortProgress:
+			less = out[i].Progress < out[j].Progress
+		case sortRatio:
+			less = out[i].Ratio < out[j].Ratio
+		case sortETA:
+			less = out[i].ETA < out[j].ETA
+		case sortAdded:
+			less = out[i].AddedAt.Before(out[j].AddedAt)
+		case sortDown:
+			less = out[i].DownloadBPS < out[j].DownloadBPS
+		case sortUp:
+			less = out[i].UploadBPS < out[j].UploadBPS
+		default:
+			less = strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+		}
+		if m.sortDesc {
+			return !less
+		}
+		return less
+	})
 	return out
 }
 

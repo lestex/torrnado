@@ -64,6 +64,21 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		}
 		return m, moveCmd(m.client, t.ID, args[0])
 
+	case "sort":
+		if len(args) == 0 {
+			return m, func() tea.Msg {
+				return errStatus(fmt.Errorf("sort: needs a column (name, size, progress, ratio, eta, added, down, up)"))
+			}
+		}
+		mode, ok := ParseSortMode(args[0])
+		if !ok {
+			return m, func() tea.Msg { return errStatus(fmt.Errorf("sort: unknown column %q", args[0])) }
+		}
+		m.sortBy = mode
+		m.sortDesc = len(args) > 1 && args[1] == "desc"
+		m.clampCursor(len(m.visibleTorrents()))
+		return m, nil
+
 	case "q", "quit":
 		m.quitting = true
 		return m, tea.Quit
