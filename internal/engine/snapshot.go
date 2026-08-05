@@ -133,6 +133,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		SavePath:      tr.savePath,
 		AddedAt:       tr.addedAt,
 		Error:         tr.lastErr,
+		Checking:      tr.checking,
 		CheckProgress: checkProgress,
 		DownloadLimit: tr.downLimit,
 		UploadLimit:   tr.upLimit,

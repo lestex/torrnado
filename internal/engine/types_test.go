@@ -63,8 +63,8 @@ func TestStatusTextShowsCheckProgress(t *testing.T) {
 		snap TorrentSnapshot
 		want string
 	}{
-		{TorrentSnapshot{State: StateChecking, CheckProgress: 0.42}, "checking 42%"},
-		{TorrentSnapshot{State: StateChecking, CheckProgress: 1}, "checking 100%"},
+		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 0.42}, "checking 42%"},
+		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 1}, "checking 100%"},
 		// Waiting for metadata is also "checking", but nothing is being
 		// verified, so there is no number to show.
 		{TorrentSnapshot{State: StateChecking}, "checking"},
