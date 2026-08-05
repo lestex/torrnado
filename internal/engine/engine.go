@@ -2,6 +2,8 @@ package engine
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -42,6 +44,13 @@ type Config struct {
 	DownloadRateLimit int64
 
 	Seed bool
+
+	// Logger receives the engine's own messages and the torrent
+	// library's. Nil discards both.
+	Logger *slog.Logger
+	// LibraryLevel filters the library separately, since it warns about
+	// every tracker that misbehaves.
+	LibraryLevel slog.Level
 }
 
 // tickInterval is how often the engine recomputes progress and speeds and
@@ -104,6 +113,7 @@ type peerBytes struct {
 type Engine struct {
 	cfg    Config
 	client *torrent.Client
+	log    *slog.Logger
 
 	upLimiter   *rate.Limiter
 	downLimiter *rate.Limiter
@@ -140,6 +150,12 @@ func New(cfg Config) (*Engine, error) {
 		downLimiter.SetLimit(rate.Limit(cfg.DownloadRateLimit))
 	}
 
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	routeLibraryLogs(logger.Handler(), cfg.LibraryLevel)
+
 	tc := torrent.NewDefaultClientConfig()
 	tc.DataDir = cfg.DataDir
 	tc.NoDHT = cfg.DisableDHT
@@ -147,6 +163,9 @@ func New(cfg Config) (*Engine, error) {
 	tc.Seed = cfg.Seed
 	tc.UploadRateLimiter = upLimiter
 	tc.DownloadRateLimiter = downLimiter
+	// The library's own recommendation for capturing what the client
+	// logs. It does not catch everything -- see routeLibraryLogs.
+	tc.Slogger = slog.New(libraryHandler{h: logger.Handler(), min: cfg.LibraryLevel})
 	if cfg.DisableEncryption {
 		tc.HeaderObfuscationPolicy = torrent.HeaderObfuscationPolicy{
 			Preferred: false, RequirePreferred: false,
@@ -161,6 +180,7 @@ func New(cfg Config) (*Engine, error) {
 
 	e := &Engine{
 		cfg:         cfg,
+		log:         logger,
 		client:      client,
 		upLimiter:   upLimiter,
 		downLimiter: downLimiter,
