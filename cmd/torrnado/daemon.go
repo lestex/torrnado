@@ -36,7 +36,14 @@ func runDaemon() error {
 		return err
 	}
 
-	eng, err := engine.New(engine.Config{DataDir: dir})
+	// Hardcoded for now, alongside the paths; all of it becomes
+	// configurable together later.
+	eng, err := engine.New(engine.Config{
+		DataDir:        dir,
+		ListenPortLow:  51413,
+		ListenPortHigh: 51433,
+		Seed:           true,
+	})
 	if err != nil {
 		return fmt.Errorf("start engine: %w", err)
 	}
