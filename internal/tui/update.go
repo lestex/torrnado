@@ -45,6 +45,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	km := m.keymap
+
+	// The help screen swallows the next key to dismiss itself, so there
+	// is no key to learn for closing it.
+	if m.showHelp {
+		m.showHelp = false
+		return m, nil
+	}
+
+	// While typing a search, keys are text rather than commands.
+	if m.mode == modeSearch {
+		return m.handleSearchKey(msg)
+	}
+
 	visible := m.visibleTorrents()
 
 	switch {
@@ -93,10 +106,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// everything at once, so it is never a surprise.
 		if len(m.selected) > 0 {
 			m.selected = map[engine.TorrentID]bool{}
+		} else if m.searchQuery != "" {
+			m.searchQuery = ""
+			m.clampCursor(len(m.visibleTorrents()))
 		} else if m.filter != filterAll {
 			m.filter = filterAll
 			m.clampCursor(len(m.visibleTorrents()))
 		}
+
+	case key == km.Search:
+		m.mode = modeSearch
+		return m, nil
+
+	case key == km.Help:
+		m.showHelp = true
+		return m, nil
 
 	case key == km.Select:
 		// Marking a row advances the cursor, so a run of torrents can be
@@ -165,4 +189,35 @@ func (m Model) recheckTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.
 		ids[i] = t.ID
 	}
 	return m, recheckCmd(m.client, ids)
+}
+
+// handleSearchKey applies one keystroke to the search query.
+//
+// It switches on the message type rather than its string form, which is
+// the only reliable way to tell typed text from a named key: an input
+// method or a paste can deliver several runes in one message, and
+// anything filtering on "exactly one rune" silently drops the rest.
+func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		m.mode = modeNormal
+	case tea.KeyEsc:
+		// Cancelling puts the list back, rather than leaving a filter
+		// behind that was never confirmed.
+		m.mode = modeNormal
+		m.searchQuery = ""
+	case tea.KeyBackspace:
+		r := []rune(m.searchQuery)
+		if len(r) > 0 {
+			m.searchQuery = string(r[:len(r)-1])
+		}
+	case tea.KeySpace:
+		m.searchQuery += " "
+	case tea.KeyRunes:
+		m.searchQuery += string(msg.Runes)
+	}
+
+	// The list narrows on every keystroke, so the cursor has to follow.
+	m.clampCursor(len(m.visibleTorrents()))
+	return m, nil
 }

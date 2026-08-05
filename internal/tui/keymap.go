@@ -11,6 +11,7 @@ type KeyMap struct {
 	Select, Remove, RemoveData string
 	Pause, Recheck             string
 	Back, Quit                 string
+	Search, Help               string
 }
 
 // DefaultKeyMap is torrnado's out-of-the-box vim-like binding set.
@@ -30,6 +31,9 @@ func DefaultKeyMap() KeyMap {
 
 		Back: "esc",
 		Quit: "q",
+
+		Search: "/",
+		Help:   "h",
 	}
 }
 
@@ -53,6 +57,8 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.RemoveData, "remove_data")
 	apply(&k.Pause, "pause")
 	apply(&k.Recheck, "recheck")
+	apply(&k.Search, "search")
+	apply(&k.Help, "help")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")
 	return k

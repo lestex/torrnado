@@ -65,6 +65,11 @@ func clampBlock(s string, height int) string {
 // renderFooter draws the single bottom line: transfer totals on the left,
 // any transient status message on the right.
 func (m Model) renderFooter(p panes) string {
+	// While typing, the footer is the prompt -- there is nowhere else to
+	// put it, and the totals are less useful than seeing what you typed.
+	if m.mode == modeSearch {
+		return truncate(m.styles.SelectedRow.Render(" /"+m.searchQuery), p.footerW)
+	}
 	g := m.global
 	left := fmt.Sprintf(" ↓ %s  ↑ %s  │  %d torrents",
 		formatRate(g.DownloadBPS), formatRate(g.UploadBPS), g.NumTorrents)

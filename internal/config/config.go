@@ -59,7 +59,8 @@ var KnownActions = []string{
 	"up", "down", "top", "bottom",
 	"select", "remove", "remove_data",
 	"pause", "recheck",
-	"back", "quit",
+	"search", "back", "quit",
+	"help",
 }
 
 // Default returns a Config with every field set to its XDG-aware default.

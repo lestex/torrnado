@@ -8,11 +8,22 @@
 package tui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
 	"github.com/lestex/torrnado/internal/theme"
+)
+
+// inputMode is whether keystrokes are being read as commands or typed
+// into a prompt.
+type inputMode int
+
+const (
+	modeNormal inputMode = iota
+	modeSearch
 )
 
 // Model is the root bubbletea model.
@@ -43,6 +54,13 @@ type Model struct {
 	// it aimed at a hidden row.
 	cursor   int
 	selected map[engine.TorrentID]bool
+
+	// mode is which of the text prompts, if any, is taking keystrokes.
+	mode        inputMode
+	searchQuery string
+
+	// showHelp overlays the keybind reference on everything else.
+	showHelp bool
 
 	status      string
 	statusIsErr bool
@@ -83,11 +101,17 @@ func listenForEvents(events <-chan engine.Event) tea.Cmd {
 	}
 }
 
-// visibleTorrents is m.torrents narrowed by the sidebar's filter.
+// visibleTorrents is m.torrents narrowed by the sidebar's filter and the
+// search query. Both apply at once: they intersect rather than one
+// replacing the other.
 func (m Model) visibleTorrents() []engine.TorrentSnapshot {
 	out := make([]engine.TorrentSnapshot, 0, len(m.torrents))
+	q := strings.ToLower(strings.TrimSpace(m.searchQuery))
 	for _, t := range m.torrents {
-		if m.filter.matches(t) {
+		if !m.filter.matches(t) {
+			continue
+		}
+		if q == "" || strings.Contains(strings.ToLower(t.Name), q) {
 			out = append(out, t)
 		}
 	}
