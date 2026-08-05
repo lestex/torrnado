@@ -18,7 +18,13 @@ const (
 	colDown   = 12 // wide enough for "↓ 999.9MiB/s"
 	colUp     = 12
 	colETA    = 7
-	colPct    = 4
+
+	// The progress column: a bar, a space, then the percentage. Sized so
+	// "100%" fits without the column jumping a cell wider at the end of a
+	// download.
+	barWidth    = 10
+	colPercent  = 4
+	colProgress = barWidth + colGap + colPercent
 
 	// colGap is the single space between columns. Every column except the
 	// marker is preceded by one, so fixedColumns -- everything the Name
@@ -27,11 +33,11 @@ const (
 	// width, and lipgloss then wraps it onto a second line.
 	colGap       = 1
 	fixedColumns = colMark + 7*colGap +
-		colSize + colStatus + colDown + colUp + colETA + colPct
+		colProgress + colSize + colStatus + colDown + colUp + colETA
 
-	// rowLines is how many terminal rows one torrent occupies: the data
-	// line plus the progress underline beneath it.
-	rowLines = 2
+	// rowLines is how many terminal rows one torrent occupies. Progress
+	// used to be an underline beneath the name, which made it two.
+	rowLines = 1
 
 	// minNameWidth is the narrowest Name column worth rendering; below
 	// this the trailing columns are dropped instead (see nameWidth).
@@ -40,10 +46,14 @@ const (
 
 // nameWidth returns the elastic Name column width for a pane of the given
 // content width, and whether the full column set fits at all.
+//
+// When it doesn't, everything is dropped except Name and Progress --
+// which of a torrent's numbers survives a narrow terminal is a choice,
+// and how far along it is beats how fast it is going.
 func nameWidth(contentW int) (int, bool) {
 	w := contentW - fixedColumns
 	if w < minNameWidth {
-		return max(1, contentW-colMark-colGap-colPct-colGap), false
+		return max(1, contentW-colMark-colGap-colProgress-colGap), false
 	}
 	return w, true
 }
@@ -54,6 +64,7 @@ func (m Model) renderListHeader(p panes) string {
 	var b strings.Builder
 	b.WriteString(strings.Repeat(" ", colMark+colGap))
 	b.WriteString(padRight("Name", nameW))
+	b.WriteString(" " + padRight("Progress", colProgress))
 	if wide {
 		b.WriteString(" " + padLeft("Size", colSize))
 		b.WriteString(" " + padRight("Status", colStatus))
@@ -61,7 +72,6 @@ func (m Model) renderListHeader(p panes) string {
 		b.WriteString(" " + padLeft("↑ Speed", colUp))
 		b.WriteString(" " + padLeft("ETA", colETA))
 	}
-	b.WriteString(" " + padLeft("%", colPct))
 	return m.styles.ColHeader.Render(b.String())
 }
 
@@ -97,8 +107,7 @@ func clampLines(lines []string, height int) []string {
 	return lines
 }
 
-// renderRow draws one torrent as rowLines lines: the data columns, then a
-// progress underline spanning the Name column.
+// renderRow draws one torrent as a single line of columns.
 func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []string {
 	nameW, wide := nameWidth(p.listContentW)
 
@@ -113,7 +122,8 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	var b strings.Builder
 	b.WriteString(mark)
 	b.WriteString(" ")
-	b.WriteString(padRight(t.Name, nameW))
+	b.WriteString(padRight(truncate(t.Name, nameW), nameW))
+	b.WriteString(" " + progressCell(t.Progress))
 	if wide {
 		b.WriteString(" " + padLeft(formatBytes(t.TotalLength), colSize))
 		b.WriteString(" " + padRight(t.StatusText(), colStatus))
@@ -121,7 +131,6 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 		b.WriteString(" " + padLeft(rateCell("↑ ", t.UploadBPS), colUp))
 		b.WriteString(" " + padLeft(etaCell(t), colETA))
 	}
-	b.WriteString(" " + padLeft(percentCell(t.Progress), colPct))
 
 	// The whole line takes one style, so a highlight cannot be broken
 	// partway through by a nested style's ANSI reset.
@@ -133,35 +142,39 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 		style = m.styles.SelectedRow
 	}
 
-	return []string{
-		style.Render(b.String()),
-		m.progressUnderline(t, nameW),
-	}
+	return []string{style.Render(b.String())}
 }
 
-// progressUnderline draws the thin bar beneath a torrent's name. A
-// complete torrent gets a blank line instead: an underline that is always
-// full carries no information and just adds visual noise to a list of
-// finished torrents.
-func (m Model) progressUnderline(t engine.TorrentSnapshot, nameW int) string {
-	indent := strings.Repeat(" ", colMark+colGap)
-	if t.Progress >= 1 || nameW <= 0 {
-		return ""
+// progressCell renders a fraction as a bar followed by its percentage,
+// exactly colProgress cells wide.
+//
+// Drawn in one colour rather than two, unlike the underline this
+// replaced. A row is rendered with a single style so that a cursor or
+// selection highlight runs the whole way across it; styling the bar's
+// halves separately would end that style mid-row and leave a hole in the
+// highlight. The glyphs carry the bar on their own -- "━" is filled, "─"
+// is track.
+func progressCell(frac float64) string {
+	// Clamped once, so the bar and the number cannot disagree: a
+	// fraction over 1 (bytes received but not yet verified are counted)
+	// would otherwise print a full bar beside "120%", and a percentage
+	// wide enough to push the columns out of line.
+	if frac > 1 {
+		frac = 1
 	}
-	filled := int(t.Progress * float64(nameW))
-	if filled > nameW {
-		filled = nameW
+	if frac < 0 {
+		frac = 0
 	}
-	return indent +
-		m.styles.ProgressFill.Render(strings.Repeat("━", filled)) +
-		m.styles.ProgressTrack.Render(strings.Repeat("─", nameW-filled))
+	filled := int(frac * barWidth)
+	bar := strings.Repeat("━", filled) + strings.Repeat("─", barWidth-filled)
+	return bar + " " + padRight(percentCell(frac)+"%", colPercent)
 }
 
 // percentCell renders a completion fraction as a whole number.
 //
 // It floors rather than rounds: at 99.6% the nearest whole number is 100,
-// and a row that claims to be finished while the progress bar beside it
-// still shows a gap reads as a bug.
+// and a row that reads 100% beside a bar with a gap still in it looks
+// like a bug.
 func percentCell(frac float64) string {
 	return fmt.Sprintf("%d", int(math.Floor(frac*100)))
 }
