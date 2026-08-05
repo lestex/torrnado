@@ -1,0 +1,63 @@
+# Builds the documentation site and publishes it to GitHub Pages.
+#
+# Pages must be set to "GitHub Actions" as its source in the repository
+# settings (Settings -> Pages -> Build and deployment), and the custom
+# domain set to torrnado.dev -- docs/CNAME keeps it across deployments,
+# but the DNS records themselves live at the registrar.
+name: docs
+
+on:
+  push:
+    branches: [master]
+    # Only when the site could actually have changed. A code-only commit
+    # does not need to republish it.
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - docs-requirements.txt
+      - .github/workflows/docs.yml
+  # So a broken build can be fixed and redeployed without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and let a newer push win: an in-flight build
+# of older docs is not worth waiting for.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: docs-requirements.txt
+
+      - run: pip install -r docs-requirements.txt
+
+      # --strict turns a broken internal link into a failed build rather
+      # than a 404 someone finds later.
+      - run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
