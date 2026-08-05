@@ -74,6 +74,31 @@ func (s *Server) handleConn(conn net.Conn) {
 	dec := gob.NewDecoder(conn)
 	enc := gob.NewEncoder(conn)
 
+	// Two goroutines now write to this connection: this one replying to
+	// calls, and the event pump below. A gob stream is a sequence of
+	// framed values and cannot be written concurrently, so every write
+	// goes through one place holding a mutex.
+	var writeMu sync.Mutex
+	send := func(m message) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return enc.Encode(m)
+	}
+
+	// This is the reason for a custom protocol rather than plain
+	// request/reply: the daemon pushes state at the client unprompted, on
+	// the same connection it takes commands on.
+	events, unsubscribe := s.eng.Subscribe()
+	defer unsubscribe()
+
+	go func() {
+		for ev := range events {
+			if send(message{Kind: kindEvent, Event: &ev}) != nil {
+				return // connection gone; the read loop will clean up
+			}
+		}
+	}()
+
 	for {
 		var msg message
 		if err := dec.Decode(&msg); err != nil {
@@ -83,7 +108,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			continue
 		}
 		resp := s.dispatch(msg.Req)
-		if enc.Encode(message{Kind: kindReply, Resp: resp}) != nil {
+		if send(message{Kind: kindReply, Resp: resp}) != nil {
 			return
 		}
 	}
