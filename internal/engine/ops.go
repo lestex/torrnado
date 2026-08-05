@@ -9,6 +9,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
+	"golang.org/x/time/rate"
 )
 
 // ErrNotFound is returned for an id no torrent answers to.
@@ -299,6 +300,44 @@ func fromLibPriority(p torrent.PiecePriority) Priority {
 	default:
 		return PriorityNormal
 	}
+}
+
+// SetGlobalUploadLimit caps upload speed across every torrent, in
+// bytes/sec. Zero means unlimited. Enforced exactly, by the library.
+func (e *Engine) SetGlobalUploadLimit(bps int64) {
+	if bps <= 0 {
+		e.upLimiter.SetLimit(rate.Inf)
+		return
+	}
+	e.upLimiter.SetLimit(rate.Limit(bps))
+}
+
+// SetGlobalDownloadLimit caps download speed across every torrent.
+func (e *Engine) SetGlobalDownloadLimit(bps int64) {
+	if bps <= 0 {
+		e.downLimiter.SetLimit(rate.Inf)
+		return
+	}
+	e.downLimiter.SetLimit(rate.Limit(bps))
+}
+
+// SetTorrentRateLimit caps one torrent's speed, approximately.
+//
+// Unlike the global limits this is not enforced by the library, which has
+// no per-torrent throttle at all. It is approximated a tick at a time --
+// see enforceRateLimit -- so it averages out near the cap but is bursty.
+func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	e.mu.Lock()
+	tr.upLimit = uploadBps
+	tr.downLimit = downloadBps
+	e.mu.Unlock()
+
+	e.snapshotAndBroadcastNow()
+	return nil
 }
 
 // ListTorrents returns a snapshot of every tracked torrent.

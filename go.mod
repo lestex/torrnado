@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/anacrolix/torrent v1.61.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/time v0.14.0
 )
 
 require (
@@ -86,7 +87,6 @@ require (
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
 	lukechampine.com/blake3 v1.1.6 // indirect
 	modernc.org/libc v1.22.3 // indirect
 	modernc.org/mathutil v1.5.0 // indirect

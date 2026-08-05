@@ -26,6 +26,30 @@ func (tr *tracked) updateRates(elapsed float64) {
 	tr.lastUploaded = uploaded
 }
 
+// enforceRateLimit applies a torrent's own speed cap, roughly.
+//
+// The library's rate limiters are client-wide; there is no hook to
+// throttle a single torrent's network I/O. So this approximates one: each
+// tick, a torrent over its cap is forbidden from moving data, and allowed
+// again once it falls back under. That averages out near the limit over
+// a second or so, but it is bursty -- a real token bucket it is not.
+// Callers must hold e.mu.
+func (tr *tracked) enforceRateLimit() {
+	if tr.paused {
+		return // pause already forbids both directions
+	}
+	if tr.downLimit > 0 && tr.lastDownBPS > float64(tr.downLimit) {
+		tr.t.DisallowDataDownload()
+	} else {
+		tr.t.AllowDataDownload()
+	}
+	if tr.upLimit > 0 && tr.lastUpBPS > float64(tr.upLimit) {
+		tr.t.DisallowDataUpload()
+	} else {
+		tr.t.AllowDataUpload()
+	}
+}
+
 // snapshotLocked builds the public view of one torrent. Callers must hold
 // e.mu.
 func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
@@ -81,23 +105,25 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 	}
 
 	return TorrentSnapshot{
-		ID:          id,
-		Name:        t.Name(),
-		InfoHash:    t.InfoHash().HexString(),
-		TotalLength: total,
-		Completed:   completed,
-		Progress:    progress,
-		DownloadBPS: tr.lastDownBPS,
-		UploadBPS:   tr.lastUpBPS,
-		Downloaded:  downloaded,
-		Uploaded:    uploaded,
-		Ratio:       ratio,
-		NumPeers:    stats.ActivePeers,
-		NumSeeds:    stats.ConnectedSeeders,
-		ETA:         eta,
-		State:       state,
-		Paused:      tr.paused,
-		SavePath:    tr.savePath,
-		AddedAt:     tr.addedAt,
+		ID:            id,
+		Name:          t.Name(),
+		InfoHash:      t.InfoHash().HexString(),
+		TotalLength:   total,
+		Completed:     completed,
+		Progress:      progress,
+		DownloadBPS:   tr.lastDownBPS,
+		UploadBPS:     tr.lastUpBPS,
+		Downloaded:    downloaded,
+		Uploaded:      uploaded,
+		Ratio:         ratio,
+		NumPeers:      stats.ActivePeers,
+		NumSeeds:      stats.ConnectedSeeders,
+		ETA:           eta,
+		State:         state,
+		Paused:        tr.paused,
+		SavePath:      tr.savePath,
+		AddedAt:       tr.addedAt,
+		DownloadLimit: tr.downLimit,
+		UploadLimit:   tr.upLimit,
 	}
 }

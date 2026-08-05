@@ -9,6 +9,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/mse"
 	"github.com/anacrolix/torrent/storage"
+	"golang.org/x/time/rate"
 )
 
 // Config configures the engine's underlying torrent.Client.
@@ -30,6 +31,14 @@ type Config struct {
 	// header obfuscation offered or required). This is a client-wide
 	// setting; anacrolix/torrent has no per-torrent encryption policy.
 	DisableEncryption bool
+
+	// UploadRateLimit/DownloadRateLimit are global, client-wide caps in
+	// bytes/sec (0 = unlimited). The library supports a single pair of
+	// limiters at the Client level and nothing per torrent -- see
+	// SetTorrentRateLimit for how per-torrent caps are approximated on
+	// top of that.
+	UploadRateLimit   int64
+	DownloadRateLimit int64
 
 	Seed bool
 }
@@ -57,6 +66,9 @@ type tracked struct {
 	lastUploaded   int64
 	lastDownBPS    float64
 	lastUpBPS      float64
+
+	downLimit int64 // bytes/sec, 0 = unlimited (best-effort; see SetTorrentRateLimit)
+	upLimit   int64
 }
 
 // Engine tracks torrents and publishes their state.
@@ -67,6 +79,9 @@ type tracked struct {
 type Engine struct {
 	cfg    Config
 	client *torrent.Client
+
+	upLimiter   *rate.Limiter
+	downLimiter *rate.Limiter
 
 	// mu guards torrents and subs. Every exported method takes it, so an
 	// Engine is safe to share between the RPC server's goroutines.
@@ -88,11 +103,25 @@ func New(cfg Config) (*Engine, error) {
 		return nil, fmt.Errorf("engine: create data dir: %w", err)
 	}
 
+	// The limiters are always installed, even when unlimited: the client
+	// documents that a nil limiter cannot be turned into a limited one
+	// later, only an existing limiter's rate can be changed.
+	upLimiter := rate.NewLimiter(rate.Inf, 1<<20)
+	downLimiter := rate.NewLimiter(rate.Inf, 1<<20)
+	if cfg.UploadRateLimit > 0 {
+		upLimiter.SetLimit(rate.Limit(cfg.UploadRateLimit))
+	}
+	if cfg.DownloadRateLimit > 0 {
+		downLimiter.SetLimit(rate.Limit(cfg.DownloadRateLimit))
+	}
+
 	tc := torrent.NewDefaultClientConfig()
 	tc.DataDir = cfg.DataDir
 	tc.NoDHT = cfg.DisableDHT
 	tc.DisablePEX = cfg.DisablePEX
 	tc.Seed = cfg.Seed
+	tc.UploadRateLimiter = upLimiter
+	tc.DownloadRateLimiter = downLimiter
 	if cfg.DisableEncryption {
 		tc.HeaderObfuscationPolicy = torrent.HeaderObfuscationPolicy{
 			Preferred: false, RequirePreferred: false,
@@ -106,12 +135,14 @@ func New(cfg Config) (*Engine, error) {
 	}
 
 	e := &Engine{
-		cfg:      cfg,
-		client:   client,
-		torrents: map[TorrentID]*tracked{},
-		subs:     map[chan Event]struct{}{},
-		lastTick: time.Now(),
-		closeCh:  make(chan struct{}),
+		cfg:         cfg,
+		client:      client,
+		upLimiter:   upLimiter,
+		downLimiter: downLimiter,
+		torrents:    map[TorrentID]*tracked{},
+		subs:        map[chan Event]struct{}{},
+		lastTick:    time.Now(),
+		closeCh:     make(chan struct{}),
 	}
 	e.wg.Add(1)
 	go e.tickLoop()
@@ -238,6 +269,7 @@ func (e *Engine) tick() {
 
 	for _, tr := range e.torrents {
 		tr.updateRates(elapsed)
+		tr.enforceRateLimit()
 	}
 	ev := e.eventLocked()
 	e.mu.Unlock()
