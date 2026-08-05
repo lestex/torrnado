@@ -7,9 +7,10 @@ package tui
 // one key per action is what lets it be overridden from a config file
 // without inventing a syntax for chords.
 type KeyMap struct {
-	Up, Down, Top, Bottom string
-	Select                string
-	Quit                  string
+	Up, Down, Top, Bottom      string
+	Select, Remove, RemoveData string
+	Pause, Recheck             string
+	Back, Quit                 string
 }
 
 // DefaultKeyMap is torrnado's out-of-the-box vim-like binding set.
@@ -20,8 +21,15 @@ func DefaultKeyMap() KeyMap {
 		Top:    "g",
 		Bottom: "G",
 
-		Select: " ",
-		Quit:   "q",
+		Select:     " ",
+		Remove:     "x",
+		RemoveData: "D",
+
+		Pause:   "p",
+		Recheck: "r",
+
+		Back: "esc",
+		Quit: "q",
 	}
 }
 
@@ -41,6 +49,11 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Top, "top")
 	apply(&k.Bottom, "bottom")
 	apply(&k.Select, "select")
+	apply(&k.Remove, "remove")
+	apply(&k.RemoveData, "remove_data")
+	apply(&k.Pause, "pause")
+	apply(&k.Recheck, "recheck")
+	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")
 	return k
 }

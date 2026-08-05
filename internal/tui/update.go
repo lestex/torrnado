@@ -1,6 +1,10 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/lestex/torrnado/internal/engine"
+)
 
 // Update handles one message and returns the next Model.
 //
@@ -68,6 +72,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor = len(visible) - 1
 		}
 
+	case key == km.Remove:
+		return m.removeTargets(visible, false)
+
+	case key == km.RemoveData:
+		return m.removeTargets(visible, true)
+
+	case key == km.Pause:
+		targets := m.targets(visible)
+		if len(targets) == 0 {
+			return m, nil
+		}
+		return m, pauseCmd(m.client, targets)
+
+	case key == km.Recheck:
+		return m.recheckTargets(visible)
+
+	case key == km.Back:
+		// Escape peels one layer at a time rather than clearing
+		// everything at once, so it is never a surprise.
+		if len(m.selected) > 0 {
+			m.selected = map[engine.TorrentID]bool{}
+		} else if m.filter != filterAll {
+			m.filter = filterAll
+			m.clampCursor(len(m.visibleTorrents()))
+		}
+
 	case key == km.Select:
 		// Marking a row advances the cursor, so a run of torrents can be
 		// selected by holding one key rather than alternating two.
@@ -85,4 +115,54 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// targets is what an action applies to: every marked torrent if any are
+// marked, otherwise just the row under the cursor.
+//
+// That rule is what lets the same keys work on one torrent or fifty
+// without a separate "apply to selection" mode.
+func (m Model) targets(visible []engine.TorrentSnapshot) []engine.TorrentSnapshot {
+	if len(m.selected) > 0 {
+		out := make([]engine.TorrentSnapshot, 0, len(m.selected))
+		// Walked in list order, not map order, so the status message
+		// counts and any partial failure are reproducible.
+		for _, t := range m.torrents {
+			if m.selected[t.ID] {
+				out = append(out, t)
+			}
+		}
+		return out
+	}
+	if len(visible) == 0 || m.cursor >= len(visible) {
+		return nil
+	}
+	return visible[m.cursor : m.cursor+1]
+}
+
+func (m Model) removeTargets(visible []engine.TorrentSnapshot, deleteData bool) (tea.Model, tea.Cmd) {
+	targets := m.targets(visible)
+	if len(targets) == 0 {
+		return m, nil
+	}
+	ids := make([]engine.TorrentID, len(targets))
+	for i, t := range targets {
+		ids[i] = t.ID
+	}
+	// Cleared up front: the rows are about to stop existing, and a
+	// selection pointing at them would apply the next action to nothing.
+	m.selected = map[engine.TorrentID]bool{}
+	return m, removeCmd(m.client, ids, deleteData)
+}
+
+func (m Model) recheckTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.Cmd) {
+	targets := m.targets(visible)
+	if len(targets) == 0 {
+		return m, nil
+	}
+	ids := make([]engine.TorrentID, len(targets))
+	for i, t := range targets {
+		ids[i] = t.ID
+	}
+	return m, recheckCmd(m.client, ids)
 }

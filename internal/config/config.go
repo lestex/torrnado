@@ -57,7 +57,9 @@ type Config struct {
 // has no interface at all, from pulling one in.
 var KnownActions = []string{
 	"up", "down", "top", "bottom",
-	"select", "quit",
+	"select", "remove", "remove_data",
+	"pause", "recheck",
+	"back", "quit",
 }
 
 // Default returns a Config with every field set to its XDG-aware default.
