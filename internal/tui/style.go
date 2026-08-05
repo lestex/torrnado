@@ -20,7 +20,11 @@ type styles struct {
 	SelectedRow lipgloss.Style
 	Row         lipgloss.Style
 	CursorRow   lipgloss.Style
-	ColHeader   lipgloss.Style
+	// CursorSelectedRow is a row that is both. Neither of the other two
+	// can stand in for it: one loses the selection, the other loses the
+	// cursor.
+	CursorSelectedRow lipgloss.Style
+	ColHeader         lipgloss.Style
 
 	// The two halves of a progress underline: how far along, and the
 	// track it runs on.
@@ -79,6 +83,13 @@ func newStyles(t theme.Theme) styles {
 		Row: lipgloss.NewStyle().Foreground(t.Foreground),
 
 		CursorRow: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
+
+		// The selection's background with the cursor's foreground, so
+		// both states are legible at once.
+		CursorSelectedRow: lipgloss.NewStyle().
+			Foreground(t.Accent).
+			Background(t.SelectedBg).
+			Bold(true),
 
 		// A table's own labels should not be the same colour as the
 		// chrome around it. This is the list's column headings, the

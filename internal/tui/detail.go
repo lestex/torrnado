@@ -29,10 +29,13 @@ const (
 	peerColFixed  = colGap + 4*colGap +
 		peerColClient + peerColPieces + peerColSource + peerColSpeed
 
-	fileColSize  = 9
-	fileColPrio  = 8 // fits the "Priority" header, wider than any value
-	fileColPct   = 5
-	fileColFixed = colMark + 4*colGap + fileColSize + fileColPct + fileColPrio
+	fileColSize = 9
+	fileColPrio = 8 // fits the "Priority" header, wider than any value
+	fileColPct  = 5
+	// One marker cell: a file can be under the cursor, and that is all --
+	// unlike a torrent row, which can also be selected.
+	fileColMark  = 1
+	fileColFixed = fileColMark + 4*colGap + fileColSize + fileColPct + fileColPrio
 )
 
 // handleDetailKey handles keys while the detail pane holds focus. Keys it
@@ -162,7 +165,7 @@ func (m Model) filesTab(p panes, height int) []string {
 
 	lines := []string{
 		m.styles.ColHeader.Render(truncate(
-			strings.Repeat(" ", colMark+colGap)+
+			strings.Repeat(" ", fileColMark+colGap)+
 				padRight("File", pathW)+
 				" "+padLeft("Size", fileColSize)+
 				" "+padLeft("%", fileColPct)+

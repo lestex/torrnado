@@ -12,7 +12,12 @@ import (
 // elastic: it absorbs whatever the pane has left over, which is what
 // keeps the table readable at any terminal width.
 const (
-	colMark   = 1 // cursor ">" / selection "*" marker
+	// Two marker cells, because the two states are independent: a row can
+	// be under the cursor, selected, or both. One cell can only show one
+	// of them, and the cursor won -- so a selected row under the cursor
+	// looked unselected, and there was no way to see which of several
+	// selected rows the cursor was on.
+	colMark   = 2
 	colSize   = 8
 	colStatus = 13 // fits "checking 100%"
 	colDown   = 12 // wide enough for "↓ 999.9MiB/s"
@@ -175,16 +180,19 @@ func clampLines(lines []string, height int) []string {
 func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []string {
 	nameW, wide := nameWidth(p.listContentW)
 
-	mark := " "
-	switch {
-	case isCursor:
-		mark = ">"
-	case m.selected[t.ID]:
-		mark = "*"
+	selected := m.selected[t.ID]
+
+	cursorMark, selectMark := " ", " "
+	if isCursor {
+		cursorMark = ">"
+	}
+	if selected {
+		selectMark = "*"
 	}
 
 	var b strings.Builder
-	b.WriteString(mark)
+	b.WriteString(cursorMark)
+	b.WriteString(selectMark)
 	b.WriteString(" ")
 	b.WriteString(padRight(truncate(t.Name, nameW), nameW))
 	b.WriteString(" " + progressCell(t.Progress, barWidth(p.listContentW)))
@@ -202,11 +210,16 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 
 	// The whole line takes one style, so a highlight cannot be broken
 	// partway through by a nested style's ANSI reset.
+	// The styles carry the same pair of states as the markers, and had
+	// the same problem: a selected row under the cursor showed the
+	// cursor's colour and lost the selection's background entirely.
 	style := m.styles.Row
 	switch {
+	case isCursor && selected:
+		style = m.styles.CursorSelectedRow
 	case isCursor:
 		style = m.styles.CursorRow
-	case m.selected[t.ID]:
+	case selected:
 		style = m.styles.SelectedRow
 	}
 
