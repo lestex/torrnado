@@ -366,3 +366,70 @@ func TestATightPaneSpendsTheRoomOnTheName(t *testing.T) {
 		t.Errorf("heading over a bar is %q, want %q", got, "Progress")
 	}
 }
+
+// The cursor and the selection are independent, and one marker cell
+// could only ever show one of them -- so a selected row under the cursor
+// looked unselected, and there was no telling which of several selected
+// rows the cursor was on.
+func TestCursorAndSelectionAreBothVisible(t *testing.T) {
+	m := testModel("a", "b")
+	p := layout(200, 40)
+
+	snap := engine.TorrentSnapshot{ID: "a", Name: "a", TotalLength: 100}
+
+	m.selected = map[engine.TorrentID]bool{}
+	plain := m.renderRow(p, snap, false)[0]
+	cursor := m.renderRow(p, snap, true)[0]
+
+	m.selected = map[engine.TorrentID]bool{"a": true}
+	selected := m.renderRow(p, snap, false)[0]
+	both := m.renderRow(p, snap, true)[0]
+
+	if !strings.Contains(cursor, ">") {
+		t.Errorf("the cursor row has no cursor marker: %q", cursor)
+	}
+	if !strings.Contains(selected, "*") {
+		t.Errorf("a selected row has no selection marker: %q", selected)
+	}
+	if !strings.Contains(both, ">") || !strings.Contains(both, "*") {
+		t.Errorf("a selected row under the cursor shows only one marker: %q", both)
+	}
+	if strings.Contains(plain, ">") || strings.Contains(plain, "*") {
+		t.Errorf("an ordinary row is marked: %q", plain)
+	}
+
+	// All four states are told apart by their styling too, not only by
+	// the markers: the row under the cursor used to lose the selection's
+	// background entirely.
+	for _, pair := range [][2]string{
+		{plain, cursor}, {plain, selected}, {plain, both},
+		{cursor, selected}, {cursor, both}, {selected, both},
+	} {
+		if ansiPrefix(pair[0]) == ansiPrefix(pair[1]) && pair[0] == pair[1] {
+			t.Errorf("two different row states render identically:\n%q\n%q", pair[0], pair[1])
+		}
+	}
+}
+
+// Every row is the same width whatever its markers, or the columns walk
+// left and right as the cursor moves.
+func TestMarkersDoNotChangeTheRowWidth(t *testing.T) {
+	m := testModel("a")
+	p := layout(200, 40)
+	snap := engine.TorrentSnapshot{ID: "a", Name: "a", TotalLength: 100}
+
+	m.selected = map[engine.TorrentID]bool{}
+	plain := lipgloss.Width(m.renderRow(p, snap, false)[0])
+	cursor := lipgloss.Width(m.renderRow(p, snap, true)[0])
+
+	m.selected = map[engine.TorrentID]bool{"a": true}
+	both := lipgloss.Width(m.renderRow(p, snap, true)[0])
+
+	if plain != cursor || plain != both {
+		t.Errorf("row widths differ by marker state: plain %d, cursor %d, both %d",
+			plain, cursor, both)
+	}
+	if header := lipgloss.Width(m.renderListHeader(p)); header != plain {
+		t.Errorf("header is %d columns and a row is %d", header, plain)
+	}
+}
