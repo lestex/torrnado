@@ -100,3 +100,16 @@ func loadDetail(c *ipc.Client, id engine.TorrentID) tea.Cmd {
 		return detailLoadedMsg{detail: d, err: err}
 	}
 }
+
+// setPriorityCmd changes one file's priority, then refetches the detail
+// so the pane shows what the daemon actually stored rather than what was
+// asked for -- the two differ, since the library has no "low".
+func setPriorityCmd(c *ipc.Client, id engine.TorrentID, fileIndex int, prio engine.Priority) tea.Cmd {
+	return func() tea.Msg {
+		if err := c.SetFilePriority(id, fileIndex, prio); err != nil {
+			return errStatus(err)
+		}
+		d, err := c.Detail(id)
+		return detailLoadedMsg{detail: d, err: err}
+	}
+}

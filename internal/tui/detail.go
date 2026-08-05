@@ -5,8 +5,14 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/lestex/torrnado/internal/engine"
 )
 
+// fileColFixed and the peer widths follow the same rule as the list's
+// columns: count one gap per column including the elastic one's, or the
+// row overruns its pane by a cell and gets truncated at the edge.
+//
 // Column widths for the Peers table. Address is elastic; the rest are
 // fixed. There is no Choked column: anacrolix/torrent does not export
 // peer choke state -- see the doc comment on engine.PeerInfo.
@@ -36,14 +42,32 @@ func (m Model) handleDetailKey(key string) (tea.Model, tea.Cmd) {
 
 	switch {
 	case key == km.Up, key == "up":
+		if m.detailTab == tabFiles {
+			if m.detailCursor > 0 {
+				m.detailCursor--
+			}
+			return m, nil
+		}
 		if m.detailScroll > 0 {
 			m.detailScroll--
 		}
 		return m, nil
 
 	case key == km.Down, key == "down":
+		if m.detailTab == tabFiles {
+			if m.detailCursor < len(m.detail.Files)-1 {
+				m.detailCursor++
+			}
+			return m, nil
+		}
 		m.detailScroll++
 		return m, nil
+
+	case key == "+" || key == "=":
+		return m.adjustFilePriority(1)
+
+	case key == "-" || key == "_":
+		return m.adjustFilePriority(-1)
 	}
 
 	return m.handleListKey(key)
@@ -85,6 +109,8 @@ func (m Model) renderDetailBody(p panes) string {
 	switch m.detailTab {
 	case tabPeers:
 		lines = m.peersTab(p, height)
+	case tabFiles:
+		lines = m.filesTab(p, height)
 	default:
 		lines = []string{m.styles.Muted.Render(" (nothing to show yet)")}
 	}
@@ -124,4 +150,61 @@ func (m Model) peersTab(p panes, height int) []string {
 		lines = append(lines, m.styles.Row.Render(truncate(row, p.detailContentW)))
 	}
 	return lines
+}
+
+func (m Model) filesTab(p panes, height int) []string {
+	d := m.detail
+	pathW := max(8, p.detailContentW-fileColFixed)
+
+	lines := []string{
+		m.styles.ColHeader.Render(truncate(
+			strings.Repeat(" ", colMark+colGap)+
+				padRight("File", pathW)+
+				" "+padLeft("Size", fileColSize)+
+				" "+padLeft("%", fileColPct)+
+				" "+padRight("Priority", fileColPrio),
+			p.detailContentW)),
+	}
+	if len(d.Files) == 0 {
+		return append(lines, m.styles.Muted.Render(" (metadata not yet available)"))
+	}
+
+	start, end := scrollWindow(m.detailCursor, len(d.Files), height-1)
+	for i := start; i < end; i++ {
+		f := d.Files[i]
+		mark := " "
+		style := m.styles.Row
+		if i == m.detailCursor && m.focus == focusDetail {
+			mark, style = ">", m.styles.CursorRow
+		}
+		row := mark + " " +
+			padRight(f.Path, pathW) +
+			" " + padLeft(formatBytes(f.Length), fileColSize) +
+			" " + padLeft(percentCell(fileProgress(f)), fileColPct) +
+			" " + padRight(f.Priority.String(), fileColPrio)
+		lines = append(lines, style.Render(truncate(row, p.detailContentW)))
+	}
+	return lines
+}
+
+func (m Model) adjustFilePriority(delta int) (tea.Model, tea.Cmd) {
+	if m.detailTab != tabFiles || m.detailCursor >= len(m.detail.Files) {
+		return m, nil
+	}
+	f := m.detail.Files[m.detailCursor]
+	p := f.Priority + engine.Priority(delta)
+	if p < engine.PriorityNone {
+		p = engine.PriorityNone
+	}
+	if p > engine.PriorityNow {
+		p = engine.PriorityNow
+	}
+	return m, setPriorityCmd(m.client, m.detail.Snapshot.ID, f.Index, p)
+}
+
+func fileProgress(f engine.FileInfo) float64 {
+	if f.Length == 0 {
+		return 0
+	}
+	return float64(f.Completed) / float64(f.Length)
 }
