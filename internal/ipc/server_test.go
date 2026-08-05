@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -113,4 +114,51 @@ func TestDispatchGlobalLimits(t *testing.T) {
 			t.Errorf("%s: %q", req.Method, resp.Err)
 		}
 	}
+}
+
+// Only one daemon may own a socket. Two running against the same data
+// directory corrupt each other's view of which pieces are complete.
+func TestSecondDaemonIsRefused(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	first, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("first Serve: %v", err)
+	}
+	defer first.Close()
+
+	if second, err := Serve(sock, eng, nil); err == nil {
+		second.Close()
+		t.Fatal("a second daemon was allowed to take the same socket")
+	}
+}
+
+// And once the first releases it, the socket can be claimed again --
+// otherwise a restart would need the lock file deleted by hand.
+func TestSocketCanBeReclaimedAfterClose(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	first, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("first Serve: %v", err)
+	}
+	first.Close()
+
+	second, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("could not reclaim the socket after a clean shutdown: %v", err)
+	}
+	second.Close()
 }
