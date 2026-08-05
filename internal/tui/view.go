@@ -79,8 +79,11 @@ func clampBlock(s string, height int) string {
 func (m Model) renderFooter(p panes) string {
 	// While typing, the footer is the prompt -- there is nowhere else to
 	// put it, and the totals are less useful than seeing what you typed.
-	if m.mode == modeSearch {
+	switch m.mode {
+	case modeSearch:
 		return truncate(m.styles.SelectedRow.Render(" /"+m.searchQuery), p.footerW)
+	case modeCommand:
+		return truncate(m.styles.SelectedRow.Render(" :"+m.commandBuf), p.footerW)
 	}
 	if m.showHelp {
 		return m.styles.StatusBar.Render(" press any key to close help")

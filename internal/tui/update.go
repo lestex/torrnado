@@ -53,9 +53,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// While typing a search, keys are text rather than commands.
-	if m.mode == modeSearch {
+	// While typing at a prompt, keys are text rather than commands.
+	switch m.mode {
+	case modeSearch:
 		return m.handleSearchKey(msg)
+	case modeCommand:
+		return m.handleCommandKey(msg)
 	}
 
 	visible := m.visibleTorrents()
@@ -116,6 +119,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key == km.Search:
 		m.mode = modeSearch
+		return m, nil
+
+	case key == km.Command:
+		m.mode = modeCommand
+		m.commandBuf = ""
 		return m, nil
 
 	case key == km.Help:
@@ -219,5 +227,30 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// The list narrows on every keystroke, so the cursor has to follow.
 	m.clampCursor(len(m.visibleTorrents()))
+	return m, nil
+}
+
+// handleCommandKey applies one keystroke to the command line, running it
+// on enter.
+func (m Model) handleCommandKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		line := m.commandBuf
+		m.mode = modeNormal
+		m.commandBuf = ""
+		return m.execCommand(line)
+	case tea.KeyEsc:
+		m.mode = modeNormal
+		m.commandBuf = ""
+	case tea.KeyBackspace:
+		r := []rune(m.commandBuf)
+		if len(r) > 0 {
+			m.commandBuf = string(r[:len(r)-1])
+		}
+	case tea.KeySpace:
+		m.commandBuf += " "
+	case tea.KeyRunes:
+		m.commandBuf += string(msg.Runes)
+	}
 	return m, nil
 }

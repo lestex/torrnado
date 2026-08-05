@@ -59,7 +59,7 @@ var KnownActions = []string{
 	"up", "down", "top", "bottom",
 	"select", "remove", "remove_data",
 	"pause", "recheck",
-	"search", "back", "quit",
+	"search", "command", "back", "quit",
 	"help",
 }
 

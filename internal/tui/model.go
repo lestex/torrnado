@@ -24,6 +24,7 @@ type inputMode int
 const (
 	modeNormal inputMode = iota
 	modeSearch
+	modeCommand
 )
 
 // Model is the root bubbletea model.
@@ -58,6 +59,7 @@ type Model struct {
 	// mode is which of the text prompts, if any, is taking keystrokes.
 	mode        inputMode
 	searchQuery string
+	commandBuf  string
 
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool

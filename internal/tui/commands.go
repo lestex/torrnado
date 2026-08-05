@@ -71,3 +71,25 @@ func recheckCmd(c *ipc.Client, ids []engine.TorrentID) tea.Cmd {
 		return okStatus(fmt.Sprintf("rechecking %d torrent(s)", len(ids)))
 	}
 }
+
+// setPausedCmd sets an absolute state, unlike pauseCmd which toggles.
+// The palette's :pause has to mean pause whatever the current state is.
+func setPausedCmd(c *ipc.Client, ids []engine.TorrentID, paused bool) tea.Cmd {
+	return func() tea.Msg {
+		var failed int
+		for _, id := range ids {
+			if err := c.SetPaused(id, paused); err != nil {
+				failed++
+			}
+		}
+		if failed > 0 {
+			return errStatus(fmt.Errorf("updated %d/%d torrents (%d failed)",
+				len(ids)-failed, len(ids), failed))
+		}
+		verb := "resumed"
+		if paused {
+			verb = "paused"
+		}
+		return okStatus(fmt.Sprintf("%s %d torrent(s)", verb, len(ids)))
+	}
+}
