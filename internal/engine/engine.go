@@ -8,6 +8,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/mse"
+	"github.com/anacrolix/torrent/storage"
 )
 
 // Config configures the engine's underlying torrent.Client.
@@ -37,73 +38,17 @@ type Config struct {
 // broadcasts a fresh Event.
 const tickInterval = time.Second
 
-// simulatedRate is the download speed this in-memory engine pretends to
-// achieve, so progress visibly moves while the real networking is still
-// to be written.
-const simulatedRate = 2 << 20 // 2 MiB/s
-
-// tracked is one torrent's mutable bookkeeping, private to the engine.
-// Callers only ever see the immutable TorrentSnapshot built from it.
+// tracked is one torrent's bookkeeping, private to the engine. Callers
+// only ever see the immutable TorrentSnapshot built from it.
 type tracked struct {
-	id       TorrentID
-	name     string
-	total    int64
-	done     int64
-	rate     float64 // bytes/sec, this tick
-	paused   bool
+	t        *torrent.Torrent
 	addedAt  time.Time
+	paused   bool
 	savePath string
-}
-
-// advance moves a torrent forward by dt seconds. Paused torrents and
-// finished ones stand still.
-func (tr *tracked) advance(dt float64) {
-	if tr.paused || tr.done >= tr.total {
-		tr.rate = 0
-		return
-	}
-	tr.rate = simulatedRate
-	tr.done += int64(tr.rate * dt)
-	if tr.done > tr.total {
-		tr.done = tr.total
-	}
-}
-
-// snapshot builds the public view of a torrent.
-func (tr *tracked) snapshot() TorrentSnapshot {
-	var progress float64
-	if tr.total > 0 {
-		progress = float64(tr.done) / float64(tr.total)
-	}
-
-	state := StateDownloading
-	switch {
-	case tr.paused:
-		state = StatePaused
-	case tr.total > 0 && tr.done >= tr.total:
-		state = StateSeeding
-	}
-
-	var eta time.Duration
-	if missing := tr.total - tr.done; missing > 0 && tr.rate > 0 {
-		eta = time.Duration(float64(missing)/tr.rate) * time.Second
-	}
-
-	return TorrentSnapshot{
-		ID:          tr.id,
-		Name:        tr.name,
-		InfoHash:    string(tr.id),
-		TotalLength: tr.total,
-		Completed:   tr.done,
-		Progress:    progress,
-		DownloadBPS: tr.rate,
-		Downloaded:  tr.done,
-		ETA:         eta,
-		State:       state,
-		Paused:      tr.paused,
-		SavePath:    tr.savePath,
-		AddedAt:     tr.addedAt,
-	}
+	// ownStorage is set when this torrent was given a dedicated save
+	// path, rather than using the engine's shared default storage. It
+	// must be closed when the torrent is removed.
+	ownStorage storage.ClientImplCloser
 }
 
 // Engine tracks torrents and publishes their state.
@@ -271,12 +216,9 @@ func (e *Engine) tickLoop() {
 	}
 }
 
-// tick advances every unpaused torrent and publishes the result.
+// tick publishes the current state of every torrent.
 func (e *Engine) tick() {
 	e.mu.Lock()
-	for _, tr := range e.torrents {
-		tr.advance(tickInterval.Seconds())
-	}
 	ev := e.eventLocked()
 	e.mu.Unlock()
 
@@ -300,8 +242,8 @@ func (e *Engine) eventLocked() Event {
 		Torrents: make([]TorrentSnapshot, 0, len(e.torrents)),
 		At:       time.Now(),
 	}
-	for _, tr := range e.torrents {
-		snap := tr.snapshot()
+	for id, tr := range e.torrents {
+		snap := e.snapshotLocked(id, tr)
 		ev.Torrents = append(ev.Torrents, snap)
 		ev.Global.DownloadBPS += snap.DownloadBPS
 		ev.Global.TotalDownload += snap.Completed

@@ -1,95 +1,201 @@
 package engine
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 )
 
 // ErrNotFound is returned for an id no torrent answers to.
 var ErrNotFound = fmt.Errorf("torrent not found")
 
-// simulatedLength is the size this in-memory engine gives every torrent
-// it is asked to add.
-const simulatedLength = 700 << 20 // 700 MiB
+// filesOrNil returns t.Files(), or nil if t's metadata hasn't arrived yet.
+//
+// This guard is not optional. (*torrent.Torrent).Files() requires Info()
+// first, and calling it earlier does not return an error or an empty
+// slice -- it dereferences a nil pointer and takes down the whole
+// process, every torrent in the daemon along with it. A magnet can sit
+// without metadata for an unbounded time, so every call site goes
+// through here.
+func filesOrNil(t *torrent.Torrent) []*torrent.File {
+	if t.Info() == nil {
+		return nil
+	}
+	return t.Files()
+}
 
 // AddMagnet adds a torrent from a magnet URI.
 func (e *Engine) AddMagnet(uri string, opts AddOpts) (TorrentID, error) {
-	if !strings.HasPrefix(uri, "magnet:") {
-		return "", fmt.Errorf("not a magnet uri: %s", uri)
+	spec, err := torrent.TorrentSpecFromMagnetUri(uri)
+	if err != nil {
+		return "", fmt.Errorf("parse magnet uri: %w", err)
 	}
-	return e.add(magnetName(uri), fakeID(uri), opts)
+	return e.addSpec(spec, opts)
 }
 
 // AddTorrentFile adds a torrent from a local .torrent file.
 func (e *Engine) AddTorrentFile(path string, opts AddOpts) (TorrentID, error) {
-	// Check the file is there before accepting it. Anything that is not a
-	// magnet reaches this function, so without this a typo is silently
-	// added as a torrent that can never download.
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("read torrent file: %w", err)
+	mi, err := metainfo.LoadFromFile(path)
+	if err != nil {
+		return "", fmt.Errorf("load torrent file %s: %w", path, err)
 	}
-	name := strings.TrimSuffix(filepath.Base(path), ".torrent")
-	return e.add(name, fakeID(path), opts)
+	spec, err := torrent.TorrentSpecFromMetaInfoErr(mi)
+	if err != nil {
+		return "", fmt.Errorf("parse torrent file %s: %w", path, err)
+	}
+	return e.addSpec(spec, opts)
 }
 
-// add registers a torrent. Adding one that is already tracked is not an
-// error -- it simply returns the existing id, matching what a real
-// client does with a duplicate infohash.
-func (e *Engine) add(name string, id TorrentID, opts AddOpts) (TorrentID, error) {
+func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, error) {
+	// The client has a single default storage for everything, so a
+	// torrent that wants its own download directory gets its own storage
+	// instance -- which then has to be closed when it is removed.
+	var ownStorage storage.ClientImplCloser
 	savePath := e.cfg.DataDir
 	if opts.SavePath != "" {
+		if err := os.MkdirAll(opts.SavePath, 0o755); err != nil {
+			return "", fmt.Errorf("create save dir %s: %w", opts.SavePath, err)
+		}
+		ownStorage = storage.NewFile(opts.SavePath)
+		spec.Storage = ownStorage
 		savePath = opts.SavePath
 	}
 
+	t, _, err := e.client.AddTorrentSpec(spec)
+	if err != nil {
+		if ownStorage != nil {
+			ownStorage.Close()
+		}
+		return "", fmt.Errorf("add torrent: %w", err)
+	}
+	id := TorrentID(t.InfoHash().HexString())
+
 	e.mu.Lock()
-	if _, exists := e.torrents[id]; !exists {
+	if _, exists := e.torrents[id]; exists {
+		// Same infohash as one already tracked: the client hands back the
+		// torrent it already has, so discard the storage just created.
+		if ownStorage != nil {
+			ownStorage.Close()
+		}
+	} else {
 		e.torrents[id] = &tracked{
-			id:       id,
-			name:     name,
-			total:    simulatedLength,
-			paused:   opts.Paused,
-			addedAt:  time.Now(),
-			savePath: savePath,
+			t:          t,
+			addedAt:    time.Now(),
+			paused:     opts.Paused,
+			savePath:   savePath,
+			ownStorage: ownStorage,
 		}
 	}
 	e.mu.Unlock()
+
+	// A magnet carries no file list -- that metadata has to be fetched
+	// from a peer first, and for a torrent with no peers it may never
+	// arrive. So wait for it in the background rather than making the
+	// caller wait an unbounded time.
+	go func() {
+		select {
+		case <-t.GotInfo():
+		case <-e.closeCh:
+			return
+		}
+		if !opts.Paused {
+			downloadAllFiles(t)
+		}
+		e.snapshotAndBroadcastNow()
+	}()
 
 	e.snapshotAndBroadcastNow()
 	return id, nil
 }
 
-// RemoveTorrent stops tracking a torrent. deleteData is accepted but has
-// nothing to delete yet.
+// downloadAllFiles marks every file in t as wanted. No-op until metadata
+// has arrived.
+//
+// Nothing is fetched by default: a freshly added torrent sits at zero
+// forever unless something says it wants the data.
+func downloadAllFiles(t *torrent.Torrent) {
+	for _, f := range filesOrNil(t) {
+		f.SetPriority(torrent.PiecePriorityNormal)
+	}
+}
+
+func (e *Engine) lookup(id TorrentID) (*tracked, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	tr, ok := e.torrents[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return tr, nil
+}
+
+// RemoveTorrent drops a torrent from the client. If deleteData is true,
+// its downloaded files are removed from disk.
 func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 	e.mu.Lock()
-	if _, ok := e.torrents[id]; !ok {
+	tr, ok := e.torrents[id]
+	if !ok {
 		e.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(e.torrents, id)
 	e.mu.Unlock()
 
+	// Work out the paths before dropping the torrent: afterwards the file
+	// list is gone.
+	files := filesOrNil(tr.t)
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, filepath.Join(tr.savePath, f.Path()))
+	}
+
+	tr.t.Drop()
+	if tr.ownStorage != nil {
+		tr.ownStorage.Close()
+	}
+
+	if deleteData {
+		for _, p := range paths {
+			os.Remove(p)
+		}
+		removeEmptyDirs(tr.savePath, paths)
+	}
+
 	e.snapshotAndBroadcastNow()
 	return nil
 }
 
+// removeEmptyDirs removes the directories a multi-file torrent left
+// behind, stopping at savePath itself -- that is usually a shared
+// downloads directory and is not ours to delete.
+func removeEmptyDirs(savePath string, filePaths []string) {
+	seen := map[string]bool{}
+	for _, p := range filePaths {
+		dir := filepath.Dir(p)
+		for dir != savePath && dir != "." && dir != string(filepath.Separator) && !seen[dir] {
+			seen[dir] = true
+			if os.Remove(dir) != nil {
+				break // not empty, or already gone; stop walking up
+			}
+			dir = filepath.Dir(dir)
+		}
+	}
+}
+
 // SetPaused pauses or resumes a torrent.
 func (e *Engine) SetPaused(id TorrentID, paused bool) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
 	e.mu.Lock()
-	tr, ok := e.torrents[id]
-	if ok {
-		tr.paused = paused
-	}
+	tr.paused = paused
 	e.mu.Unlock()
-	if !ok {
-		return ErrNotFound
-	}
 
 	e.snapshotAndBroadcastNow()
 	return nil
@@ -101,8 +207,8 @@ func (e *Engine) ListTorrents() []TorrentSnapshot {
 	defer e.mu.Unlock()
 
 	out := make([]TorrentSnapshot, 0, len(e.torrents))
-	for _, tr := range e.torrents {
-		out = append(out, tr.snapshot())
+	for id, tr := range e.torrents {
+		out = append(out, e.snapshotLocked(id, tr))
 	}
 	return out
 }
@@ -116,25 +222,5 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 	if !ok {
 		return TorrentDetail{}, ErrNotFound
 	}
-	return TorrentDetail{Snapshot: tr.snapshot()}, nil
-}
-
-// fakeID derives a stable id from a source string, standing in for the
-// infohash a real client would read out of the torrent's metadata.
-func fakeID(source string) TorrentID {
-	sum := sha1.Sum([]byte(source))
-	return TorrentID(hex.EncodeToString(sum[:]))
-}
-
-// magnetName pulls the display name (the "dn" parameter) out of a magnet
-// URI, falling back to the URI itself.
-func magnetName(uri string) string {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return uri
-	}
-	if dn := u.Query().Get("dn"); dn != "" {
-		return dn
-	}
-	return uri
+	return TorrentDetail{Snapshot: e.snapshotLocked(id, tr)}, nil
 }
