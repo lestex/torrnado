@@ -58,8 +58,13 @@ test: ## Run all tests
 test-race: ## Run all tests with the race detector
 	$(GO) test -race -count=1 ./...
 
+# systemd_test.sh is excluded on purpose: it needs a booted systemd and
+# drives a real service, so it only ever runs through `make systemd-test`
+# (the script refuses to run outside that container anyway).
+E2E_TESTS := $(filter-out e2e/systemd_test.sh,$(wildcard e2e/*_test.sh))
+
 e2e: build ## Drive the built binary through the shell tests
-	@for t in e2e/*_test.sh; do \
+	@for t in $(E2E_TESTS); do \
 		echo "== $$t"; \
 		bash "$$t" || exit 1; \
 	done

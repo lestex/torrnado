@@ -13,6 +13,14 @@
 
 set -uo pipefail
 
+# This script stops, kills and restarts the torrnado service, so running
+# it on a machine that has one would do all of that to yours. Only ever
+# runs inside the throwaway container built from Dockerfile.systemd.
+if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
+	echo "systemd_test.sh only runs inside the Dockerfile.systemd container -- use 'make systemd-test'" >&2
+	exit 1
+fi
+
 TESTS_RUN=0
 TESTS_FAILED=0
 
