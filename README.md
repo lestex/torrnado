@@ -559,3 +559,7 @@ than left as a surprise:
   still runs in the background, just not in its own session. The
   Unix-socket IPC design itself doesn't extend to Windows without a
   different transport (named pipes), which is out of scope here.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
