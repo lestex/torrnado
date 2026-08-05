@@ -305,6 +305,16 @@ const (
 
 // setStatus shows a message and returns the command that will clear it.
 //
+// It mutates the receiver, so it must be called on its own line:
+//
+//	cmd := m.setStatus(okStatus("done"))
+//	return m, cmd
+//
+// `return m, m.setStatus(...)` is two operands of one return statement, and
+// the spec orders the function calls among themselves but not against the
+// plain operand beside them -- so whether the returned copy carries the
+// message is left to the compiler.
+//
 // A status bar reporting "rechecking 1 torrent(s)" is describing
 // something that happened, not something that is still true -- and the
 // message outlived the recheck by however long the TUI stayed open,

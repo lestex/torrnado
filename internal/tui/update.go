@@ -40,7 +40,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case statusMsg:
-		return m, m.setStatus(msg)
+		cmd := m.setStatus(msg)
+		return m, cmd
 
 	case statusExpiredMsg:
 		m.clearStatus(msg.seq)
@@ -48,7 +49,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case detailLoadedMsg:
 		if msg.err != nil {
-			return m, m.setStatus(errStatus(msg.err))
+			cmd := m.setStatus(errStatus(msg.err))
+			return m, cmd
 		}
 		// A reply for a torrent the cursor has already left is stale;
 		// dropping it stops a slow fetch overwriting the pane after the
