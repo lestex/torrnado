@@ -1,6 +1,8 @@
 package theme
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -70,5 +72,83 @@ func TestPlainThemeAvoidsHexColours(t *testing.T) {
 		if strings.HasPrefix(c, "#") {
 			t.Errorf("plain theme uses a hex colour %q", c)
 		}
+	}
+}
+
+// writeTheme puts a theme file in dir and returns dir.
+func writeTheme(t *testing.T, name, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, name+".toml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	return dir
+}
+
+const completeTheme = `
+background  = "#000000"
+foreground  = "#ffffff"
+muted       = "#888888"
+accent      = "#ff00ff"
+success     = "#00ff00"
+warning     = "#ffff00"
+error       = "#ff0000"
+border      = "#333333"
+selected_bg = "#222222"
+selected_fg = "#ffffff"
+`
+
+func TestLoadUsesAnOverrideFile(t *testing.T) {
+	dir := writeTheme(t, "mine", completeTheme)
+
+	th, err := Load("mine", dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if th.Accent != "#ff00ff" || th.Name != "mine" {
+		t.Errorf("got %+v", th)
+	}
+}
+
+// A file shadows a built-in of the same name, which is how a built-in
+// gets customised without having to invent a new name for it.
+func TestOverrideBeatsBuiltinOfTheSameName(t *testing.T) {
+	dir := writeTheme(t, "dracula", completeTheme)
+
+	th, err := Load("dracula", dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if th.Accent != "#ff00ff" {
+		t.Errorf("Accent = %q, want the override's colour", th.Accent)
+	}
+}
+
+// A half-written theme is rejected, naming what is absent. Falling back
+// silently would leave elements rendering in the terminal's default with
+// nothing to explain why.
+func TestOverrideMissingColoursIsAnError(t *testing.T) {
+	dir := writeTheme(t, "partial", `foreground = "#ffffff"`)
+
+	_, err := Load("partial", dir)
+	if err == nil {
+		t.Fatal("an incomplete theme should be an error")
+	}
+	for _, want := range []string{"background", "accent", "selected_fg"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should name %q, got: %v", want, err)
+		}
+	}
+}
+
+func TestOverrideUnknownKeyIsAnError(t *testing.T) {
+	dir := writeTheme(t, "typo", completeTheme+"\nacent = \"#123456\"\n")
+
+	_, err := Load("typo", dir)
+	if err == nil {
+		t.Fatal("an unknown key should be an error")
+	}
+	if !strings.Contains(err.Error(), "acent") {
+		t.Errorf("error should name the unknown key, got: %v", err)
 	}
 }
