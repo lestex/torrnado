@@ -122,21 +122,27 @@ func (m Model) renderFooter(p panes) string {
 	left := fmt.Sprintf(" ↓ %s  ↑ %s  │  %d torrents",
 		formatRate(g.DownloadBPS), formatRate(g.UploadBPS), g.NumTorrents)
 
-	right := ""
-	if m.status != "" {
-		style := m.styles.StatusBar
-		if m.statusIsErr {
-			style = m.styles.StatusErr
-		}
-		right = style.Render(m.status)
+	statusStyle := m.styles.StatusBar
+	if m.statusIsErr {
+		statusStyle = m.styles.StatusErr
 	}
 
-	gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(right) - 1
-	if gap < 1 {
-		// Not enough room for both. The totals are the line's reason for
-		// existing, so the status goes rather than wrapping onto a row
-		// the layout has not allocated.
-		return truncate(m.styles.StatusBar.Render(left), p.footerW)
+	// Both, when both fit.
+	if gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(m.status) - 1; m.status == "" || gap >= 1 {
+		line := m.styles.StatusBar.Render(left)
+		if m.status != "" {
+			line += strings.Repeat(" ", gap) + statusStyle.Render(m.status) + " "
+		}
+		return truncate(line, p.footerW)
 	}
-	return m.styles.StatusBar.Render(left) + strings.Repeat(" ", gap) + right + " "
+
+	// Otherwise the message takes the line. It answers something the user
+	// just did and clears itself after a few seconds, while the totals
+	// are always a keystroke away and are back the moment it expires --
+	// and this used to drop the message instead, so a long one (every
+	// error naming a path, say) simply never appeared.
+	//
+	// Truncated before styling: truncate measures printable width but
+	// cuts runes, so trimming a styled string cuts its escape sequences.
+	return statusStyle.Render(truncate(" "+m.status, p.footerW))
 }
