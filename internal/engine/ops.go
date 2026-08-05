@@ -107,11 +107,14 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, er
 		case <-e.closeCh:
 			return
 		}
+		e.log.Info("metadata received", "id", id, "name", t.Name(), "size", t.Length())
 		if !opts.Paused {
 			downloadAllFiles(t)
 		}
 		e.snapshotAndBroadcastNow()
 	}()
+
+	e.log.Info("torrent added", "id", id, "name", t.Name(), "save_path", savePath, "paused", opts.Paused)
 
 	e.snapshotAndBroadcastNow()
 	return id, nil
@@ -175,6 +178,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 		}
 		removeEmptyDirs(tr.savePath, paths)
 	}
+	e.log.Info("torrent removed", "id", id, "deleted_data", deleteData)
 
 	e.snapshotAndBroadcastNow()
 	return nil
@@ -454,9 +458,11 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 	tr.checkDone = 0
 	tr.checkTotal = total
 	e.mu.Unlock()
+	e.log.Info("recheck started", "id", id, "pieces", total)
 	e.snapshotAndBroadcastNow()
 
 	go func() {
+		started := time.Now()
 		// Verified one piece at a time rather than through the library's
 		// whole-torrent VerifyData, so the progress is observable: that
 		// call reports nothing at all until it returns, which on a large
@@ -479,6 +485,12 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 			tr.lastErr = fmt.Sprintf("recheck failed: %v", failed)
 		}
 		e.mu.Unlock()
+
+		if failed != nil {
+			e.log.Error("recheck failed", "id", id, "err", failed)
+		} else {
+			e.log.Info("recheck finished", "id", id, "took", time.Since(started).Round(time.Millisecond))
+		}
 		e.snapshotAndBroadcastNow()
 	}()
 	return nil

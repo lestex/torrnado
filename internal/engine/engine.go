@@ -88,6 +88,10 @@ type tracked struct {
 	lastPeers   map[string]peerBytes
 	lastPeersAt time.Time
 
+	// completeLogged stops the completion message repeating on every
+	// tick once a torrent is done.
+	completeLogged bool
+
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
 
@@ -327,9 +331,29 @@ func (e *Engine) tick() {
 		tr.enforceRateLimit()
 	}
 	ev := e.eventLocked()
+	// Collected under the lock, logged outside it: the destination may be
+	// a file, and a slow write should not stall every other operation.
+	done := e.newlyCompleteLocked()
 	e.mu.Unlock()
 
+	for _, s := range done {
+		e.log.Info("torrent complete", "id", s.ID, "name", s.Name, "size", s.TotalLength)
+	}
 	e.broadcast(ev)
+}
+
+// newlyCompleteLocked returns the torrents that finished since the last
+// call, marking them so each is reported once. Callers must hold e.mu.
+func (e *Engine) newlyCompleteLocked() []TorrentSnapshot {
+	var done []TorrentSnapshot
+	for id, tr := range e.torrents {
+		if tr.completeLogged || tr.t.Info() == nil || !tr.t.Complete().Bool() {
+			continue
+		}
+		tr.completeLogged = true
+		done = append(done, e.snapshotLocked(id, tr))
+	}
+	return done
 }
 
 // snapshotAndBroadcastNow publishes current state immediately, so a
