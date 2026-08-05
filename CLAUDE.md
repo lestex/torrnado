@@ -61,6 +61,9 @@ internal/engine   Wraps anacrolix/torrent.Client behind a small Go API +
                   an event channel of periodic state snapshots. No IPC or
                   UI code here -- this package alone is what you'd embed
                   if you wanted a different frontend entirely.
+internal/logging  The daemon's slog text logger. Writes through a
+                  swappable writer so SIGHUP can reopen the log file
+                  without rebuilding the logger every package holds.
 internal/ipc      Hand-rolled gob-over-Unix-socket protocol: call/reply
                   for commands, server-pushed events for state, both
                   multiplexed on one long-lived connection (see
@@ -167,6 +170,26 @@ before assuming an API does what it sounds like it does. Short version:
   no Local Service Discovery (LSD) support at all in the library --
   each is worked around in `internal/engine` and documented there and in
   the README's "anacrolix/torrent limitations" section.
+
+### Session persistence
+
+`internal/engine/session.go` writes `<state_dir>/session.json` (one record
+per torrent: paused, save path, rate limits, per-file priorities,
+added-at, and the magnet URI for torrents with no metadata yet) plus
+`<state_dir>/torrents/<infohash>.torrent`. It lives in `engine` because it
+reads `tracked` and the library's file priorities, neither of which
+another package can see. Saved after every mutating op (temp file +
+rename); restored by `Engine.RestoreSession`, which the daemon calls
+before it starts listening. A record that cannot be restored is logged and
+skipped -- refusing to start over one bad record is worse than starting
+with fewer torrents. Only the socket is guarded against two daemons
+sharing it, so a second daemon needs its own `state_dir` as well as its
+own socket.
+
+The torrent library logs through both `ClientConfig.Slogger` and its own
+package global (`anacrolixlog.Default`); `internal/engine/logbridge.go`
+points both at our handler, because capturing one leaves the other
+writing a different format straight to stderr.
 
 ### IPC wire format
 
