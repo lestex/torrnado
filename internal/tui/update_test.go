@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/lestex/torrnado/internal/engine"
 )
@@ -462,5 +463,48 @@ func TestALostConnectionDoesNotExpire(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("the lost-connection message was given an expiry")
+	}
+}
+
+// A message too long to sit beside the transfer totals takes the line
+// instead of being dropped. Every error that names a path is too long
+// for an 80-column footer, and one that never appears is the same as no
+// error at all.
+func TestALongStatusIsShownRatherThanDropped(t *testing.T) {
+	m := testModel("a")
+	m.width, m.height = 80, 24
+	p := layout(m.width, m.height)
+
+	m.status = `unknown theme "nope" (built-in themes: [catppuccin dracula gruvbox nord plain])`
+	m.statusIsErr = true
+
+	footer := m.renderFooter(p)
+
+	if !strings.Contains(footer, "unknown theme") {
+		t.Errorf("a long status was dropped from the footer: %q", footer)
+	}
+	if w := lipgloss.Width(footer); w > p.footerW {
+		t.Errorf("the footer is %d columns, want at most %d: %q", w, p.footerW, footer)
+	}
+}
+
+// A short one still shares the line with the totals, which are the
+// footer's reason for existing the rest of the time.
+func TestAShortStatusSharesTheFooter(t *testing.T) {
+	m := testModel("a")
+	m.width, m.height = 120, 30
+	p := layout(m.width, m.height)
+	m.status = "paused 1 torrent(s)"
+
+	footer := m.renderFooter(p)
+
+	if !strings.Contains(footer, "paused 1 torrent(s)") {
+		t.Errorf("the status is missing: %q", footer)
+	}
+	if !strings.Contains(footer, "torrents") {
+		t.Errorf("the totals are missing: %q", footer)
+	}
+	if w := lipgloss.Width(footer); w > p.footerW {
+		t.Errorf("the footer is %d columns, want at most %d", w, p.footerW)
 	}
 }
