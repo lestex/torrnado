@@ -457,6 +457,14 @@ than left as a surprise:
   hash check against files already on disk, not a re-download). This
   also means a move resets any custom per-file priorities back to normal
   -- the re-added `Torrent` is a fresh instance with no priority history.
+  Rebuilding the spec has one trap of its own: `Torrent.Metainfo()`
+  returns an allocated-but-empty piece-layers map for a v1 torrent, and a
+  non-nil map is what the library takes as "this is v2" -- the re-add
+  then fails with `no piece root set for file` for every file spanning
+  more than one piece. `MoveStorage` clears it. A move that fails after
+  the files have already been moved cannot be undone, so the error is
+  recorded on the torrent rather than the list going on showing figures
+  from a handle that is no longer running.
 - **`(*torrent.File).Priority()` doesn't reflect
   `(*torrent.Torrent).DownloadAll()`/`DownloadPieces()`.** Those set
   piece priorities directly; `File.Priority()` only ever returns what was
