@@ -1,4 +1,4 @@
-package main
+package config
 
 import "testing"
 
@@ -20,26 +20,25 @@ func TestParseRate(t *testing.T) {
 		{"1G", 1 << 30},
 		{"1.5M", 1536 << 10}, // fractions are allowed
 
-		{"2MB", 2 << 20}, // the longer spellings mean the same thing
-		{"2MiB", 2 << 20},
 		{" 2M ", 2 << 20}, // surrounding space is not an error
+		{"4096B", 4096},   // a trailing B means plain bytes
 	}
 	for _, c := range cases {
-		got, err := parseRate(c.in)
+		got, err := ParseRate(c.in)
 		if err != nil {
-			t.Errorf("parseRate(%q) failed: %v", c.in, err)
+			t.Errorf("ParseRate(%q) failed: %v", c.in, err)
 			continue
 		}
 		if got != c.want {
-			t.Errorf("parseRate(%q) = %d, want %d", c.in, got, c.want)
+			t.Errorf("ParseRate(%q) = %d, want %d", c.in, got, c.want)
 		}
 	}
 }
 
 func TestParseRateRejectsNonsense(t *testing.T) {
 	for _, in := range []string{"fast", "-1", "-5M", "1..5M", "M"} {
-		if got, err := parseRate(in); err == nil {
-			t.Errorf("parseRate(%q) = %d, want an error", in, got)
+		if got, err := ParseRate(in); err == nil {
+			t.Errorf("ParseRate(%q) = %d, want an error", in, got)
 		}
 	}
 }

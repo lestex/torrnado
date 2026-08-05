@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lestex/torrnado/internal/config"
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
@@ -149,7 +150,7 @@ func newLimitCmd() *cobra.Command {
 			if direction != "up" && direction != "down" {
 				return fmt.Errorf("direction must be \"up\" or \"down\", got %q", args[0])
 			}
-			bps, err := parseRate(args[1])
+			bps, err := config.ParseRate(args[1])
 			if err != nil {
 				return err
 			}
