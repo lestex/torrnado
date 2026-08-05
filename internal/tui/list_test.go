@@ -120,9 +120,11 @@ func TestHeaderAndRowsShareTheirColumns(t *testing.T) {
 		}
 		// The bar starts where "Progress" does, or the column is only a
 		// header and a coincidence.
-		if strings.Index(header, "Progress") != strings.Index(row, "━")-0 {
-			t.Errorf("width %d: header's Progress is at %d, the bar at %d\n%s\n%s",
-				w, strings.Index(header, "Progress"), strings.Index(row, "━"), header, row)
+		h, _ := columnOf(header, "Progress")
+		v, _ := columnOf(row, "━")
+		if h != v {
+			t.Errorf("width %d: header's Progress is at column %d, the bar at %d\n%s\n%s",
+				w, h, v, header, row)
 		}
 	}
 }
@@ -218,6 +220,18 @@ func TestPromptShowsTheEndOfALongLine(t *testing.T) {
 	}
 }
 
+// columnOf reports which screen column sub starts at.
+//
+// Measured, not counted: strings.Index gives a byte offset, and a row
+// full of three-byte bar glyphs is nowhere near its own column numbers.
+func columnOf(s, sub string) (int, bool) {
+	i := strings.Index(s, sub)
+	if i < 0 {
+		return 0, false
+	}
+	return lipgloss.Width(s[:i]), true
+}
+
 // ansiPrefix returns the escape sequence a style opens with, so one
 // style's rendering can be told apart from another's.
 func ansiPrefix(rendered string) string {
@@ -225,4 +239,53 @@ func ansiPrefix(rendered string) string {
 		return rendered[:i+1]
 	}
 	return rendered
+}
+
+// Every column is left-aligned, so each heading starts in the same
+// column as the values beneath it. Right-aligned numbers put a heading
+// nowhere near its data once the values are narrower than their column.
+func TestEachHeadingStartsWhereItsValuesDo(t *testing.T) {
+	m := testModel("a")
+	p := layout(200, 40)
+
+	if _, wide := nameWidth(p.listContentW); !wide {
+		t.Fatal("this test needs the full column set")
+	}
+
+	snap := engine.TorrentSnapshot{
+		Name:        "torrent",
+		TotalLength: 1_610_612_736, // 1.5GiB
+		Progress:    0.5,
+		State:       engine.StateDownloading,
+		DownloadBPS: 2 * 1024 * 1024,
+		UploadBPS:   3 * 1024 * 1024,
+		ETA:         100 * 1e9, // 1m40s
+	}
+	header := m.renderListHeader(p)
+	row := m.renderRow(p, snap, false)[0]
+
+	for _, c := range []struct{ heading, value string }{
+		{"Name", "torrent"},
+		{"Progress", "━"},
+		{"Size", "1.5GiB"},
+		{"Status", "downloading"},
+		{"↓ Speed", "↓ 2.0MiB/s"},
+		{"↑ Speed", "↑ 3.0MiB/s"},
+		{"ETA", "1m40s"},
+	} {
+		h, ok := columnOf(header, c.heading)
+		if !ok {
+			t.Errorf("no %q in the header:\n%s", c.heading, header)
+			continue
+		}
+		v, ok := columnOf(row, c.value)
+		if !ok {
+			t.Errorf("no %q in the row:\n%s", c.value, row)
+			continue
+		}
+		if h != v {
+			t.Errorf("%q starts at %d but %q at %d\n%s\n%s",
+				c.heading, h, c.value, v, header, row)
+		}
+	}
 }
