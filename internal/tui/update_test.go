@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -281,4 +282,57 @@ func TestHelpIsDismissedByAnyKey(t *testing.T) {
 	if m.cursor != 0 {
 		t.Error("the key that closed help should not also have moved the cursor")
 	}
+}
+
+// The daemon reports torrents from a map and Go randomises map
+// iteration, so without a sort the list reshuffles every tick with the
+// cursor pointing at whatever lands under it.
+func TestListOrderIsStableAcrossCalls(t *testing.T) {
+	m := testModel("zulu", "alpha", "mike", "bravo", "yankee")
+
+	first := names(m.visibleTorrents())
+	for i := 0; i < 20; i++ {
+		if got := names(m.visibleTorrents()); got != first {
+			t.Fatalf("order changed between calls: %q then %q", first, got)
+		}
+	}
+	if first != "alpha bravo mike yankee zulu" {
+		t.Errorf("default order = %q, want it sorted by name", first)
+	}
+}
+
+func TestSortModes(t *testing.T) {
+	m := testModel("a", "b", "c")
+	m.torrents[0].TotalLength = 300
+	m.torrents[1].TotalLength = 100
+	m.torrents[2].TotalLength = 200
+
+	m.sortBy = sortSize
+	if got := names(m.visibleTorrents()); got != "b c a" {
+		t.Errorf("sorted by size = %q, want \"b c a\"", got)
+	}
+
+	m.sortDesc = true
+	if got := names(m.visibleTorrents()); got != "a c b" {
+		t.Errorf("descending by size = %q, want \"a c b\"", got)
+	}
+}
+
+func TestParseSortMode(t *testing.T) {
+	for _, name := range []string{"name", "size", "progress", "ratio", "eta", "added", "down", "up"} {
+		if _, ok := ParseSortMode(name); !ok {
+			t.Errorf("ParseSortMode(%q) was rejected", name)
+		}
+	}
+	if _, ok := ParseSortMode("colour"); ok {
+		t.Error("ParseSortMode accepted a column that does not exist")
+	}
+}
+
+func names(snaps []engine.TorrentSnapshot) string {
+	out := make([]string, len(snaps))
+	for i, s := range snaps {
+		out[i] = s.Name
+	}
+	return strings.Join(out, " ")
 }
