@@ -55,3 +55,34 @@ func TestEveryAppliedActionIsKnownToConfig(t *testing.T) {
 		}
 	}
 }
+
+// Every action must have a key. An unset one is the empty string, which
+// silently matches nothing -- the feature is simply dead, with no build
+// error and no failing test unless something looks for exactly this.
+func TestNoBindingIsEmpty(t *testing.T) {
+	km := DefaultKeyMap()
+	v := reflect.ValueOf(km)
+
+	for i := 0; i < v.NumField(); i++ {
+		if v.Field(i).String() == "" {
+			t.Errorf("KeyMap.%s has no key bound", v.Type().Field(i).Name)
+		}
+	}
+}
+
+// And every field must be reachable from a config file, or it can never
+// be rebound.
+func TestEveryFieldIsOverridable(t *testing.T) {
+	v := reflect.ValueOf(DefaultKeyMap())
+	overridable := 0
+
+	for _, action := range config.KnownActions {
+		if DefaultKeyMap().WithOverrides(map[string]string{action: "ctrl+z"}) != DefaultKeyMap() {
+			overridable++
+		}
+	}
+	if overridable != v.NumField() {
+		t.Errorf("%d of %d KeyMap fields can be overridden from config",
+			overridable, v.NumField())
+	}
+}
