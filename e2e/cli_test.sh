@@ -12,6 +12,13 @@ IH_A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 IH_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 IH_C=cccccccccccccccccccccccccccccccccccccccc
 
+# A real torrent file, so at least one torrent has metadata. The magnets
+# above never will -- nothing is there to serve it -- and a torrent
+# without metadata cannot report a size, a file list, or anything but
+# "checking".
+SAMPLE="$REPO_ROOT/e2e/testdata/sample.torrent"
+SAMPLE_IH=d134b832ac06546d2b8c85a59b0c4011a6910cdf
+
 echo "daemon lifecycle"
 
 # Nothing is running yet, so this command has to start a daemon before it
@@ -81,6 +88,56 @@ echo "metadata"
 out=$("$TORRNADO" list 2>&1)
 assert_contains "a magnet without metadata reports checking" "$out" "checking"
 assert_not_contains "no torrent claims to be seeding" "$out" "seeding"
+
+echo
+echo "torrent files"
+
+out=$("$TORRNADO" add "$SAMPLE" 2>&1)
+assert_contains "a .torrent file can be added" "$out" "$SAMPLE_IH"
+
+out=$("$TORRNADO" list 2>&1)
+assert_contains "its name comes from the metadata" "$out" "hello.txt"
+assert_not_contains "with metadata it is no longer checking" "$out" "$SAMPLE_IH  hello.txt  checking"
+
+echo
+echo "pause and resume"
+
+# Pause is not just a flag: the daemon tells the torrent to stop asking
+# for and serving data. The state reported back is the evidence it took.
+assert_success "pause succeeds" "$TORRNADO" pause "$SAMPLE_IH"
+out=$("$TORRNADO" list 2>&1)
+assert_contains "a paused torrent reports paused" "$out" "paused"
+
+assert_success "resume succeeds" "$TORRNADO" resume "$SAMPLE_IH"
+out=$("$TORRNADO" list 2>&1)
+assert_not_contains "resuming clears the paused state" "$out" "paused"
+
+# Absolute rather than a toggle: pausing twice leaves it paused.
+"$TORRNADO" pause "$SAMPLE_IH" >/dev/null 2>&1
+"$TORRNADO" pause "$SAMPLE_IH" >/dev/null 2>&1
+out=$("$TORRNADO" list 2>&1)
+assert_contains "pause is absolute, not a toggle" "$out" "paused"
+"$TORRNADO" resume "$SAMPLE_IH" >/dev/null 2>&1
+
+assert_failure "pausing an unknown id fails" "$TORRNADO" pause "not-a-real-id"
+
+echo
+echo "rate limits"
+
+assert_success "a global limit is accepted" "$TORRNADO" limit down 500k
+assert_success "a limit can be cleared" "$TORRNADO" limit down unlimited
+assert_success "a per-torrent limit is accepted" "$TORRNADO" limit up 1M --torrent "$SAMPLE_IH"
+assert_failure "a bad rate is rejected" "$TORRNADO" limit down "fast"
+assert_failure "a bad direction is rejected" "$TORRNADO" limit sideways 1M
+
+echo
+echo "removing"
+
+assert_success "remove succeeds" "$TORRNADO" remove "$id"
+out=$("$TORRNADO" list 2>&1)
+assert_not_contains "a removed torrent is gone from the list" "$out" "$id"
+assert_contains "the other torrents are untouched" "$out" "Second"
+assert_failure "removing an unknown id fails" "$TORRNADO" remove "not-a-real-id"
 
 echo
 echo "shutdown"
