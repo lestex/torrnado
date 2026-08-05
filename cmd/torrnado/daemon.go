@@ -45,6 +45,17 @@ func runDaemon() error {
 		return err
 	}
 
+	// Registered before anything slow, not just before the wait at the
+	// bottom. Until this call every one of these signals still has its
+	// default action, which for all three is to kill the process: a
+	// SIGHUP arriving while the engine is starting or a session is being
+	// restored would take the daemon down instead of reopening its log,
+	// and a service manager's SIGTERM would be a hard kill rather than a
+	// clean shutdown. The window is small, and it is exactly the window a
+	// supervisor restarting the service aims at.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
 	eng, err := engine.New(engine.Config{
 		DataDir:           cfg.DownloadDir,
 		ListenPortLow:     cfg.Port.Low,
@@ -115,8 +126,6 @@ func runDaemon() error {
 	// process that keeps writing to the same handle is writing to an
 	// unlinked inode -- the log goes nowhere and the disk never gets the
 	// space back.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	for sig := range sigCh {
 		if sig == syscall.SIGHUP {
 			if err := lg.Reopen(); err != nil {
