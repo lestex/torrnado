@@ -65,6 +65,10 @@ func TestStatusTextShowsCheckProgress(t *testing.T) {
 	}{
 		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 0.42}, "checking 42%"},
 		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 1}, "checking 100%"},
+		// A check that has only just started is at zero, and saying so
+		// beats falling back to a bare "checking" for the first tick of
+		// what may be an hour's work.
+		{TorrentSnapshot{State: StateChecking, Checking: true}, "checking 0%"},
 		// Waiting for metadata is also "checking", but nothing is being
 		// verified, so there is no number to show.
 		{TorrentSnapshot{State: StateChecking}, "checking"},
