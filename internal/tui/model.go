@@ -32,6 +32,10 @@ type Model struct {
 	torrents []engine.TorrentSnapshot
 	global   engine.GlobalStats
 
+	// filter narrows the list to one status. The full set is kept above,
+	// so changing it is a cheap re-render rather than a refetch.
+	filter statusFilter
+
 	status      string
 	statusIsErr bool
 
@@ -67,6 +71,17 @@ func listenForEvents(events <-chan engine.Event) tea.Cmd {
 		}
 		return engineEventMsg(ev)
 	}
+}
+
+// visibleTorrents is m.torrents narrowed by the sidebar's filter.
+func (m Model) visibleTorrents() []engine.TorrentSnapshot {
+	out := make([]engine.TorrentSnapshot, 0, len(m.torrents))
+	for _, t := range m.torrents {
+		if m.filter.matches(t) {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func (m *Model) setStatus(msg statusMsg) {

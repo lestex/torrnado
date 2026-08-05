@@ -34,6 +34,10 @@ type styles struct {
 
 	// Pane is the bordered box every part of the interface sits in.
 	Pane lipgloss.Style
+
+	SidebarTitle      lipgloss.Style
+	SidebarItem       lipgloss.Style
+	SidebarItemActive lipgloss.Style
 }
 
 func newStyles(t theme.Theme) styles {
@@ -73,5 +77,9 @@ func newStyles(t theme.Theme) styles {
 		Pane: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(t.Border),
+
+		SidebarTitle:      lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
+		SidebarItem:       lipgloss.NewStyle().Foreground(t.Foreground),
+		SidebarItemActive: lipgloss.NewStyle().Foreground(t.SelectedFg).Background(t.SelectedBg).Bold(true),
 	}
 }

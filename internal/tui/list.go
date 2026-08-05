@@ -65,14 +65,17 @@ func (m Model) renderListHeader(p panes) string {
 	return m.styles.ColHeader.Render(b.String())
 }
 
-func (m Model) renderListBody(p panes) string {
+func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot) string {
 	height := p.listContentH - 1 // the header owns one row
 	if len(m.torrents) == 0 {
 		return m.styles.Muted.Render(" no torrents yet -- add one with `torrnado add`")
 	}
+	if len(visible) == 0 {
+		return m.styles.Muted.Render(" nothing matches status " + filterNames[m.filter])
+	}
 
 	var lines []string
-	for _, t := range m.torrents {
+	for _, t := range visible {
 		lines = append(lines, m.renderRow(p, t)...)
 	}
 	return strings.Join(clampLines(lines, height), "\n")

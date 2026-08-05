@@ -27,15 +27,21 @@ func (m Model) View() string {
 
 	p := layout(m.width, m.height)
 
+	sidebar := m.styles.Pane.
+		Width(p.sidebarContentW).
+		Height(p.sidebarContentH).
+		Render(clampBlock(m.renderSidebar(p), p.sidebarContentH))
+
 	list := m.styles.Pane.
 		Width(p.listContentW).
 		Height(p.listContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderListHeader(p),
-			m.renderListBody(p),
+			m.renderListBody(p, m.visibleTorrents()),
 		), p.listContentH))
 
-	return lipgloss.JoinVertical(lipgloss.Left, list, m.renderFooter(p))
+	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, list)
+	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
 }
 
 // clampBlock trims a rendered block to at most height lines, for the same
