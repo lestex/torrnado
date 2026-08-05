@@ -30,10 +30,10 @@ export PATH := $(GOENV_BIN):$(PATH)
 # Print the help when make is run with no target.
 .DEFAULT_GOAL := help
 
-.PHONY: help build run test test-race cover vet fmt fmt-check tidy check clean
+.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean
 
 help: ## Show this help
-	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk -F':.*?## ' '{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 build: ## Build the binary into the repo root
@@ -47,6 +47,12 @@ test: ## Run all tests
 
 test-race: ## Run all tests with the race detector
 	$(GO) test -race -count=1 ./...
+
+e2e: build ## Drive the built binary through the shell tests
+	@for t in e2e/*_test.sh; do \
+		echo "== $$t"; \
+		bash "$$t" || exit 1; \
+	done
 
 cover: ## Run tests and open a coverage report
 	$(GO) test -coverprofile=coverage.out ./...
