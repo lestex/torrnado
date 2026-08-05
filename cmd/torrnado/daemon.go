@@ -67,6 +67,17 @@ func runDaemon() error {
 	// run last-in-first-out, which gives that for free.
 	defer eng.Close()
 
+	// Logged before the restore rather than only once everything is up,
+	// so a journal reads in the order things happened. The pid is here
+	// because the README tells people to kill the daemon by it, and until
+	// now no line actually carried one.
+	lg.Info("daemon starting",
+		"pid", os.Getpid(),
+		"config", path,
+		"download_dir", cfg.DownloadDir,
+		"state_dir", cfg.StateDir,
+	)
+
 	// Restored before the socket is listening, so the first client to
 	// connect sees the full list rather than one filling in underneath
 	// it. A broken session file is logged and skipped: refusing to start
@@ -93,16 +104,7 @@ func runDaemon() error {
 	}
 	defer srv.Close()
 
-	// The pid is logged because the README tells people to kill the
-	// daemon by it, and until now no line actually carried one.
-	lg.Info("daemon started",
-		"pid", os.Getpid(),
-		"config", path,
-		"download_dir", cfg.DownloadDir,
-		"state_dir", cfg.StateDir,
-		"socket", cfg.DaemonSocket,
-		"stream", stm.Addr(),
-	)
+	lg.Info("daemon ready", "socket", cfg.DaemonSocket, "stream", stm.Addr())
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately
