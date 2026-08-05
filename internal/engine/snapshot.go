@@ -72,6 +72,10 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 
 	state := StateDownloading
 	switch {
+	case tr.lastErr != "":
+		state = StateError
+	case tr.checking:
+		state = StateChecking
 	case t.Info() == nil:
 		// Waiting for metadata. Reported as checking rather than
 		// downloading because no file data is moving yet.
@@ -123,6 +127,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		Paused:        tr.paused,
 		SavePath:      tr.savePath,
 		AddedAt:       tr.addedAt,
+		Error:         tr.lastErr,
 		DownloadLimit: tr.downLimit,
 		UploadLimit:   tr.upLimit,
 	}

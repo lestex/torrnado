@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/mse"
 	"github.com/anacrolix/torrent/storage"
@@ -69,6 +70,9 @@ type tracked struct {
 
 	downLimit int64 // bytes/sec, 0 = unlimited (best-effort; see SetTorrentRateLimit)
 	upLimit   int64
+
+	checking bool   // a hash check is running
+	lastErr  string // last failure worth showing the user
 }
 
 // Engine tracks torrents and publishes their state.
@@ -243,6 +247,16 @@ func (e *Engine) broadcast(ev Event) {
 	}
 }
 
+// dhtNodeCount totals the nodes known across every DHT server, which is
+// a rough measure of how well peer discovery is doing.
+func dhtNodeCount(c *torrent.Client) int {
+	var n int
+	for _, s := range c.DhtServers() {
+		n += s.Stats().(dht.ServerStats).GoodNodes
+	}
+	return n
+}
+
 func (e *Engine) tickLoop() {
 	defer e.wg.Done()
 	ticker := time.NewTicker(tickInterval)
@@ -301,5 +315,11 @@ func (e *Engine) eventLocked() Event {
 		ev.Global.TotalDownload += snap.Completed
 	}
 	ev.Global.NumTorrents = len(ev.Torrents)
+	ev.Global.ListenPort = e.client.LocalPort()
+	ev.Global.DhtNodes = dhtNodeCount(e.client)
+	if free, total, err := diskUsage(e.cfg.DataDir); err == nil {
+		ev.Global.DiskFreeBytes = free
+		ev.Global.DiskTotalBytes = total
+	}
 	return ev
 }

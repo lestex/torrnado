@@ -1,7 +1,9 @@
 package engine
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -338,6 +340,144 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// ForceRecheck re-verifies a torrent's on-disk data against its piece
+// hashes.
+func (e *Engine) ForceRecheck(id TorrentID) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	e.mu.Lock()
+	tr.checking = true
+	e.mu.Unlock()
+	e.snapshotAndBroadcastNow()
+
+	go func() {
+		err := tr.t.VerifyDataContext(context.Background())
+		e.mu.Lock()
+		tr.checking = false
+		if err != nil {
+			tr.lastErr = fmt.Sprintf("recheck failed: %v", err)
+		}
+		e.mu.Unlock()
+		e.snapshotAndBroadcastNow()
+	}()
+	return nil
+}
+
+// MoveStorage relocates a torrent's downloaded data to a new directory.
+// anacrolix/torrent has no live "move" API for the default file storage
+// backend, so this pauses the torrent, moves the files on disk, points
+// the torrent at a new storage.NewFile(newDir) instance, and re-verifies
+// data in the background (a cheap hash check, not a re-download).
+func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	if tr.t.Info() == nil {
+		return fmt.Errorf("torrent metadata not available yet")
+	}
+	if err := os.MkdirAll(newDir, 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", newDir, err)
+	}
+
+	wasPaused := tr.paused
+	tr.t.DisallowDataDownload()
+	tr.t.DisallowDataUpload()
+
+	oldPath := tr.savePath
+	for _, f := range tr.t.Files() {
+		src := filepath.Join(oldPath, f.Path())
+		dst := filepath.Join(newDir, f.Path())
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
+		}
+		if err := moveFile(src, dst); err != nil {
+			return fmt.Errorf("move %s: %w", f.Path(), err)
+		}
+	}
+
+	ih := tr.t.InfoHash()
+	mi := tr.t.Metainfo()
+	oldStorage := tr.ownStorage
+
+	newStorage := storage.NewFile(newDir)
+	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
+	if err != nil {
+		return fmt.Errorf("rebuild spec: %w", err)
+	}
+	spec.InfoHash = ih
+	spec.Storage = newStorage
+
+	tr.t.Drop()
+	if oldStorage != nil {
+		oldStorage.Close()
+	}
+
+	t, _, err := e.client.AddTorrentSpec(spec)
+	if err != nil {
+		return fmt.Errorf("re-add torrent at new location: %w", err)
+	}
+	// The re-added Torrent is a fresh instance with every file back at
+	// unset priority, so it needs the same downloadAllFiles() call
+	// addSpec relies on -- which means a move also resets any custom
+	// per-file priorities that had been set before it back to "wanted at
+	// normal priority" rather than preserving them.
+	if !wasPaused {
+		downloadAllFiles(t)
+	}
+
+	e.mu.Lock()
+	tr.t = t
+	tr.savePath = newDir
+	tr.ownStorage = newStorage
+	tr.checking = true
+	e.mu.Unlock()
+
+	go func() {
+		verifyErr := t.VerifyDataContext(context.Background())
+		e.mu.Lock()
+		tr.checking = false
+		if verifyErr != nil {
+			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
+		}
+		if !wasPaused {
+			t.AllowDataDownload()
+			t.AllowDataUpload()
+		}
+		e.mu.Unlock()
+		e.snapshotAndBroadcastNow()
+	}()
+
+	e.snapshotAndBroadcastNow()
+	return nil
+}
+
+func moveFile(src, dst string) error {
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+	// os.Rename fails across filesystems/devices; fall back to copy+remove.
+	in, err := os.Open(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // file hasn't been downloaded yet, nothing to move
+		}
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return os.Remove(src)
 }
 
 // ListTorrents returns a snapshot of every tracked torrent.
