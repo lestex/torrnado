@@ -1,0 +1,85 @@
+# systemd unit for the torrnado daemon.
+#
+#   sudo useradd --system --create-home --home-dir /var/lib/torrnado torrnado
+#   sudo install -m 0755 torrnado /usr/local/bin/torrnado
+#   sudo install -m 0644 contrib/torrnado.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now torrnado
+#   journalctl -u torrnado -f
+#
+# Config goes at /etc/torrnado/config.toml (that is what XDG_CONFIG_HOME
+# below resolves to), and at minimum should name a download directory the
+# service user can write:
+#
+#   download_dir = "/srv/torrent"
+#
+# then add it to ReadWritePaths= at the bottom, or the sandbox will make
+# it unwritable however the permissions look.
+#
+# One thing to know about the clients: `torrnado list`, `torrnado add`
+# and the TUI all start a daemon themselves if nothing answers the
+# socket. Run one while the service is stopped -- or during the few
+# seconds it is restarting -- and you get a daemon systemd does not
+# manage, holding the lock the service wants; the service then refuses to
+# start and says so in the journal. Stop it the way it was started
+# (`pkill -u torrnado torrnado`) and `systemctl start torrnado`.
+
+[Unit]
+Description=torrnado BitTorrent daemon
+Documentation=https://github.com/lestex/torrnado
+# Trackers and DHT need a routable address at start, not merely a
+# configured interface.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=torrnado
+Group=torrnado
+
+# StateDirectory creates /var/lib/torrnado owned by the service user, and
+# XDG_DATA_HOME makes torrnado put its socket, session file and saved
+# metainfo exactly there. Removing the unit does not remove it.
+StateDirectory=torrnado
+Environment=XDG_DATA_HOME=/var/lib
+Environment=XDG_CONFIG_HOME=/etc
+
+ExecStart=/usr/local/bin/torrnado daemon
+
+# Reload means "reopen the log file", which is what logrotate needs after
+# rotating it. A no-op while logging to the journal, which is the default
+# and the better answer on a systemd box.
+ExecReload=/bin/kill -HUP $MAINPID
+
+# The daemon saves its session on SIGTERM. Give it room to finish rather
+# than being killed halfway through writing it.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Comes back from a crash, but not from a clean exit or a failing config
+# -- a service that restarts forever on a typo is a service whose logs
+# nobody can read.
+Restart=on-failure
+RestartSec=5
+
+# Nothing here needs privilege. The socket's file permissions are what
+# guard the daemon, and it listens on nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# ProtectSystem=strict makes the whole filesystem read-only apart from
+# what is listed here. StateDirectory is already writable; the download
+# directory has to be added by hand.
+#ReadWritePaths=/srv/torrent
+
+[Install]
+WantedBy=multi-user.target

@@ -40,7 +40,7 @@ unexport GOROOT
 
 IMAGE := torrnado
 
-.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test
+.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test systemd-test
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -90,6 +90,19 @@ docker: ## Build the container image
 
 docker-test: ## Run the whole suite on linux, in a container
 	docker build --target test --progress plain .
+
+# systemd needs a booted system to test against, which a build stage
+# cannot give it -- pid 1 there is the build command. So this one builds
+# an image and runs it, with the privileges systemd requires (not
+# torrnado: the service inside runs unprivileged).
+systemd-test: ## Test the systemd unit against a real systemd, in a container
+	docker build -f Dockerfile.systemd -t $(IMAGE)-systemd .
+	-docker rm -f $(IMAGE)-systemd >/dev/null 2>&1
+	docker run -d --name $(IMAGE)-systemd --privileged --cgroupns=host \
+		-v /sys/fs/cgroup:/sys/fs/cgroup:rw $(IMAGE)-systemd >/dev/null
+	@status=0; docker exec $(IMAGE)-systemd bash /opt/systemd_test.sh || status=$$?; \
+		docker rm -f $(IMAGE)-systemd >/dev/null; \
+		exit $$status
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out
