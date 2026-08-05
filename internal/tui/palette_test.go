@@ -84,3 +84,49 @@ func TestCommandPromptCollectsAndCancels(t *testing.T) {
 		t.Error("escaping the prompt should not have run the command")
 	}
 }
+
+func TestSplitArgs(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"plain", "add foo bar", []string{"add", "foo", "bar"}},
+		{"extra spaces", "  add   foo  ", []string{"add", "foo"}},
+		{"empty", "   ", nil},
+		// The reason this function exists: zsh needs a magnet quoted, so
+		// that is how people type it here too.
+		{
+			"single-quoted magnet",
+			"add 'magnet:?xt=urn:btih:ed8507e22addc40fd6fb4f1677bf27fd75967f70&dn=arch.iso'",
+			[]string{"add", "magnet:?xt=urn:btih:ed8507e22addc40fd6fb4f1677bf27fd75967f70&dn=arch.iso"},
+		},
+		{
+			"double-quoted magnet",
+			`add "magnet:?xt=urn:btih:aaaa&dn=x"`,
+			[]string{"add", "magnet:?xt=urn:btih:aaaa&dn=x"},
+		},
+		// The other thing quotes buy: an argument with a space in it.
+		{"quoted path with spaces", "move '/media/big disk'", []string{"move", "/media/big disk"}},
+		{"quote inside a word", "add file'name'.torrent", []string{"add", "filename.torrent"}},
+		{"a quote of the other kind is literal", `add "it's.torrent"`, []string{"add", "it's.torrent"}},
+		{"two quoted arguments", "add 'a b' 'c d'", []string{"add", "a b", "c d"}},
+		// Forgiving rather than an error: the intent is not in doubt.
+		{"unclosed quote takes the rest", "add 'magnet:?xt=x", []string{"add", "magnet:?xt=x"}},
+		{"empty quotes are still an argument", "add ''", []string{"add", ""}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := splitArgs(c.in)
+			if len(got) != len(c.want) {
+				t.Fatalf("splitArgs(%q) = %q, want %q", c.in, got, c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("splitArgs(%q)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
+				}
+			}
+		})
+	}
+}

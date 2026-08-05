@@ -20,7 +20,7 @@ import (
 // own vocabulary, so knowing one teaches the other.
 
 func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
-	fields := strings.Fields(strings.TrimSpace(line))
+	fields := splitArgs(line)
 	if len(fields) == 0 {
 		return m, nil
 	}
@@ -85,6 +85,61 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 	}
 
 	return m, func() tea.Msg { return errStatus(fmt.Errorf("unknown command %q", name)) }
+}
+
+// splitArgs splits a palette line into a command and its arguments,
+// treating quoted runs as one argument and dropping the quotes.
+//
+// The palette is not a shell -- nothing here expands anything -- but the
+// habits that get people to it are shell habits. A magnet uri has to be
+// quoted in zsh, because the `?` and `&` in it are glob and job-control
+// characters, so `:add 'magnet:?xt=...'` is what a person types. Passed
+// through with its quotes still attached, that argument does not look
+// like a magnet to the batch expander, which falls through to treating it
+// as a file glob and reports matching no files -- a confusing answer to a
+// command that was very nearly right.
+//
+// Quotes also make an argument with a space in it expressible at all:
+// `:move '/media/big disk'` was impossible when this split on whitespace.
+//
+// Only ' and " are special, and only as a matched pair. No escapes: a
+// path containing a quote character is rare enough to leave, and an
+// escape syntax nobody asked for is another thing to get wrong. An
+// unclosed quote takes the rest of the line rather than being an error,
+// since the intent is never in doubt.
+func splitArgs(line string) []string {
+	var (
+		args  []string
+		cur   strings.Builder
+		quote rune // the quote character we are inside, or 0
+		open  bool // whether cur holds an argument, even an empty one
+	)
+	for _, r := range strings.TrimSpace(line) {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			} else {
+				cur.WriteRune(r)
+			}
+		case r == '\'' || r == '"':
+			// An empty pair of quotes is still an argument, so remember
+			// that one was started.
+			quote, open = r, true
+		case r == ' ' || r == '\t':
+			if open || cur.Len() > 0 {
+				args = append(args, cur.String())
+				cur.Reset()
+				open = false
+			}
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	if open || cur.Len() > 0 {
+		args = append(args, cur.String())
+	}
+	return args
 }
 
 func (m Model) setPausedTargets(paused bool) (tea.Model, tea.Cmd) {
