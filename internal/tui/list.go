@@ -66,11 +66,11 @@ func (m Model) renderListHeader(p panes) string {
 	b.WriteString(padRight("Name", nameW))
 	b.WriteString(" " + padRight("Progress", colProgress))
 	if wide {
-		b.WriteString(" " + padLeft("Size", colSize))
+		b.WriteString(" " + padRight("Size", colSize))
 		b.WriteString(" " + padRight("Status", colStatus))
-		b.WriteString(" " + padLeft("↓ Speed", colDown))
-		b.WriteString(" " + padLeft("↑ Speed", colUp))
-		b.WriteString(" " + padLeft("ETA", colETA))
+		b.WriteString(" " + padRight("↓ Speed", colDown))
+		b.WriteString(" " + padRight("↑ Speed", colUp))
+		b.WriteString(" " + padRight("ETA", colETA))
 	}
 	return m.styles.ColHeader.Render(b.String())
 }
@@ -124,12 +124,16 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	b.WriteString(" ")
 	b.WriteString(padRight(truncate(t.Name, nameW), nameW))
 	b.WriteString(" " + progressCell(t.Progress))
+	// Every column is left-aligned, headings included, so a heading sits
+	// directly above the values it names. Numbers lose the decimal-point
+	// alignment that ragged-right columns give them; a table that reads
+	// as one grid is worth more here than digits that line up.
 	if wide {
-		b.WriteString(" " + padLeft(formatBytes(t.TotalLength), colSize))
+		b.WriteString(" " + padRight(formatBytes(t.TotalLength), colSize))
 		b.WriteString(" " + padRight(t.StatusText(), colStatus))
-		b.WriteString(" " + padLeft(rateCell("↓ ", t.DownloadBPS), colDown))
-		b.WriteString(" " + padLeft(rateCell("↑ ", t.UploadBPS), colUp))
-		b.WriteString(" " + padLeft(etaCell(t), colETA))
+		b.WriteString(" " + padRight(rateCell("↓ ", t.DownloadBPS), colDown))
+		b.WriteString(" " + padRight(rateCell("↑ ", t.UploadBPS), colUp))
+		b.WriteString(" " + padRight(etaCell(t), colETA))
 	}
 
 	// The whole line takes one style, so a highlight cannot be broken
