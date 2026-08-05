@@ -49,6 +49,14 @@ type tracked struct {
 	// path, rather than using the engine's shared default storage. It
 	// must be closed when the torrent is removed.
 	ownStorage storage.ClientImplCloser
+
+	// The client reports cumulative byte counters, not speeds, so a rate
+	// is the change since the previous tick divided by the time between
+	// them. These hold the previous reading and the rate derived from it.
+	lastDownloaded int64
+	lastUploaded   int64
+	lastDownBPS    float64
+	lastUpBPS      float64
 }
 
 // Engine tracks torrents and publishes their state.
@@ -66,8 +74,9 @@ type Engine struct {
 	torrents map[TorrentID]*tracked
 	subs     map[chan Event]struct{}
 
-	closeCh chan struct{}
-	wg      sync.WaitGroup
+	lastTick time.Time
+	closeCh  chan struct{}
+	wg       sync.WaitGroup
 }
 
 // New starts an engine and its background tick loop.
@@ -101,6 +110,7 @@ func New(cfg Config) (*Engine, error) {
 		client:   client,
 		torrents: map[TorrentID]*tracked{},
 		subs:     map[chan Event]struct{}{},
+		lastTick: time.Now(),
 		closeCh:  make(chan struct{}),
 	}
 	e.wg.Add(1)
@@ -216,9 +226,19 @@ func (e *Engine) tickLoop() {
 	}
 }
 
-// tick publishes the current state of every torrent.
+// tick recomputes speeds and publishes the current state.
 func (e *Engine) tick() {
 	e.mu.Lock()
+	now := time.Now()
+	elapsed := now.Sub(e.lastTick).Seconds()
+	if elapsed <= 0 {
+		elapsed = tickInterval.Seconds()
+	}
+	e.lastTick = now
+
+	for _, tr := range e.torrents {
+		tr.updateRates(elapsed)
+	}
 	ev := e.eventLocked()
 	e.mu.Unlock()
 

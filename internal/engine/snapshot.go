@@ -1,5 +1,31 @@
 package engine
 
+import (
+	"math"
+	"time"
+)
+
+// updateRates turns the client's cumulative byte counters into speeds.
+//
+// The library reports totals, never a rate, so a speed is the change
+// since the last reading divided by the time between them. Callers must
+// hold e.mu.
+func (tr *tracked) updateRates(elapsed float64) {
+	if elapsed <= 0 {
+		return // no time has passed; the previous rates still stand
+	}
+	stats := tr.t.Stats()
+	downloaded := stats.BytesReadUsefulData.Int64()
+	uploaded := stats.BytesWrittenData.Int64()
+
+	// Clamped at zero: the counters reset when a torrent is re-added or
+	// rechecked, and a negative "speed" helps nobody.
+	tr.lastDownBPS = math.Max(0, float64(downloaded-tr.lastDownloaded)/elapsed)
+	tr.lastUpBPS = math.Max(0, float64(uploaded-tr.lastUploaded)/elapsed)
+	tr.lastDownloaded = downloaded
+	tr.lastUploaded = uploaded
+}
+
 // snapshotLocked builds the public view of one torrent. Callers must hold
 // e.mu.
 func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
@@ -32,6 +58,28 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		state = StateSeeding
 	}
 
+	stats := t.Stats()
+	downloaded := stats.BytesReadUsefulData.Int64()
+	uploaded := stats.BytesWrittenData.Int64()
+
+	// A torrent that has uploaded without downloading anything has an
+	// infinite ratio -- which is a real state (a torrent you seeded from
+	// files already on disk), not an error.
+	var ratio float64
+	switch {
+	case downloaded > 0:
+		ratio = float64(uploaded) / float64(downloaded)
+	case uploaded > 0:
+		ratio = math.Inf(1)
+	}
+
+	// Left at zero when the speed is negligible, rather than reporting a
+	// number of hours that would be meaningless.
+	var eta time.Duration
+	if missing := total - completed; missing > 0 && tr.lastDownBPS > 0.5 {
+		eta = time.Duration(float64(missing)/tr.lastDownBPS) * time.Second
+	}
+
 	return TorrentSnapshot{
 		ID:          id,
 		Name:        t.Name(),
@@ -39,6 +87,14 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		TotalLength: total,
 		Completed:   completed,
 		Progress:    progress,
+		DownloadBPS: tr.lastDownBPS,
+		UploadBPS:   tr.lastUpBPS,
+		Downloaded:  downloaded,
+		Uploaded:    uploaded,
+		Ratio:       ratio,
+		NumPeers:    stats.ActivePeers,
+		NumSeeds:    stats.ConnectedSeeders,
+		ETA:         eta,
 		State:       state,
 		Paused:      tr.paused,
 		SavePath:    tr.savePath,

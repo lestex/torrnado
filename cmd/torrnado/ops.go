@@ -38,11 +38,12 @@ func newListCmd() *cobra.Command {
 				// tabwriter lines columns up by padding them once it has
 				// seen every row, so the widest name still fits.
 				w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-				fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tETA")
+				fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS\tETA")
 				for _, s := range snaps {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\n",
+					fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d\t%s\n",
 						s.ID, s.Name, s.State, s.Progress*100,
-						format.Rate(s.DownloadBPS), format.ETA(s.ETA))
+						format.Rate(s.DownloadBPS), format.Rate(s.UploadBPS),
+						format.Ratio(s.Ratio), s.NumSeeds, s.NumPeers, format.ETA(s.ETA))
 				}
 				return w.Flush()
 			})
