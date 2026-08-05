@@ -181,6 +181,20 @@ func (c *Client) AddTorrentFile(path string, opts engine.AddOpts) (engine.Torren
 	return engine.TorrentID(resp.ID), nil
 }
 
+// AddBatch adds many sources in one call, returning the ids that worked
+// and a message for each that did not. A batch can half succeed, and the
+// caller needs both halves.
+func (c *Client) AddBatch(sources []string, opts engine.AddOpts) (ids []engine.TorrentID, errs []string, err error) {
+	resp, err := c.call(&Request{Method: MethodAddBatch, Sources: sources, Opts: opts})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, id := range resp.IDs {
+		ids = append(ids, engine.TorrentID(id))
+	}
+	return ids, resp.Errs, nil
+}
+
 func (c *Client) Remove(id engine.TorrentID, deleteData bool) error {
 	_, err := c.call(&Request{Method: MethodRemove, ID: string(id), DeleteData: deleteData})
 	return err
