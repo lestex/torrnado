@@ -118,6 +118,12 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts) (TorrentID, er
 //
 // Nothing is fetched by default: a freshly added torrent sits at zero
 // forever unless something says it wants the data.
+//
+// Deliberately not Torrent.DownloadAll(), which sets piece priorities
+// directly and leaves each File's own priority untouched. File.Priority()
+// only ever reports what was last passed to File.SetPriority(), so a
+// torrent started that way downloads correctly while reporting every file
+// as "none" forever.
 func downloadAllFiles(t *torrent.Torrent) {
 	for _, f := range filesOrNil(t) {
 		f.SetPriority(torrent.PiecePriorityNormal)
@@ -232,6 +238,69 @@ func allFilesUnset(t *torrent.Torrent) bool {
 	return true
 }
 
+// SetFilePriority sets how badly one file's data is wanted.
+//
+// The library has no per-file priority of its own: a file's priority is
+// really the priority of every piece the file spans, which is what
+// SetPriority sets.
+func (e *Engine) SetFilePriority(id TorrentID, fileIndex int, prio Priority) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	files := filesOrNil(tr.t)
+	if files == nil {
+		return fmt.Errorf("torrent metadata not available yet")
+	}
+	if fileIndex < 0 || fileIndex >= len(files) {
+		return fmt.Errorf("file index %d out of range (0..%d)", fileIndex, len(files)-1)
+	}
+	files[fileIndex].SetPriority(toLibPriority(prio))
+	e.snapshotAndBroadcastNow()
+	return nil
+}
+
+// toLibPriority maps a Priority onto the library's scale, which runs
+// None < Normal < High < Readahead < Next < Now.
+//
+// There is nothing between "not wanted" and "wanted normally", so
+// PriorityLow -- which in most clients means "wanted, but after
+// everything else" -- has no faithful equivalent and becomes Normal
+// rather than being silently dropped to None.
+func toLibPriority(p Priority) torrent.PiecePriority {
+	switch p {
+	case PriorityNone:
+		return torrent.PiecePriorityNone
+	case PriorityLow, PriorityNormal:
+		return torrent.PiecePriorityNormal
+	case PriorityHigh:
+		return torrent.PiecePriorityHigh
+	case PriorityNow:
+		return torrent.PiecePriorityNow
+	default:
+		return torrent.PiecePriorityNormal
+	}
+}
+
+// fromLibPriority maps a library piece priority back to a Priority.
+//
+// Now has to be distinguished from High: it can be set, so folding the
+// two together would make a UI that cycles through priorities appear to
+// stick at "high". Low is the one level that cannot survive the round
+// trip, for the reason above.
+func fromLibPriority(p torrent.PiecePriority) Priority {
+	switch {
+	case p == torrent.PiecePriorityNone:
+		return PriorityNone
+	case p >= torrent.PiecePriorityNow:
+		return PriorityNow
+	case p >= torrent.PiecePriorityHigh:
+		return PriorityHigh
+	default:
+		return PriorityNormal
+	}
+}
+
 // ListTorrents returns a snapshot of every tracked torrent.
 func (e *Engine) ListTorrents() []TorrentSnapshot {
 	e.mu.Lock()
@@ -267,6 +336,7 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 			Path:      f.Path(),
 			Length:    f.Length(),
 			Completed: f.BytesCompleted(),
+			Priority:  fromLibPriority(f.Priority()),
 		})
 	}
 
