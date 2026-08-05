@@ -10,6 +10,7 @@ import (
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/stream"
 )
 
 func newDaemonCmd() *cobra.Command {
@@ -51,14 +52,23 @@ func runDaemon() error {
 	// run last-in-first-out, which gives that for free.
 	defer eng.Close()
 
-	srv, err := ipc.Serve(cfg.DaemonSocket, eng)
+	// The stream server carries file data for previews; it cannot ride
+	// the IPC socket (see internal/stream). Started first so its URL
+	// builder is available to the RPC server.
+	stm, err := stream.Serve(eng)
+	if err != nil {
+		return fmt.Errorf("start stream server: %w", err)
+	}
+	defer stm.Close()
+
+	srv, err := ipc.Serve(cfg.DaemonSocket, eng, stm.URL)
 	if err != nil {
 		return fmt.Errorf("start ipc server: %w", err)
 	}
 	defer srv.Close()
 
-	fmt.Fprintf(os.Stderr, "torrnado daemon: config %s, data dir %s, socket %s\n",
-		path, cfg.DownloadDir, cfg.DaemonSocket)
+	fmt.Fprintf(os.Stderr, "torrnado daemon: config %s, data dir %s, socket %s, stream %s\n",
+		path, cfg.DownloadDir, cfg.DaemonSocket, stm.Addr())
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately

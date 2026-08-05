@@ -243,6 +243,21 @@ func (c *Client) List() ([]engine.TorrentSnapshot, error) {
 	return resp.Snapshot, nil
 }
 
+// PreviewURL asks the daemon to make one file streamable and return the
+// loopback URL a player can open. The daemon resumes the torrent and
+// raises the file's priority as a side effect: a stream of paused or
+// unwanted data would only error out.
+func (c *Client) PreviewURL(id engine.TorrentID, fileIndex int) (string, error) {
+	resp, err := c.call(&Request{Method: MethodPreviewURL, ID: string(id), FileIndex: fileIndex})
+	if err != nil {
+		return "", err
+	}
+	if resp.URL == "" {
+		return "", fmt.Errorf("empty preview url response")
+	}
+	return resp.URL, nil
+}
+
 func (c *Client) Detail(id engine.TorrentID) (engine.TorrentDetail, error) {
 	resp, err := c.call(&Request{Method: MethodDetail, ID: string(id)})
 	if err != nil {

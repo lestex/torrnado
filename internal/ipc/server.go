@@ -18,12 +18,19 @@ type Server struct {
 	eng        *engine.Engine
 	ln         net.Listener
 	socketPath string
+	// previewURL builds a stream URL for a file. Injected as a function
+	// rather than taking the stream server itself, so this package still
+	// depends on nothing but engine. Nil disables the method.
+	previewURL func(engine.TorrentID, int) string
 
 	wg sync.WaitGroup
 }
 
 // Serve starts listening on socketPath.
-func Serve(socketPath string, eng *engine.Engine) (*Server, error) {
+// previewURL may be nil, which disables MethodPreviewURL.
+func Serve(socketPath string, eng *engine.Engine,
+	previewURL func(engine.TorrentID, int) string,
+) (*Server, error) {
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create socket dir: %w", err)
 	}
@@ -36,7 +43,7 @@ func Serve(socketPath string, eng *engine.Engine) (*Server, error) {
 		return nil, fmt.Errorf("listen on %s: %w", socketPath, err)
 	}
 
-	s := &Server{eng: eng, ln: ln, socketPath: socketPath}
+	s := &Server{eng: eng, ln: ln, socketPath: socketPath, previewURL: previewURL}
 	s.wg.Add(1)
 	go s.acceptLoop()
 	return s, nil
@@ -231,6 +238,21 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 		resp.Detail = &d
+
+	case MethodPreviewURL:
+		if s.previewURL == nil {
+			resp.Err = "streaming is not enabled on this daemon"
+			return resp
+		}
+		id := engine.TorrentID(req.ID)
+		// Resume and raise priority before handing out the URL, so the
+		// player does not open onto a stream that errors immediately.
+		if err := s.eng.PrepareStream(id, req.FileIndex); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.URL = s.previewURL(id, req.FileIndex)
 
 	default:
 		resp.Err = fmt.Sprintf("unknown method %q", req.Method)

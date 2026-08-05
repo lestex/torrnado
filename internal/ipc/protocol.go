@@ -32,6 +32,7 @@ const (
 	MethodMoveStorage            Method = "MoveStorage"
 	MethodList                   Method = "List"
 	MethodDetail                 Method = "Detail"
+	MethodPreviewURL             Method = "PreviewURL"
 )
 
 // Request is a kitchen-sink call envelope: only the fields relevant to
@@ -77,6 +78,10 @@ type Response struct {
 
 	Snapshot []engine.TorrentSnapshot
 	Detail   *engine.TorrentDetail
+
+	// URL is the loopback stream URL for PreviewURL. The bytes never
+	// cross this socket -- see internal/stream for why they cannot.
+	URL string
 }
 
 type msgKind byte
