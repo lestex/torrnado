@@ -89,7 +89,69 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
-// dispatch runs one request against the engine. Filled in next.
+// dispatch runs one request against the engine and builds its reply.
+//
+// This switch is the only place the two halves of the program meet: on
+// one side a request that arrived over a socket, on the other the engine
+// API. Every case does the same three things -- call the engine, put any
+// error into the response as a string, mark it OK.
+//
+// Errors cross the wire as text rather than as Go error values, because
+// an error is an interface and gob cannot encode one.
 func (s *Server) dispatch(req *Request) *Response {
-	return &Response{Seq: req.Seq, Err: fmt.Sprintf("unknown method %q", req.Method)}
+	resp := &Response{Seq: req.Seq}
+
+	switch req.Method {
+	case MethodPing:
+		resp.OK = true
+
+	case MethodAddMagnet:
+		id, err := s.eng.AddMagnet(req.Source, req.Opts)
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.ID = string(id)
+
+	case MethodAddTorrentFile:
+		id, err := s.eng.AddTorrentFile(req.Source, req.Opts)
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.ID = string(id)
+
+	case MethodRemove:
+		if err := s.eng.RemoveTorrent(engine.TorrentID(req.ID), req.DeleteData); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
+	case MethodSetPaused:
+		if err := s.eng.SetPaused(engine.TorrentID(req.ID), req.Paused); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
+	case MethodList:
+		resp.OK = true
+		resp.Snapshot = s.eng.ListTorrents()
+
+	case MethodDetail:
+		d, err := s.eng.TorrentDetail(engine.TorrentID(req.ID))
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.Detail = &d
+
+	default:
+		resp.Err = fmt.Sprintf("unknown method %q", req.Method)
+	}
+	return resp
 }
