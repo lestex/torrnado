@@ -107,12 +107,12 @@ func (m Model) renderDetailBody(p panes) string {
 	}
 	var lines []string
 	switch m.detailTab {
+	case tabPieces:
+		lines = m.piecesTab(p, height)
 	case tabPeers:
 		lines = m.peersTab(p, height)
 	case tabFiles:
 		lines = m.filesTab(p, height)
-	default:
-		lines = []string{m.styles.Muted.Render(" (nothing to show yet)")}
 	}
 	return strings.Join(clampLines(lines, height), "\n")
 }
@@ -207,4 +207,13 @@ func fileProgress(f engine.FileInfo) float64 {
 		return 0
 	}
 	return float64(f.Completed) / float64(f.Length)
+}
+
+func (m Model) piecesTab(p panes, height int) []string {
+	d := m.detail
+	lines := []string{m.styles.Muted.Render(pieceSummary(d))}
+	if bitmap := m.renderPieceMap(d, p.detailContentW, height-1); bitmap != "" {
+		lines = append(lines, strings.Split(bitmap, "\n")...)
+	}
+	return lines
 }
