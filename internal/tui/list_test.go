@@ -134,7 +134,8 @@ func TestHeaderAndRowsShareTheirColumns(t *testing.T) {
 }
 
 // Everything except Name and Progress goes on a narrow terminal: how far
-// along a torrent is beats how fast it is going.
+// along a torrent is beats how fast it is going. At that width progress
+// is the percentage alone -- there is no room for a bar.
 func TestNarrowPanesKeepNameAndProgress(t *testing.T) {
 	m := testModel("a")
 	p := layout(minWidth, 40)
@@ -146,8 +147,8 @@ func TestNarrowPanesKeepNameAndProgress(t *testing.T) {
 	snap := engine.TorrentSnapshot{Name: "torrent", TotalLength: 1024, Progress: 0.5, DownloadBPS: 5000}
 	row := m.renderRow(p, snap, false)[0]
 
-	if !strings.Contains(row, "━") {
-		t.Errorf("a narrow row dropped the progress bar: %q", row)
+	if !strings.Contains(row, "50%") {
+		t.Errorf("a narrow row dropped the progress: %q", row)
 	}
 	if !strings.Contains(row, "torrent") {
 		t.Errorf("a narrow row dropped the name: %q", row)
@@ -294,30 +295,25 @@ func TestEachHeadingStartsWhereItsValuesDo(t *testing.T) {
 	}
 }
 
-// The bar grows with the pane, because 16 cells that look right at 120
-// columns look like a rounding error across a 4K screen.
+// The bar grows with the pane, because a width that reads well at 160
+// columns looks like a rounding error across a 4K screen.
 func TestTheBarGrowsWithThePane(t *testing.T) {
-	narrow := barWidth(40)
-	medium := barWidth(160)
-	wide := barWidth(400)
+	if got := barWidth(400); got != maxBarWidth {
+		t.Errorf("a very wide pane has a %d-cell bar, want it capped at %d", got, maxBarWidth)
+	}
+	if barWidth(180) <= barWidth(140) {
+		t.Errorf("the bar did not grow between 140 and 180 columns: %d then %d",
+			barWidth(140), barWidth(180))
+	}
 
-	if narrow != minBarWidth {
-		t.Errorf("a narrow pane has a %d-cell bar, want the %d-cell minimum", narrow, minBarWidth)
-	}
-	if medium <= narrow {
-		t.Errorf("bar is %d cells at 160 columns and %d at 40; it should have grown", medium, narrow)
-	}
-	if wide != maxBarWidth {
-		t.Errorf("a very wide pane has a %d-cell bar, want it capped at %d", wide, maxBarWidth)
-	}
-	// Monotonic: a wider terminal never gets a shorter bar.
 	prev := 0
 	for w := 20; w <= 600; w++ {
 		got := barWidth(w)
 		if got < prev {
 			t.Fatalf("bar shrank from %d to %d between %d and %d columns", prev, got, w-1, w)
 		}
-		if got < minBarWidth || got > maxBarWidth {
+		// Either there is no bar, or it is long enough to read as one.
+		if got != 0 && (got < minBarWidth || got > maxBarWidth) {
 			t.Fatalf("bar is %d cells at %d columns, outside [%d,%d]",
 				got, w, minBarWidth, maxBarWidth)
 		}
@@ -325,16 +321,16 @@ func TestTheBarGrowsWithThePane(t *testing.T) {
 	}
 }
 
-// Growing the bar must not take anything away: any pane that could show
-// the full column set with the smallest bar still shows it.
-func TestAWiderBarNeverCostsTheOtherColumns(t *testing.T) {
+// Drawing the bar must not take anything away: any pane that could show
+// the full column set without one still shows it with one.
+func TestTheBarNeverCostsTheOtherColumns(t *testing.T) {
 	for w := 20; w <= 600; w++ {
-		fitsWithSmallestBar := w-fixedColumnsWith(minBarWidth) >= minNameWidth
+		fitsWithoutABar := w-fixedColumnsWith(0) >= minNameWidth
 		_, wide := nameWidth(w)
 
-		if fitsWithSmallestBar && !wide {
-			t.Errorf("%d columns fit the full set with a %d-cell bar but dropped to the "+
-				"narrow layout with a %d-cell one", w, minBarWidth, barWidth(w))
+		if fitsWithoutABar && !wide {
+			t.Errorf("%d columns fit the full set with no bar but dropped to the narrow "+
+				"layout with a %d-cell one", w, barWidth(w))
 		}
 	}
 }
