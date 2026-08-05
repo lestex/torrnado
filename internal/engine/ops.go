@@ -305,6 +305,86 @@ func fromLibPriority(p torrent.PiecePriority) Priority {
 	}
 }
 
+// lookupFile resolves a torrent id + file index to the library's File,
+// enforcing the metadata guard that every Files() call site needs (see
+// filesOrNil).
+func (e *Engine) lookupFile(id TorrentID, fileIndex int) (*tracked, *torrent.File, error) {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	files := filesOrNil(tr.t)
+	if files == nil {
+		return nil, nil, fmt.Errorf("torrent metadata not available yet")
+	}
+	if fileIndex < 0 || fileIndex >= len(files) {
+		return nil, nil, fmt.Errorf("file index %d out of range (0..%d)", fileIndex, len(files)-1)
+	}
+	return tr, files[fileIndex], nil
+}
+
+// OpenFile returns a reader over one file's data, for streaming it while
+// it is still downloading.
+//
+// The returned reader is the only sound way to read a torrent's file
+// before it completes. Reading the path on disk is not equivalent: the
+// storage backend writes to "<path>.part" until every piece of the file
+// is present, and that file is sparse and filled out of order, so a
+// reader of it sees zeros where pieces haven't landed. This reader blocks
+// instead, and the act of reading is what tells the client which pieces
+// to fetch first -- the piece at the read head is raised to "now" and the
+// readahead window behind it to "readahead" priority.
+//
+// The reader is not safe for concurrent use and holds a single read head:
+// callers wanting to serve overlapping ranges must open one each. Callers
+// must Close it, and should SetContext so a blocked read can be
+// cancelled.
+func (e *Engine) OpenFile(id TorrentID, fileIndex int) (torrent.Reader, FileInfo, error) {
+	_, f, err := e.lookupFile(id, fileIndex)
+	if err != nil {
+		return nil, FileInfo{}, err
+	}
+	info := FileInfo{
+		Index:     fileIndex,
+		Path:      f.Path(),
+		Length:    f.Length(),
+		Completed: f.BytesCompleted(),
+		Priority:  fromLibPriority(f.Priority()),
+	}
+	return f.NewReader(), info, nil
+}
+
+// PrepareStream makes a file streamable: it resumes the torrent if it is
+// paused and raises the file's priority if it is below normal.
+//
+// Both are required rather than courtesies. A read on a paused torrent
+// does not block waiting for a resume -- it fails immediately, because
+// pausing sets DisallowDataDownload and the library treats that as "this
+// data is never coming". A file left at priority none is likewise never
+// requested from peers.
+func (e *Engine) PrepareStream(id TorrentID, fileIndex int) error {
+	tr, f, err := e.lookupFile(id, fileIndex)
+	if err != nil {
+		return err
+	}
+
+	e.mu.Lock()
+	paused := tr.paused
+	e.mu.Unlock()
+	if paused {
+		if err := e.SetPaused(id, false); err != nil {
+			return fmt.Errorf("resume for streaming: %w", err)
+		}
+	}
+
+	if fromLibPriority(f.Priority()) < PriorityHigh {
+		if err := e.SetFilePriority(id, fileIndex, PriorityHigh); err != nil {
+			return fmt.Errorf("raise priority for streaming: %w", err)
+		}
+	}
+	return nil
+}
+
 // SetGlobalUploadLimit caps upload speed across every torrent, in
 // bytes/sec. Zero means unlimited. Enforced exactly, by the library.
 func (e *Engine) SetGlobalUploadLimit(bps int64) {
