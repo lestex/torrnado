@@ -10,14 +10,16 @@ import (
 )
 
 func TestProgressCellDrawsTheFraction(t *testing.T) {
+	// Expectations are expressed in terms of barWidth rather than as cell
+	// counts, so widening the bar stays a one-constant change.
 	cases := []struct {
 		frac       float64
 		wantFilled int
 		wantText   string
 	}{
 		{0, 0, "0%"},
-		{0.39, 3, "39%"},
-		{0.5, 5, "50%"},
+		{0.25, barWidth / 4, "25%"},
+		{0.5, barWidth / 2, "50%"},
 		{1, barWidth, "100%"},
 		// Progress can read fractionally over 1 while unverified bytes
 		// are counted; the bar must not grow a cell wider than its column.

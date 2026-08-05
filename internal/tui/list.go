@@ -22,7 +22,7 @@ const (
 	// The progress column: a bar, a space, then the percentage. Sized so
 	// "100%" fits without the column jumping a cell wider at the end of a
 	// download.
-	barWidth    = 10
+	barWidth    = 16
 	colPercent  = 4
 	colProgress = barWidth + colGap + colPercent
 
