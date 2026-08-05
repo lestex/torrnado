@@ -419,7 +419,17 @@ torrnado move <id> <new-directory>
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
+torrnado config                       where the config lives, and what is in effect
 ```
+
+`torrnado config` is the one command that never touches the daemon: it
+prints the config file it would read (saying so when there isn't one),
+every path derived from it -- downloads, state, socket, session file,
+saved metainfo -- and the settings actually in effect, defaults and
+overrides together. Useful when a setting seems to be ignored, since the
+first answer is usually that the file is somewhere other than where it
+was written. What it prints is what a daemon started *now* would use; one
+already running may have been started with something else.
 
 `list --watch` renders the daemon's pushed events rather than polling, so
 it updates when state actually changes (~1s) and costs no extra requests.
