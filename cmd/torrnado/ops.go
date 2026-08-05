@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -125,6 +126,67 @@ func newPriorityCmd() *cobra.Command {
 			}
 			return withClient(func(c *ipc.Client) error {
 				return c.SetFilePriority(engine.TorrentID(args[0]), idx, prio)
+			})
+		},
+	}
+}
+
+func newLimitCmd() *cobra.Command {
+	var torrentID string
+
+	cmd := &cobra.Command{
+		Use:   "limit <up|down> <rate|unlimited>",
+		Short: "Set a rate limit (global by default, or per-torrent with --torrent)",
+		Long: "Sets an upload or download speed cap. Global limits are enforced\n" +
+			"precisely by the torrent library.\n\n" +
+			"Per-torrent limits (--torrent <id>) are a best-effort approximation:\n" +
+			"the library throttles the whole client and offers no per-torrent\n" +
+			"hook, so the daemon toggles the torrent off and on around the cap\n" +
+			"each second. It averages out, but it is bursty.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			direction := strings.ToLower(args[0])
+			if direction != "up" && direction != "down" {
+				return fmt.Errorf("direction must be \"up\" or \"down\", got %q", args[0])
+			}
+			bps, err := parseRate(args[1])
+			if err != nil {
+				return err
+			}
+
+			return withClient(func(c *ipc.Client) error {
+				if torrentID != "" {
+					// The per-torrent call sets both directions at once, so
+					// -1 means "leave this one alone".
+					up, down := int64(-1), int64(-1)
+					if direction == "up" {
+						up = bps
+					} else {
+						down = bps
+					}
+					return c.SetTorrentRateLimit(engine.TorrentID(torrentID), up, down)
+				}
+				if direction == "up" {
+					return c.SetGlobalUploadLimit(bps)
+				}
+				return c.SetGlobalDownloadLimit(bps)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&torrentID, "torrent", "", "limit only this torrent (approximate)")
+	return cmd
+}
+
+func newMoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "move <torrent-id> <new-directory>",
+		Short: "Move a torrent's downloaded data to a new directory",
+		Long: "Moves the files, then re-verifies them in place. The torrent is\n" +
+			"re-added internally, which resets any custom per-file priorities.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withClient(func(c *ipc.Client) error {
+				return c.MoveStorage(engine.TorrentID(args[0]), args[1])
 			})
 		},
 	}
