@@ -130,6 +130,50 @@ assert_failure "a glob matching nothing fails" "$TORRNADO" add "$E2E_TMP/nothing
 assert_failure "an empty directory fails" "$TORRNADO" add "$E2E_TMP/custom-downloads"
 
 echo
+echo "streaming preview"
+
+# Put the data where the torrent expects it, so the client verifies it as
+# complete and the stream has something to serve. Without this a read
+# blocks forever waiting for a peer that does not exist -- which is
+# correct, but not testable.
+# The torrent was added earlier, when the file was not there, so it is
+# recorded as empty. A recheck is what makes the client look again.
+mkdir -p "$HOME/Downloads/torrnado"
+printf 'hello torrnado\n' > "$HOME/Downloads/torrnado/hello.txt"
+"$TORRNADO" recheck "$SAMPLE_IH" >/dev/null 2>&1
+
+for _ in $(seq 1 50); do
+	case "$("$TORRNADO" list 2>/dev/null | grep "$SAMPLE_IH")" in
+	*100.0%*) break ;;
+	esac
+	sleep 0.2
+done
+
+URL=$("$TORRNADO" preview "$SAMPLE_IH" 0 2>&1)
+assert_contains "preview returns a loopback URL" "$URL" "http://127.0.0.1:"
+
+body=$(curl -s --max-time 10 "$URL")
+assert_contains "the stream serves the file's contents" "$body" "hello torrnado"
+
+# Range support is what lets a player seek; ServeContent gives it for
+# free, but only if the reader really is seekable.
+headers=$(curl -s --max-time 10 -o /dev/null -D - -r 0-4 "$URL")
+assert_contains "a range request is answered with 206" "$headers" "206 Partial Content"
+assert_contains "the range covers what was asked for" "$headers" "bytes 0-4/15"
+
+# The token is the only thing standing between a local process and the
+# user's torrents.
+bad=$(echo "$URL" | sed 's|/stream/[0-9a-f]*/|/stream/deadbeef/|')
+code=$(curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$bad")
+if [ "$code" = "404" ]; then
+	pass "a wrong token is refused"
+else
+	fail "a wrong token is refused" "got HTTP $code, want 404"
+fi
+
+assert_failure "previewing an unknown torrent fails" "$TORRNADO" preview "not-a-real-id" 0
+
+echo
 echo "pause and resume"
 
 # Pause is not just a flag: the daemon tells the torrent to stop asking
