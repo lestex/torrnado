@@ -19,12 +19,21 @@ type styles struct {
 	StatusErr   lipgloss.Style
 	SelectedRow lipgloss.Style
 	Row         lipgloss.Style
-	Muted       lipgloss.Style
-	Accent      lipgloss.Style
-	Success     lipgloss.Style
-	Warning     lipgloss.Style
-	Error       lipgloss.Style
-	Title       lipgloss.Style
+	ColHeader   lipgloss.Style
+
+	// The two halves of a progress underline: how far along, and the
+	// track it runs on.
+	ProgressFill  lipgloss.Style
+	ProgressTrack lipgloss.Style
+	Muted         lipgloss.Style
+	Accent        lipgloss.Style
+	Success       lipgloss.Style
+	Warning       lipgloss.Style
+	Error         lipgloss.Style
+	Title         lipgloss.Style
+
+	// Pane is the bordered box every part of the interface sits in.
+	Pane lipgloss.Style
 }
 
 func newStyles(t theme.Theme) styles {
@@ -46,6 +55,11 @@ func newStyles(t theme.Theme) styles {
 
 		Row: lipgloss.NewStyle().Foreground(t.Foreground),
 
+		ColHeader: lipgloss.NewStyle().Foreground(t.Muted).Bold(true),
+
+		ProgressFill:  lipgloss.NewStyle().Foreground(t.Accent),
+		ProgressTrack: lipgloss.NewStyle().Foreground(t.Border),
+
 		Muted:   lipgloss.NewStyle().Foreground(t.Muted),
 		Accent:  lipgloss.NewStyle().Foreground(t.Accent),
 		Success: lipgloss.NewStyle().Foreground(t.Success),
@@ -55,5 +69,9 @@ func newStyles(t theme.Theme) styles {
 		Title: lipgloss.NewStyle().
 			Foreground(t.Accent).
 			Bold(true),
+
+		Pane: lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(t.Border),
 	}
 }
