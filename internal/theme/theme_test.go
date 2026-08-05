@@ -3,6 +3,8 @@ package theme
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -150,5 +152,87 @@ func TestOverrideUnknownKeyIsAnError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "acent") {
 		t.Errorf("error should name the unknown key, got: %v", err)
+	}
+}
+
+func TestAvailableListsBuiltinsWithNoThemesDir(t *testing.T) {
+	got := Available(filepath.Join(t.TempDir(), "absent"))
+
+	if len(got) != len(Names()) {
+		t.Errorf("got %d themes, want the %d built-ins", len(got), len(Names()))
+	}
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("themes are not sorted: %v", got)
+	}
+}
+
+func TestAvailableIncludesUserThemes(t *testing.T) {
+	dir := t.TempDir()
+	writeThemeFile(t, dir, "midnight")
+	// Not a theme; must not be listed.
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := Available(dir)
+
+	if !slices.Contains(got, "midnight") {
+		t.Errorf("a user theme is missing from %v", got)
+	}
+	if slices.Contains(got, "notes") || slices.Contains(got, "notes.txt") {
+		t.Errorf("a non-theme file was listed: %v", got)
+	}
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("themes are not sorted: %v", got)
+	}
+}
+
+// Load prefers a user file over the built-in of the same name, so
+// listing both would offer a choice that does not exist.
+func TestAvailableListsAShadowedBuiltinOnce(t *testing.T) {
+	dir := t.TempDir()
+	writeThemeFile(t, dir, "nord")
+
+	got := Available(dir)
+
+	var n int
+	for _, name := range got {
+		if name == "nord" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("nord appears %d times in %v, want once", n, got)
+	}
+}
+
+func TestIsUserTheme(t *testing.T) {
+	dir := t.TempDir()
+	writeThemeFile(t, dir, "midnight")
+
+	if !IsUserTheme("midnight", dir) {
+		t.Error("a theme with a file in the themes dir is not reported as a user theme")
+	}
+	if IsUserTheme("nord", dir) {
+		t.Error("a built-in with no file is reported as a user theme")
+	}
+}
+
+// writeThemeFile drops a complete, valid theme into dir.
+func writeThemeFile(t *testing.T, dir, name string) {
+	t.Helper()
+	body := `background = "#000000"
+foreground = "#ffffff"
+muted = "#888888"
+accent = "#ff00ff"
+success = "#00ff00"
+warning = "#ffff00"
+error = "#ff0000"
+border = "#444444"
+selected_bg = "#222222"
+selected_fg = "#ffffff"
+`
+	if err := os.WriteFile(filepath.Join(dir, name+".toml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
