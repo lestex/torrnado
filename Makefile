@@ -38,7 +38,9 @@ unexport GOROOT
 # Print the help when make is run with no target.
 .DEFAULT_GOAL := help
 
-.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean
+IMAGE := torrnado
+
+.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -82,6 +84,12 @@ tidy: ## Add missing and drop unused dependencies
 	$(GO) mod tidy
 
 check: fmt-check vet test ## Everything that must pass before committing
+
+docker: ## Build the container image
+	docker build -t $(IMAGE) .
+
+docker-test: ## Run the whole suite on linux, in a container
+	docker build --target test --progress plain .
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out

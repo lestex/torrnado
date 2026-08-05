@@ -1,0 +1,9 @@
+# Keep the build context to what the build actually needs. Everything
+# here is either rebuilt inside the image or has no business in it.
+.git
+.github
+torrnado
+coverage.out
+*.torrent.db
+*.torrent.bolt.db
+.claude
