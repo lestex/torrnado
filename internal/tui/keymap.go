@@ -10,7 +10,7 @@ type KeyMap struct {
 	Up, Down, Top, Bottom      string
 	Select, Remove, RemoveData string
 	Pause, Recheck             string
-	Back, Quit                 string
+	Detail, Back, Quit         string
 	Search, Command, Help      string
 	Preview                    string
 
@@ -35,8 +35,9 @@ func DefaultKeyMap() KeyMap {
 		Pause:   "p",
 		Recheck: "r",
 
-		Back: "esc",
-		Quit: "q",
+		Detail: "enter",
+		Back:   "esc",
+		Quit:   "q",
 
 		Search:  "/",
 		Command: ":",
@@ -81,6 +82,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Command, "command")
 	apply(&k.Help, "help")
 	apply(&k.Preview, "preview")
+	apply(&k.Detail, "detail")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")
 	apply(&k.FocusNext, "focus_next")

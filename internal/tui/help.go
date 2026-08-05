@@ -35,7 +35,8 @@ func (m Model) renderHelp(width, height int) string {
 		{displayKey(km.TabNext) + " / " + displayKey(km.TabPrev) + ", 1-3", "switch the detail pane's tab"},
 		{km.Search, "search torrents by name"},
 		{displayKey(km.Select), "mark the row under the cursor"},
-		{km.Back, "clear the selection, then the search, then the filter"},
+		{km.Detail, "move focus into the detail pane"},
+		{km.Back, "focus back to the list, then clear selection, search, filter"},
 	}
 
 	actions := []helpEntry{

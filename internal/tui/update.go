@@ -216,9 +216,20 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	case key == km.Recheck:
 		return m.recheckTargets(visible)
 
+	// The detail pane is always docked, so there is no view to open --
+	// this moves focus into it instead.
+	case key == km.Detail:
+		m.focus = focusDetail
+		return m, nil
+
 	case key == km.Back:
 		// Escape peels one layer at a time rather than clearing
 		// everything at once, so it is never a surprise.
+		switch {
+		case m.focus != focusList:
+			m.focus = focusList
+			return m, nil
+		}
 		if len(m.selected) > 0 {
 			m.selected = map[engine.TorrentID]bool{}
 		} else if m.searchQuery != "" {
