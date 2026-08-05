@@ -43,6 +43,10 @@ type Config struct {
 	DownloadDir  string `toml:"download_dir"`
 	DaemonSocket string `toml:"daemon_socket"`
 	Theme        string `toml:"theme"`
+	// Player is the command run to preview a file, given the stream URL
+	// as its final argument. May carry fixed flags ("mpv --no-terminal");
+	// it is split on spaces, not run through a shell.
+	Player string `toml:"player"`
 
 	RateLimit RateLimits        `toml:"rate_limit"`
 	Port      PortRange         `toml:"port"`
@@ -80,6 +84,7 @@ func Default() (Config, error) {
 		DownloadDir:  downloadDir,
 		DaemonSocket: socket,
 		Theme:        "dracula",
+		Player:       "mpv",
 		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
@@ -135,6 +140,9 @@ func (c Config) Validate() error {
 	}
 	if c.Theme == "" {
 		return fmt.Errorf("theme: must not be empty")
+	}
+	if strings.TrimSpace(c.Player) == "" {
+		return fmt.Errorf("player: must not be empty")
 	}
 
 	if c.RateLimit.Upload < 0 {
