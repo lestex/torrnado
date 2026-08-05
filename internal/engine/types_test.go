@@ -55,3 +55,41 @@ func TestStateStringIsExhaustive(t *testing.T) {
 		}
 	}
 }
+
+// While a hash check runs the status carries its progress, so a long
+// recheck does not look like a hang.
+func TestStatusTextShowsCheckProgress(t *testing.T) {
+	cases := []struct {
+		snap TorrentSnapshot
+		want string
+	}{
+		{TorrentSnapshot{State: StateChecking, CheckProgress: 0.42}, "checking 42%"},
+		{TorrentSnapshot{State: StateChecking, CheckProgress: 1}, "checking 100%"},
+		// Waiting for metadata is also "checking", but nothing is being
+		// verified, so there is no number to show.
+		{TorrentSnapshot{State: StateChecking}, "checking"},
+		// Progress from an earlier check must not leak into other states.
+		{TorrentSnapshot{State: StateSeeding, CheckProgress: 0.5}, "seeding"},
+		{TorrentSnapshot{State: StateDownloading}, "downloading"},
+	}
+	for _, c := range cases {
+		if got := c.snap.StatusText(); got != c.want {
+			t.Errorf("StatusText(%v, %.2f) = %q, want %q",
+				c.snap.State, c.snap.CheckProgress, got, c.want)
+		}
+	}
+}
+
+// The status has to fit the list's column, or it shears the table.
+func TestStatusTextFitsTheColumn(t *testing.T) {
+	const columnWidth = 13
+	for s := StateChecking; s <= StateError; s++ {
+		for _, p := range []float64{0, 0.5, 1} {
+			got := (TorrentSnapshot{State: s, CheckProgress: p}).StatusText()
+			if len(got) > columnWidth {
+				t.Errorf("StatusText = %q, %d chars, wider than the %d-wide column",
+					got, len(got), columnWidth)
+			}
+		}
+	}
+}

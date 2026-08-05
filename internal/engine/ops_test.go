@@ -130,3 +130,34 @@ func TestUnknownIDReportsNotFound(t *testing.T) {
 		t.Errorf("TorrentDetail: %v, want ErrNotFound", err)
 	}
 }
+
+// A magnet with no peers never gets metadata, and the library's whole
+// -torrent verify calls NumPieces without checking for it -- a nil
+// dereference that takes the daemon down with every other torrent. It has
+// to be refused here instead.
+func TestForceRecheckWithoutMetadataIsRefused(t *testing.T) {
+	e := newTestEngine(t)
+	id, err := e.AddMagnet(testMagnet, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddMagnet: %v", err)
+	}
+
+	// A panic here would kill the test binary, which is the point: this
+	// must return an error, not crash.
+	if err := e.ForceRecheck(id); err == nil {
+		t.Fatal("rechecking a torrent with no metadata should fail")
+	}
+
+	// And the torrent must not be left stuck reporting a check that is
+	// not running.
+	d, _ := e.TorrentDetail(id)
+	if d.Snapshot.CheckProgress != 0 {
+		t.Errorf("CheckProgress = %v after a refused recheck", d.Snapshot.CheckProgress)
+	}
+}
+
+func TestForceRecheckUnknownID(t *testing.T) {
+	if err := newTestEngine(t).ForceRecheck("nope"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("ForceRecheck(unknown) = %v, want ErrNotFound", err)
+	}
+}
