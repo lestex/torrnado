@@ -50,11 +50,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends lsof \
     && rm -rf /var/lib/apt/lists/*
 
-RUN gofmt -l . | tee /tmp/unformatted && [ ! -s /tmp/unformatted ]
-RUN go vet ./...
-RUN go test -count=1 ./...
-RUN go build -o torrnado ./cmd/torrnado \
-    && for t in e2e/*_test.sh; do echo "== $t"; bash "$t" || exit 1; done
+# Through make rather than by hand, so this stage cannot drift from what
+# the same targets do on a developer's machine -- and so the list of e2e
+# suites lives in exactly one place (the systemd one needs a booted
+# system and is excluded there).
+RUN make fmt-check vet test e2e
 
 # --- runtime -----------------------------------------------------------
 FROM alpine:3.21
