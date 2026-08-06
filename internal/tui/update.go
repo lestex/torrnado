@@ -37,6 +37,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// standing condition, not an event that has passed.
 		m.status = "lost connection to daemon"
 		m.statusIsErr = true
+		m.daemonDown = true
 		return m, nil
 
 	case statusMsg:

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/lestex/torrnado/internal/engine"
 )
 
@@ -90,10 +92,10 @@ func (m Model) renderSidebar(p panes) string {
 	// at the bottom of the sidebar so the footer can stay one line.
 	g := m.global
 	stats := []string{
-		m.styles.ColHeader.Render(truncate("Daemon", w)),
-		m.styles.Muted.Render(truncate(fmt.Sprintf(" port %d", g.ListenPort), w)),
-		m.styles.Muted.Render(truncate(fmt.Sprintf(" dht %d", g.DhtNodes), w)),
-		m.styles.Muted.Render(truncate(" free "+formatBytes(g.DiskFreeBytes), w)),
+		m.daemonHeading(w),
+		m.styles.Muted.Render(truncate(fmt.Sprintf("port: %d", g.ListenPort), w)),
+		m.styles.Muted.Render(truncate(fmt.Sprintf("dht: %d", g.DhtNodes), w)),
+		m.styles.Muted.Render(truncate("free: "+formatBytes(g.DiskFreeBytes), w)),
 	}
 
 	// Push the daemon block to the bottom when there's room, drop it when
@@ -106,4 +108,42 @@ func (m Model) renderSidebar(p panes) string {
 	}
 
 	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// daemonStatusDot is the lit indicator beside the Daemon heading.
+//
+// The numbers under it cannot say whether the daemon is still there: the
+// port and the free space keep whatever they last were pushed, so a dead
+// daemon looks exactly like a quiet one. The dot is the only thing that
+// changes, which is why it is worth a colour of its own.
+const daemonStatusDot = "●"
+
+// daemonHeading is "Daemon" followed by that dot, green while the event
+// stream is alive and red once it has ended.
+//
+// The dot trails the word rather than leading it so the heading starts in
+// the same column as the values beneath it -- a leading dot indents the
+// only line in the block that is not indented.
+func (m Model) daemonHeading(w int) string {
+	head := m.styles.ColHeader.Render(truncate("Daemon", w))
+
+	// Two cells for the space and the dot. Dropped rather than truncated
+	// when the sidebar is too narrow: half a status light says nothing.
+	if w < lipgloss.Width("Daemon")+2 {
+		return head
+	}
+
+	return head + " " + m.daemonDotStyle().Render(daemonStatusDot)
+}
+
+// daemonDotStyle is green while the daemon is answering and red once it
+// has gone. Split out because the colour is the whole content of the dot,
+// and a rendered string cannot be asserted on: lipgloss strips colour
+// when it is not writing to a terminal, so under `go test` both branches
+// render the same character.
+func (m Model) daemonDotStyle() lipgloss.Style {
+	if m.daemonDown {
+		return m.styles.Error
+	}
+	return m.styles.Success
 }
