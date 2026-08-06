@@ -327,7 +327,7 @@ func TestParseSortMode(t *testing.T) {
 			t.Errorf("ParseSortMode(%q) was rejected", name)
 		}
 	}
-	if _, ok := ParseSortMode("colour"); ok {
+	if _, ok := ParseSortMode("color"); ok {
 		t.Error("ParseSortMode accepted a column that does not exist")
 	}
 }

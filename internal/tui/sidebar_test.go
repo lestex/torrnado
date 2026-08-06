@@ -131,15 +131,15 @@ func TestTheDaemonDotReportsALostConnection(t *testing.T) {
 		t.Error("the daemon heading carries no status dot")
 	}
 
-	// The colour, not the character, is what the dot says -- and it has
-	// to come from the theme, so a picked theme recolours it too.
+	// The color, not the character, is what the dot says -- and it has
+	// to come from the theme, so a picked theme recolors it too.
 	if got := m.daemonDotStyle().GetForeground(); got != th.Success {
-		t.Errorf("a live daemon's dot is %v, want the theme's success colour %v", got, th.Success)
+		t.Errorf("a live daemon's dot is %v, want the theme's success color %v", got, th.Success)
 	}
 
 	m.daemonDown = true
 	if got := m.daemonDotStyle().GetForeground(); got != th.Error {
-		t.Errorf("a lost daemon's dot is %v, want the theme's error colour %v", got, th.Error)
+		t.Errorf("a lost daemon's dot is %v, want the theme's error color %v", got, th.Error)
 	}
 }
 

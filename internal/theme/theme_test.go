@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// Every built-in has to set every colour. A palette with a hole in it
-// renders as an invisible or default-coloured element, which is far
+// Every built-in has to set every color. A palette with a hole in it
+// renders as an invisible or default-colored element, which is far
 // harder to notice than a build failure.
 func TestBuiltinsAreComplete(t *testing.T) {
 	for _, name := range Names() {
@@ -61,9 +61,9 @@ func TestNamesAreSorted(t *testing.T) {
 	}
 }
 
-// The "plain" theme exists for terminals with no real colour support, so
+// The "plain" theme exists for terminals with no real color support, so
 // it must not use hex values -- those are what it is avoiding.
-func TestPlainThemeAvoidsHexColours(t *testing.T) {
+func TestPlainThemeAvoidsHexColors(t *testing.T) {
 	th, err := Load("plain", t.TempDir())
 	if err != nil {
 		t.Fatalf("Load(plain): %v", err)
@@ -72,7 +72,7 @@ func TestPlainThemeAvoidsHexColours(t *testing.T) {
 		string(th.Foreground), string(th.Accent), string(th.Error),
 	} {
 		if strings.HasPrefix(c, "#") {
-			t.Errorf("plain theme uses a hex colour %q", c)
+			t.Errorf("plain theme uses a hex color %q", c)
 		}
 	}
 }
@@ -122,14 +122,14 @@ func TestOverrideBeatsBuiltinOfTheSameName(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if th.Accent != "#ff00ff" {
-		t.Errorf("Accent = %q, want the override's colour", th.Accent)
+		t.Errorf("Accent = %q, want the override's color", th.Accent)
 	}
 }
 
 // A half-written theme is rejected, naming what is absent. Falling back
 // silently would leave elements rendering in the terminal's default with
 // nothing to explain why.
-func TestOverrideMissingColoursIsAnError(t *testing.T) {
+func TestOverrideMissingColorsIsAnError(t *testing.T) {
 	dir := writeTheme(t, "partial", `foreground = "#ffffff"`)
 
 	_, err := Load("partial", dir)

@@ -40,10 +40,10 @@ type Theme struct {
 	SelectedFg lipgloss.Color `toml:"selected_fg"`
 }
 
-// missingFields lists the colours a Theme has left unset, by their TOML
+// missingFields lists the colors a Theme has left unset, by their TOML
 // key names. A palette with a hole in it renders as an invisible or
-// default-coloured element rather than failing, so it is worth being able
-// to say exactly which colour is absent.
+// default-colored element rather than failing, so it is worth being able
+// to say exactly which color is absent.
 func (t Theme) missingFields() []string {
 	var missing []string
 	check := func(name string, v lipgloss.Color) {
@@ -138,7 +138,7 @@ func Load(name, themesDir string) (Theme, error) {
 		if err != nil {
 			return Theme{}, fmt.Errorf("theme %s (%s): %w", name, overridePath, err)
 		}
-		// An unknown key is a typo, and a silently ignored colour is a
+		// An unknown key is a typo, and a silently ignored color is a
 		// theme that looks broken for no visible reason.
 		if undecoded := meta.Undecoded(); len(undecoded) > 0 {
 			return Theme{}, fmt.Errorf("theme %s (%s): unknown key(s): %v", name, overridePath, undecoded)

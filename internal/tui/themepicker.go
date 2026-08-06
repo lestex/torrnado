@@ -11,7 +11,7 @@ import (
 )
 
 // The theme picker is a floating list drawn over the panes rather than
-// in place of them, which is the point: moving through it recolours the
+// in place of them, which is the point: moving through it recolors the
 // interface underneath, so a theme is judged on your own torrents rather
 // than on a swatch.
 //

@@ -115,7 +115,7 @@ func (m Model) renderSidebar(p panes) string {
 // The numbers under it cannot say whether the daemon is still there: the
 // port and the free space keep whatever they last were pushed, so a dead
 // daemon looks exactly like a quiet one. The dot is the only thing that
-// changes, which is why it is worth a colour of its own.
+// changes, which is why it is worth a color of its own.
 const daemonStatusDot = "●"
 
 // daemonHeading is "Daemon" followed by that dot, green while the event
@@ -137,8 +137,8 @@ func (m Model) daemonHeading(w int) string {
 }
 
 // daemonDotStyle is green while the daemon is answering and red once it
-// has gone. Split out because the colour is the whole content of the dot,
-// and a rendered string cannot be asserted on: lipgloss strips colour
+// has gone. Split out because the color is the whole content of the dot,
+// and a rendered string cannot be asserted on: lipgloss strips color
 // when it is not writing to a terminal, so under `go test` both branches
 // render the same character.
 func (m Model) daemonDotStyle() lipgloss.Style {
