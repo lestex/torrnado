@@ -163,6 +163,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		State:         state,
 		Paused:        tr.paused,
 		SavePath:      tr.savePath,
+		DataDir:       dataDir(tr.savePath, t),
 		AddedAt:       tr.addedAt,
 		Error:         tr.lastErr,
 		Checking:      tr.checking,

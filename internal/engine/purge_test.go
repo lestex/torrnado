@@ -275,3 +275,43 @@ func TestPurgeDataDeletesAMultiFileTorrentsDirectory(t *testing.T) {
 		t.Errorf("progress = %.2f after a purge, want 0", snap.Progress)
 	}
 }
+
+// Which directory holds a torrent's files depends on its shape, and a
+// client should not have to work that out from a name that may not match
+// what is on disk. The file list says it: a multi-file torrent's paths
+// carry their directory, a single-file torrent's do not.
+func TestDataDirDependsOnTheTorrentsShape(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	multiPath, payloadDir := writeMultiFileTorrent(t, cfg.DataDir)
+	multi, err := e.AddTorrentFile(multiPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	if got := findSnapshot(t, e, multi).DataDir; got != payloadDir {
+		t.Errorf("multi-file DataDir = %q, want the torrent's own folder %q", got, payloadDir)
+	}
+
+	single, err := e.AddTorrentFile(writeTestTorrent(t, cfg.DataDir, 64*1024), AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	if got := findSnapshot(t, e, single).DataDir; got != cfg.DataDir {
+		t.Errorf("single-file DataDir = %q, want the save path %q", got, cfg.DataDir)
+	}
+
+	// A magnet has no file list yet, and the save path is both a real
+	// directory and where the data is going to land.
+	magnet, err := e.AddMagnet(testMagnet, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddMagnet: %v", err)
+	}
+	if got := findSnapshot(t, e, magnet).DataDir; got != cfg.DataDir {
+		t.Errorf("DataDir without metadata = %q, want the save path %q", got, cfg.DataDir)
+	}
+}
