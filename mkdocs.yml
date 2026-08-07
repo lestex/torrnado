@@ -5,7 +5,7 @@ repo_url: https://github.com/lestex/torrnado
 repo_name: lestex/torrnado
 edit_uri: edit/main/docs/
 # Year and holder match LICENSE, so the two cannot drift.
-copyright: '© 2026 <a href="https://github.com/lestex">@lestex</a>. MIT-licensed. Built with anacrolix/torrent and bubbletea.'
+copyright: '© 2026 <a href="https://github.com/lestex">@lestex</a>. MIT-licensed. Built with <a href="https://github.com/anacrolix/torrent">anacrolix/torrent</a> and <a href="https://github.com/charmbracelet/bubbletea">bubbletea</a>.'
 
 docs_dir: docs
 

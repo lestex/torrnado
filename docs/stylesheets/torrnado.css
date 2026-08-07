@@ -145,10 +145,14 @@ html .md-footer-meta.md-typeset .md-copyright a {
   color: var(--tn-accent);
 }
 
+/* No underline on hover: the accent already marks these as links, and an
+ * underline appearing under one of three links in a single sentence is
+ * more movement than the footer wants. Focus keeps a visible ring from
+ * the browser default, so keyboard users are not left without one. */
 html .md-footer-meta.md-typeset .md-copyright a:hover,
 html .md-footer-meta.md-typeset .md-copyright a:focus {
   color: var(--tn-accent);
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* Material sizes the footer's social icons at 0.8rem inside a 1.6rem hit
