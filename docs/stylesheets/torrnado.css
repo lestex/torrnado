@@ -132,6 +132,19 @@
   background-color: var(--tn-canvas-subtle);
 }
 
+/* Material sizes the footer's social icons at 0.8rem inside a 1.6rem hit
+ * area, which leaves the GitHub mark noticeably smaller than the text it
+ * sits beside. The link keeps its size so the target stays comfortable;
+ * only the glyph grows. */
+.md-social__link {
+  height: 1.8rem;
+  width: 1.8rem;
+}
+
+.md-social__link svg {
+  max-height: 1.1rem;
+}
+
 /* --------------------------------------------------------------- landing */
 
 /* The landing page hides both sidebars, which otherwise leave it wider

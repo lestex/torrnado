@@ -4,7 +4,8 @@ site_url: https://torrnado.dev
 repo_url: https://github.com/lestex/torrnado
 repo_name: lestex/torrnado
 edit_uri: edit/main/docs/
-copyright: MIT-licensed. Built with anacrolix/torrent and bubbletea.
+# Year and holder match LICENSE, so the two cannot drift.
+copyright: "© 2026 Andrey Larin. MIT-licensed. Built with anacrolix/torrent and bubbletea."
 
 docs_dir: docs
 
@@ -69,6 +70,9 @@ extra_css:
   - stylesheets/torrnado.css
 
 extra:
+  # Drops "Made with Material for MkDocs" from the footer. A supported
+  # switch in the theme's own copyright partial, not a CSS workaround.
+  generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/lestex/torrnado
