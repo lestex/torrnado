@@ -1,13 +1,6 @@
-# Builds the documentation site and publishes it to GitHub Pages.
-#
-# Pages must be enabled with "GitHub Actions" as its source (Settings ->
-# Pages -> Build and deployment). Until it is, the build job passes and
-# only `deploy` fails, with a bare `HttpError: Not Found`.
-#
-# The custom domain has to be set in those same settings. docs/CNAME is
-# deployed and served, but Pages ignores it here: reading that file to
-# configure a domain only applies to branch-based Pages, not to
-# build_type: workflow. The DNS records live at the registrar.
+# Builds the documentation site and publishes it to GitHub Pages. Pages
+# and the custom domain are enabled in Settings -> Pages; docs/CNAME is
+# ignored for build_type: workflow, and DNS lives at the registrar.
 name: docs
 
 on:
@@ -20,9 +13,8 @@ on:
       - mkdocs.yml
       - docs-requirements.txt
       - .github/workflows/docs.yml
-  # ci.yml skips documentation-only changes, so without this a broken
-  # --strict build would first be seen on main, after the merge, by the
-  # job that publishes. The build job runs here; deploy does not.
+  # ci.yml skips docs-only changes, so without this a broken --strict
+  # build would first be seen on main, by the job that publishes.
   pull_request:
     paths:
       - docs/**
@@ -32,18 +24,13 @@ on:
   # So a broken build can be fixed and redeployed without an empty commit.
   workflow_dispatch:
 
-# Only the deploy job needs to write to Pages, and it asks for that
-# itself. Granting it here would hand a write-scoped token to every pull
-# request build as well, for a job that only ever builds.
+# Only deploy needs Pages write, and it asks for that itself. Granting it
+# here would hand the token to pull request builds too.
 permissions:
   contents: read
 
-# One deployment at a time, and let a newer push win: an in-flight build
-# of older docs is not worth waiting for.
-#
-# Keyed by ref rather than a bare "pages": pull request builds share this
-# workflow now, and with one group across every ref a PR build would
-# cancel an in-flight deployment of main.
+# One deployment at a time, newest push wins. Keyed by ref, or a pull
+# request build would cancel an in-flight deployment of main.
 concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: true
@@ -76,8 +63,8 @@ jobs:
 
   deploy:
     needs: build
-    # A pull request builds the site to prove it still builds; publishing
-    # it would put unreviewed docs on torrnado.dev.
+    # A pull request proves the site builds; publishing it would put
+    # unreviewed docs on torrnado.dev.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
