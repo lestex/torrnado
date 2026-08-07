@@ -42,6 +42,7 @@ type Network struct {
 type Config struct {
 	DownloadDir  string `toml:"download_dir"`
 	DaemonSocket string `toml:"daemon_socket"`
+	Theme        string `toml:"theme"`
 
 	RateLimit RateLimits `toml:"rate_limit"`
 	Port      PortRange  `toml:"port"`
@@ -61,6 +62,7 @@ func Default() (Config, error) {
 	return Config{
 		DownloadDir:  downloadDir,
 		DaemonSocket: socket,
+		Theme:        "dracula",
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
 		Network:      Network{DHT: true, PEX: true, LSD: true, Encryption: true, Seed: true},
@@ -112,6 +114,9 @@ func (c Config) Validate() error {
 	}
 	if c.DaemonSocket == "" {
 		return fmt.Errorf("daemon_socket: must not be empty")
+	}
+	if c.Theme == "" {
+		return fmt.Errorf("theme: must not be empty")
 	}
 
 	if c.RateLimit.Upload < 0 {
