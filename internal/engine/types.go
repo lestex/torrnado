@@ -116,8 +116,12 @@ type TorrentSnapshot struct {
 	// paused torrent being rechecked reads as "checking", and anything
 	// inferring pausedness from State would conclude it is running.
 	Paused bool
+	// Checking reports whether a hash check is actually running, which
+	// State cannot: a torrent waiting for a magnet's metadata is also
+	// StateChecking, and nothing is being verified there.
+	Checking bool
 	// CheckProgress is how far a running hash check has got, 0..1. Only
-	// meaningful while State is StateChecking.
+	// meaningful while Checking is set.
 	CheckProgress float64
 	SavePath      string
 	AddedAt       time.Time
@@ -132,7 +136,20 @@ type TorrentSnapshot struct {
 // Lives here rather than in either UI so the TUI and `torrnado list`
 // cannot word it differently.
 func (s TorrentSnapshot) StatusText() string {
-	if s.State == StateChecking && s.CheckProgress > 0 {
+	// Keyed off Checking, not off the progress being above zero: a check
+	// that has just started is at 0%, and reporting that as "no progress
+	// information" left a long verify showing a bare "checking" -- the
+	// one moment a user most wants a number. A torrent waiting on a
+	// magnet's metadata is StateChecking with nothing being checked, and
+	// still reads as plain "checking".
+	//
+	// The second half of the condition is for a daemon older than the
+	// Checking field. The daemon outlives the client by design -- that is
+	// the point of the whole split -- so a new TUI talking to a daemon
+	// that has been up for a week is normal, and gob leaves a field it
+	// has never heard of at its zero value. Anything the daemon can still
+	// tell us is worth using.
+	if s.Checking || (s.State == StateChecking && s.CheckProgress > 0) {
 		return fmt.Sprintf("checking %d%%", int(s.CheckProgress*100))
 	}
 	return s.State.String()

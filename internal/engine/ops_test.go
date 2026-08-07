@@ -161,3 +161,53 @@ func TestForceRecheckUnknownID(t *testing.T) {
 		t.Errorf("ForceRecheck(unknown) = %v, want ErrNotFound", err)
 	}
 }
+
+// A snapshot has to say a check is running before the first piece
+// finishes. Deriving that from "progress above zero" meant the status
+// fell back to a bare "checking" at exactly the moment the check began --
+// on a large torrent, the moment a user is most likely to look.
+func TestASnapshotReportsACheckBeforeItsFirstPiece(t *testing.T) {
+	e := newTestEngine(t)
+	id, err := e.AddMagnet(testMagnet, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddMagnet: %v", err)
+	}
+
+	// Set up by hand rather than by starting a real check: this is about
+	// the instant before any piece has been verified, which a running
+	// check passes through too quickly to catch.
+	e.mu.Lock()
+	tr := e.torrents[id]
+	tr.checking = true
+	tr.checkDone = 0
+	tr.checkTotal = 24000
+	snap := e.snapshotLocked(id, tr)
+	e.mu.Unlock()
+
+	if !snap.Checking {
+		t.Error("a running check is not reported in the snapshot")
+	}
+	if got := snap.StatusText(); got != "checking 0%" {
+		t.Errorf("StatusText = %q, want %q", got, "checking 0%")
+	}
+}
+
+// Waiting for a magnet's metadata is reported as checking too, but
+// nothing is being verified -- a percentage there would be a lie.
+func TestWaitingForMetadataIsNotAChecking(t *testing.T) {
+	e := newTestEngine(t)
+	if _, err := e.AddMagnet(testMagnet, AddOpts{}); err != nil {
+		t.Fatalf("AddMagnet: %v", err)
+	}
+
+	snap := e.ListTorrents()[0]
+	if snap.State != StateChecking {
+		t.Fatalf("state = %v, want checking", snap.State)
+	}
+	if snap.Checking {
+		t.Error("a torrent waiting for metadata is reported as being hash-checked")
+	}
+	if got := snap.StatusText(); got != "checking" {
+		t.Errorf("StatusText = %q, want %q", got, "checking")
+	}
+}

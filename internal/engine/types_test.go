@@ -63,11 +63,19 @@ func TestStatusTextShowsCheckProgress(t *testing.T) {
 		snap TorrentSnapshot
 		want string
 	}{
-		{TorrentSnapshot{State: StateChecking, CheckProgress: 0.42}, "checking 42%"},
-		{TorrentSnapshot{State: StateChecking, CheckProgress: 1}, "checking 100%"},
+		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 0.42}, "checking 42%"},
+		{TorrentSnapshot{State: StateChecking, Checking: true, CheckProgress: 1}, "checking 100%"},
+		// A check that has only just started is at zero, and saying so
+		// beats falling back to a bare "checking" for the first tick of
+		// what may be an hour's work.
+		{TorrentSnapshot{State: StateChecking, Checking: true}, "checking 0%"},
 		// Waiting for metadata is also "checking", but nothing is being
 		// verified, so there is no number to show.
 		{TorrentSnapshot{State: StateChecking}, "checking"},
+		// A daemon older than the Checking field sends progress and no
+		// flag. The daemon outliving the client is the design, so a
+		// snapshot from one still has to render as well as it can.
+		{TorrentSnapshot{State: StateChecking, CheckProgress: 0.3}, "checking 30%"},
 		// Progress from an earlier check must not leak into other states.
 		{TorrentSnapshot{State: StateSeeding, CheckProgress: 0.5}, "seeding"},
 		{TorrentSnapshot{State: StateDownloading}, "downloading"},
