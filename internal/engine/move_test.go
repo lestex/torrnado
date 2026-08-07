@@ -73,8 +73,10 @@ func TestMoveStorageWorksOnAMultiPieceTorrent(t *testing.T) {
 
 	// Built inside the engine's own data directory, so the torrent is
 	// added with its data already there -- there has to be something to
-	// move. 64KiB at a 16KiB piece length is four pieces in one file.
-	torrentPath := writeTestTorrent(t, cfg.DataDir, 64*1024)
+	// move. 4MiB at a 16KiB piece length is 256 pieces in one file: more
+	// than one piece is the point of the test, and enough of them that
+	// the verification below lasts long enough to be seen.
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
 
 	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
 	if err != nil {
@@ -92,8 +94,16 @@ func TestMoveStorageWorksOnAMultiPieceTorrent(t *testing.T) {
 
 	// The move reports its verification as a hash check, which is what
 	// puts a percentage in front of the user rather than a bare
-	// "checking" for however long it takes.
-	snap := findSnapshot(t, e, id)
+	// "checking". Polled rather than sampled once: MoveStorage sets the
+	// flag before it returns, but the goroutine clearing it can win.
+	var snap TorrentSnapshot
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		snap = findSnapshot(t, e, id)
+		if snap.Checking || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	if !snap.Checking {
 		t.Error("a move does not report the verification it starts")
 	}
