@@ -1,9 +1,6 @@
-# Builds the documentation site and publishes it to GitHub Pages.
-#
-# Pages must be set to "GitHub Actions" as its source in the repository
-# settings (Settings -> Pages -> Build and deployment), and the custom
-# domain set to torrnado.dev -- docs/CNAME keeps it across deployments,
-# but the DNS records themselves live at the registrar.
+# Builds the documentation site and publishes it to GitHub Pages. Pages
+# and the custom domain are enabled in Settings -> Pages; docs/CNAME is
+# ignored for build_type: workflow, and DNS lives at the registrar.
 name: docs
 
 on:
@@ -16,18 +13,26 @@ on:
       - mkdocs.yml
       - docs-requirements.txt
       - .github/workflows/docs.yml
+  # ci.yml skips docs-only changes, so without this a broken --strict
+  # build would first be seen on main, by the job that publishes.
+  pull_request:
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - docs-requirements.txt
+      - .github/workflows/docs.yml
   # So a broken build can be fixed and redeployed without an empty commit.
   workflow_dispatch:
 
+# Only deploy needs Pages write, and it asks for that itself. Granting it
+# here would hand the token to pull request builds too.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# One deployment at a time, and let a newer push win: an in-flight build
-# of older docs is not worth waiting for.
+# One deployment at a time, newest push wins. Keyed by ref, or a pull
+# request build would cancel an in-flight deployment of main.
 concurrency:
-  group: pages
+  group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -58,7 +63,14 @@ jobs:
 
   deploy:
     needs: build
+    # A pull request proves the site builds; publishing it would put
+    # unreviewed docs on torrnado.dev.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
