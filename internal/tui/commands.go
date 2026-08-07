@@ -2,13 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"path"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
-	"github.com/lestex/torrnado/internal/player"
+	"github.com/lestex/torrnado/internal/launch"
 )
 
 // Each of these returns a tea.Cmd: a function bubbletea runs off the main
@@ -33,6 +34,25 @@ func removeCmd(c *ipc.Client, ids []engine.TorrentID, deleteData bool) tea.Cmd {
 			verb = "removed (with data)"
 		}
 		return okStatus(fmt.Sprintf("%s %d torrent(s)", verb, len(ids)))
+	}
+}
+
+// openCmd shows dir in the configured program, falling back to fallback
+// when dir is not there.
+//
+// A torrent that has downloaded nothing yet, or whose data was just
+// purged, has no folder of its own -- the save path does exist, and
+// showing the place the data is going to land is more use than an error
+// about a directory the user never asked about by name.
+func openCmd(opener, dir, fallback string) tea.Cmd {
+	return func() tea.Msg {
+		if _, err := os.Stat(dir); err != nil && fallback != "" {
+			dir = fallback
+		}
+		if err := launch.Detached(opener, dir); err != nil {
+			return errStatus(err)
+		}
+		return okStatus("opened " + dir)
 	}
 }
 
@@ -142,7 +162,7 @@ func previewCmd(c *ipc.Client, playerCmd string, id engine.TorrentID, f engine.F
 		if err != nil {
 			return errStatus(err)
 		}
-		if err := player.Launch(playerCmd, url); err != nil {
+		if err := launch.Detached(playerCmd, url); err != nil {
 			return errStatus(err)
 		}
 		return okStatus(fmt.Sprintf("playing %s", path.Base(f.Path)))

@@ -21,6 +21,7 @@ torrnado move <id> <new-directory>
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
+torrnado open <id...>                 open the torrent's folder
 torrnado config                       where the config lives, and what is in effect
 ```
 

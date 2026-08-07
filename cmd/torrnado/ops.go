@@ -19,7 +19,7 @@ import (
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
-	"github.com/lestex/torrnado/internal/player"
+	"github.com/lestex/torrnado/internal/launch"
 )
 
 // withClient connects to (or spawns) the daemon, runs fn, and always
@@ -91,6 +91,44 @@ func newPurgeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.PurgeData(id)
+			})
+		},
+	}
+}
+
+// newOpenCmd shows a torrent's folder in the configured opener -- the
+// same thing the TUI's "o" does, for the same reason `preview --play`
+// exists beside the TUI's "v": every action should be reachable from a
+// script.
+func newOpenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "open <torrent-id>...",
+		Short: "Open a torrent's folder in the configured file manager",
+		Long: "Opens the directory holding the torrent's files -- its own folder for\n" +
+			"a multi-file torrent, the save path for a single-file one -- using the\n" +
+			"`opener` command from config.toml.\n\n" +
+			"The program is detached, so it outlives this command.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, _, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				d, err := c.Detail(id)
+				if err != nil {
+					return err
+				}
+				dir := d.Snapshot.DataDir
+				if dir == "" {
+					dir = d.Snapshot.SavePath
+				}
+				// The save path stands in for a torrent with nothing on
+				// disk yet, the same fallback the TUI makes.
+				if _, err := os.Stat(dir); err != nil && d.Snapshot.SavePath != "" {
+					dir = d.Snapshot.SavePath
+				}
+				return launch.Detached(cfg.Opener, dir)
 			})
 		},
 	}
@@ -253,7 +291,7 @@ func newPreviewCmd() *cobra.Command {
 					return err
 				}
 				if play {
-					return player.Launch(cfg.Player, url)
+					return launch.Detached(cfg.Player, url)
 				}
 				fmt.Println(url)
 				return nil

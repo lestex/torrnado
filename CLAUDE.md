@@ -86,8 +86,13 @@ internal/stream   Loopback HTTP server handing torrent files to a media
                   (blocking reads; the read position is what drives piece
                   priority). Separate from ipc because the gob protocol
                   cannot carry a byte stream. Depends only on engine.
-internal/player   Launches the configured player detached, so it outlives
-                  the TUI. Not tea.ExecProcess -- that suspends the TUI.
+internal/launch   Starts an external program on a path or URL and leaves
+                  it running -- a player against a stream, a file manager
+                  against a folder. Detached, so it outlives the TUI; not
+                  tea.ExecProcess, which suspends the TUI. A configured
+                  command may place the argument itself with %f, which is
+                  substituted after the split so a path with a space in it
+                  stays one argument.
 internal/vpn      Reports whether traffic leaves through a tunnel, for the
                   `vpn.required` guard. Stdlib only: a UDP dial (which
                   sends nothing) gives the interface the route table would

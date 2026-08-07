@@ -135,6 +135,11 @@ type TorrentSnapshot struct {
 	// meaningful while Checking is set.
 	CheckProgress float64
 	SavePath      string
+	// DataDir is the directory holding this torrent's files: its own
+	// folder under SavePath for a multi-file torrent, SavePath itself for
+	// a single-file one. Computed by the daemon so a client does not have
+	// to guess which shape it is looking at.
+	DataDir       string
 	AddedAt       time.Time
 	Error         string
 	DownloadLimit int64 // bytes/sec, 0 = unlimited

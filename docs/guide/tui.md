@@ -53,6 +53,7 @@ mode, just the movement/action idioms.
 | `esc`              | focus back to the list, then clear selection / search / filter |
 | `:`                | open the command palette                           |
 | `v`                | stream the selected file to your player (Files tab) |
+| `o`                | open the torrent's folder in your file manager      |
 | `h`                | keybind & command reference                        |
 | `q`                | quit the TUI (the daemon keeps running)             |
 

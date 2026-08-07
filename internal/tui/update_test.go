@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -486,6 +487,63 @@ func TestALongStatusIsShownRatherThanDropped(t *testing.T) {
 	if w := lipgloss.Width(footer); w > p.footerW {
 		t.Errorf("the footer is %d columns, want at most %d: %q", w, p.footerW, footer)
 	}
+}
+
+// The folder key acts on the cursor row alone: eight marked torrents
+// would mean eight windows, which is not what anyone means by "open it".
+func TestOpenActsOnTheCursorRow(t *testing.T) {
+	dir := t.TempDir()
+
+	m := testModel("a", "b")
+	m.opener = "true" // a real binary that exits immediately
+	m.torrents[0].DataDir, m.torrents[0].SavePath = dir, dir
+	m.selected = map[engine.TorrentID]bool{"b": true}
+
+	msg := openStatus(t, m)
+	if msg.isErr {
+		t.Fatalf("o reported an error: %q", msg.text)
+	}
+	if !strings.Contains(msg.text, dir) {
+		t.Errorf("opened %q, want the cursor row's folder %q", msg.text, dir)
+	}
+	if len(m.selected) != 1 {
+		t.Error("opening a folder disturbed the selection")
+	}
+}
+
+// A torrent that has downloaded nothing, or whose data was just purged,
+// has no folder of its own -- the save path does exist, and showing where
+// the data is going to land beats an error about a directory the user
+// never named.
+func TestOpenFallsBackToTheSavePath(t *testing.T) {
+	dir := t.TempDir()
+
+	m := testModel("a")
+	m.opener = "true"
+	m.torrents[0].SavePath = dir
+	m.torrents[0].DataDir = filepath.Join(dir, "not-downloaded-yet")
+
+	msg := openStatus(t, m)
+	if msg.isErr {
+		t.Fatalf("o reported an error: %q", msg.text)
+	}
+	if !strings.Contains(msg.text, dir) || strings.Contains(msg.text, "not-downloaded-yet") {
+		t.Errorf("opened %q, want the save path %q", msg.text, dir)
+	}
+}
+
+// openStatus presses the folder key and returns what it reported.
+func openStatus(t *testing.T, m Model) statusMsg {
+	t.Helper()
+	_, cmd := m.openCursorFolder()
+	if cmd == nil {
+		t.Fatal("the folder key produced no command")
+	}
+	msg, ok := cmd().(statusMsg)
+	if !ok {
+		t.Fatalf("the folder key produced %T, want a status", cmd())
+	}
+	return msg
 }
 
 // The speeds sit in fixed cells, so nothing to their right moves as the

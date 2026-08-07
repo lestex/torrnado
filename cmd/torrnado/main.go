@@ -42,6 +42,7 @@ func main() {
 		newMoveCmd(),
 		newListCmd(),
 		newPreviewCmd(),
+		newOpenCmd(),
 		newConfigCmd(),
 	)
 

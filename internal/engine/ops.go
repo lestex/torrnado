@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -212,6 +213,34 @@ func dataPaths(savePath string, t *torrent.Torrent) []string {
 		paths = append(paths, p, p+partFileSuffix)
 	}
 	return paths
+}
+
+// dataDir is the directory holding a torrent's files -- what to open in
+// a file manager when someone asks to see it on disk.
+//
+// Two shapes: a multi-file torrent puts its files in a directory of its
+// own name under the save path, a single-file one writes straight into
+// the save path. The difference is visible in the file list, where a
+// multi-file torrent's paths carry that directory as their first element,
+// so the answer is read from there rather than from the torrent's name --
+// which is not always what the directory ended up being called.
+//
+// The save path before metadata arrives, which is where the data will go
+// and is a directory that already exists.
+func dataDir(savePath string, t *torrent.Torrent) string {
+	files := filesOrNil(t)
+	if len(files) == 0 {
+		return savePath
+	}
+	// The library documents Path() as the components joined by "/", on
+	// every platform, so this is not filepath's separator to split on.
+	// The first element is the directory the torrent owns; filepath.Dir
+	// of a deeper path would land inside it.
+	first, _, nested := strings.Cut(files[0].Path(), "/")
+	if !nested {
+		return savePath // written straight into the save path
+	}
+	return filepath.Join(savePath, first)
 }
 
 // partFileSuffix is what anacrolix/torrent's file storage appends to a

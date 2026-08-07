@@ -208,3 +208,36 @@ func TestValidateRejectsAnEmptyVPNInterface(t *testing.T) {
 		t.Errorf("error should name the key, got: %v", err)
 	}
 }
+
+// The opener has to be usable on the platform it is running on without
+// anyone configuring anything -- that is the whole point of a default --
+// and an override has to survive validation.
+func TestOpenerHasAWorkingDefault(t *testing.T) {
+	cfg, err := Default()
+	if err != nil {
+		t.Fatalf("Default: %v", err)
+	}
+	if cfg.Opener == "" {
+		t.Fatal("opener has no default")
+	}
+
+	loaded, err := Load(writeConfig(t, `opener = "alacritty --working-directory %f"`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.Opener != "alacritty --working-directory %f" {
+		t.Errorf("opener = %q after being overridden", loaded.Opener)
+	}
+}
+
+// An empty one would leave the key looking configured while doing
+// nothing, the same reason player is checked.
+func TestValidateRejectsAnEmptyOpener(t *testing.T) {
+	_, err := Load(writeConfig(t, `opener = "  "`))
+	if err == nil {
+		t.Fatal("an empty opener should be an error")
+	}
+	if !strings.Contains(err.Error(), "opener") {
+		t.Errorf("error should name the key, got: %v", err)
+	}
+}
