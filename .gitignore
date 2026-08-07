@@ -1,3 +1,5 @@
 /torrnado
 /coverage.out
 .claude/
+/site/
+/.venv/

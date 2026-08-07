@@ -1,0 +1,66 @@
+# Command line
+
+Every subcommand is a thin client: it dials the daemon's socket, spawns a
+daemon if nothing answers, makes one call and exits. Whatever you can do
+in the TUI you can do from a shell script.
+
+## Reference
+
+```
+torrnado                              attach the TUI (spawns a daemon if needed)
+torrnado daemon                       run the engine in the foreground
+torrnado add <sources...>             add torrent(s); --save-path, --paused
+torrnado remove <id...>               remove; --delete-data
+torrnado pause <id...>
+torrnado resume <id...>
+torrnado recheck <id...>
+torrnado priority <id> <file-index> <none|low|normal|high|now>
+torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-torrent
+torrnado move <id> <new-directory>
+torrnado list                         tabular snapshot of every torrent
+torrnado list --watch                 redraw live until interrupted (-w)
+torrnado preview <id> <file-index>    print a stream URL; --play opens it
+torrnado config                       where the config lives, and what is in effect
+```
+
+`torrnado config` is the one command that never touches the daemon: it
+prints the config file it would read (saying so when there isn't one),
+every path derived from it -- downloads, state, socket, session file,
+saved metainfo -- and the settings actually in effect, defaults and
+overrides together. Useful when a setting seems to be ignored, since the
+first answer is usually that the file is somewhere other than where it
+was written. What it prints is what a daemon started *now* would use; one
+already running may have been started with something else.
+
+`list --watch` renders the daemon's pushed events rather than polling, so
+it updates when state actually changes (~1s) and costs no extra requests.
+On a terminal it redraws in place; piped to a file or a pager it appends
+plain frames with no escape codes, so `torrnado list -w | tee log` works.
+
+Every subcommand accepts `--config <path>` to use a config file other than
+the XDG default. Torrent ids are hex-encoded info hashes, as printed by
+`add` and `list`.
+
+## Batch add
+
+`:add` (and `torrnado add` on the CLI) accepts any mix of:
+
+- a magnet URI
+- a `.torrent` file path
+- an `http://` or `https://` URL to a `.torrent` file (downloaded to a
+  temp file and added from there)
+- a directory (every `.torrent` file directly inside it, non-recursive)
+- a glob pattern (`~/torrents/*.torrent`) -- handled by torrnado itself
+  as well as by your shell, so it also works quoted or on shells that
+  don't glob
+- a text file listing one magnet URI per line (blank lines and `#`
+  comments ignored)
+
+```sh
+torrnado add 'magnet:?xt=urn:btih:...'
+torrnado add ~/downloads/some.torrent
+torrnado add https://torrent.fedoraproject.org/torrents/Fedora-COSMIC-Live-x86_64-44.torrent
+torrnado add ~/torrents/*.torrent
+torrnado add ~/torrents/            # every .torrent file in the directory
+torrnado add magnets.txt             # one magnet uri per line
+```

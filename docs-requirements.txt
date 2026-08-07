@@ -1,0 +1,6 @@
+# Pinned so a local build and the CI build produce the same site.
+# Bump deliberately: `pip install -U mkdocs-material` then re-freeze.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+mkdocs-material-extensions==1.3.1
+pymdown-extensions==11.0.1
