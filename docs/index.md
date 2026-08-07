@@ -22,10 +22,10 @@ The engine runs as a daemon, so closing the terminal doesn't stop the download.
 
 <div class="tn-terminal">
 <div class="tn-terminal__bar"><i></i><i></i><i></i><span>torrnado</span></div>
-<img src="assets/tui.png" width="1760" height="918"
+<img src="assets/tui.png" width="1760" height="713"
      alt="The torrnado TUI: a sidebar filtering by status, four torrents listed with
-          progress bars, sizes, states and speeds, and a docked Pieces tab below showing
-          a fully verified piece map. The footer reads 34.3MiB/s down, 4 torrents.">
+          progress, size, state and speed, one downloading at 19% and 35.5MiB/s, and
+          a docked Pieces tab below showing the verified piece map.">
 </div>
 
 <div class="tn-stats">
