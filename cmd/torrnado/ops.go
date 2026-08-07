@@ -274,7 +274,7 @@ func writeTorrentTable(out io.Writer, snaps []engine.TorrentSnapshot) error {
 	fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS")
 	for _, s := range snaps {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d\n",
-			s.ID, s.Name, s.State, s.Progress*100,
+			s.ID, s.Name, s.StatusText(), s.Progress*100,
 			format.Rate(s.DownloadBPS), format.Rate(s.UploadBPS), format.Ratio(s.Ratio),
 			s.NumSeeds, s.NumPeers)
 	}

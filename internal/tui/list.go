@@ -14,7 +14,7 @@ import (
 const (
 	colMark   = 1 // cursor ">" / selection "*" marker
 	colSize   = 8
-	colStatus = 12
+	colStatus = 13 // fits "checking 100%"
 	colDown   = 12 // wide enough for "↓ 999.9MiB/s"
 	colUp     = 12
 	colETA    = 7
@@ -116,7 +116,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	b.WriteString(padRight(t.Name, nameW))
 	if wide {
 		b.WriteString(" " + padLeft(formatBytes(t.TotalLength), colSize))
-		b.WriteString(" " + padRight(t.State.String(), colStatus))
+		b.WriteString(" " + padRight(t.StatusText(), colStatus))
 		b.WriteString(" " + padLeft(rateCell("↓ ", t.DownloadBPS), colDown))
 		b.WriteString(" " + padLeft(rateCell("↑ ", t.UploadBPS), colUp))
 		b.WriteString(" " + padLeft(etaCell(t), colETA))

@@ -433,22 +433,50 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 
 // ForceRecheck re-verifies a torrent's on-disk data against its piece
 // hashes.
+//
+// Refused before metadata arrives. The library's own VerifyData calls
+// NumPieces without checking, and NumPieces reads through metadata that
+// may not be there -- so a recheck on a magnet that has not found a peer
+// yet is a nil dereference that takes the whole daemon down, every other
+// torrent with it.
 func (e *Engine) ForceRecheck(id TorrentID) error {
 	tr, err := e.lookup(id)
 	if err != nil {
 		return err
 	}
+	if tr.t.Info() == nil {
+		return fmt.Errorf("torrent metadata not available yet")
+	}
+	total := tr.t.NumPieces()
+
 	e.mu.Lock()
 	tr.checking = true
+	tr.checkDone = 0
+	tr.checkTotal = total
 	e.mu.Unlock()
 	e.snapshotAndBroadcastNow()
 
 	go func() {
-		err := tr.t.VerifyDataContext(context.Background())
+		// Verified one piece at a time rather than through the library's
+		// whole-torrent VerifyData, so the progress is observable: that
+		// call reports nothing at all until it returns, which on a large
+		// torrent is a very long silence.
+		var failed error
+		for i := 0; i < total; i++ {
+			if err := tr.t.Piece(i).VerifyDataContext(context.Background()); err != nil {
+				failed = err
+				break
+			}
+			e.mu.Lock()
+			tr.checkDone = i + 1
+			e.mu.Unlock()
+		}
+
 		e.mu.Lock()
 		tr.checking = false
-		if err != nil {
-			tr.lastErr = fmt.Sprintf("recheck failed: %v", err)
+		tr.checkDone, tr.checkTotal = 0, 0
+		if failed != nil {
+			tr.lastErr = fmt.Sprintf("recheck failed: %v", failed)
 		}
 		e.mu.Unlock()
 		e.snapshotAndBroadcastNow()

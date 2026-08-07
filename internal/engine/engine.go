@@ -81,6 +81,11 @@ type tracked struct {
 
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
+
+	// How far a running hash check has got. Meaningful only while
+	// checking is set.
+	checkDone  int
+	checkTotal int
 }
 
 // peerBytes is one peer's counters from the previous detail call, plus

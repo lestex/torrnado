@@ -4,7 +4,10 @@
 // torrents directly.
 package engine
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Priority is how badly a file's data is wanted, from not at all through
 // to immediately. It applies to a whole file at a time.
@@ -112,12 +115,27 @@ type TorrentSnapshot struct {
 	// State reports Checking (or Error) in preference to Paused, so a
 	// paused torrent being rechecked reads as "checking", and anything
 	// inferring pausedness from State would conclude it is running.
-	Paused        bool
+	Paused bool
+	// CheckProgress is how far a running hash check has got, 0..1. Only
+	// meaningful while State is StateChecking.
+	CheckProgress float64
 	SavePath      string
 	AddedAt       time.Time
 	Error         string
 	DownloadLimit int64 // bytes/sec, 0 = unlimited
 	UploadLimit   int64 // bytes/sec, 0 = unlimited
+}
+
+// StatusText is the state as a user should see it, with hash-check
+// progress folded in while one is running.
+//
+// Lives here rather than in either UI so the TUI and `torrnado list`
+// cannot word it differently.
+func (s TorrentSnapshot) StatusText() string {
+	if s.State == StateChecking && s.CheckProgress > 0 {
+		return fmt.Sprintf("checking %d%%", int(s.CheckProgress*100))
+	}
+	return s.State.String()
 }
 
 // FileInfo describes one file within a torrent.

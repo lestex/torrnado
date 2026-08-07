@@ -35,11 +35,12 @@ func (m Model) renderHelp(width, height int) string {
 		{displayKey(km.TabNext) + " / " + displayKey(km.TabPrev) + ", 1-3", "switch the detail pane's tab"},
 		{km.Search, "search torrents by name"},
 		{displayKey(km.Select), "mark the row under the cursor"},
-		{km.Back, "clear the selection, then the search, then the filter"},
+		{km.Detail, "move focus into the detail pane"},
+		{km.Back, "focus back to the list, then clear selection, search, filter"},
 	}
 
 	actions := []helpEntry{
-		{km.Remove, "remove the marked torrents, keeping the data"},
+		{km.Remove + ", dd", "remove the marked torrents, keeping the data"},
 		{km.RemoveData, "remove them and delete the data too"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},

@@ -27,6 +27,14 @@ GOFMT      := $(if $(wildcard $(GOENV_BIN)/gofmt),$(GOENV_BIN)/gofmt,gofmt)
 # Still exported, for anything the recipes shell out to.
 export PATH := $(GOENV_BIN):$(PATH)
 
+# A GOROOT inherited from the shell can point at a different version than
+# the go binary chosen above -- goenv sets it, and it goes stale as soon
+# as another version is selected. go then runs one version's driver
+# against another's compiler and fails with "does not match go tool
+# version". Unset, go works its own GOROOT out from where it lives, which
+# is exactly the version picked above.
+unexport GOROOT
+
 # Print the help when make is run with no target.
 .DEFAULT_GOAL := help
 
