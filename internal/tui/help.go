@@ -46,7 +46,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
 		{km.Command, "command palette: :add, :theme, :limit-up, :move, :q"},
-		{km.Preview, "stream the selected file to your player, even while downloading"},
+		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},
 		{km.Help, "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},

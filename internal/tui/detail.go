@@ -72,9 +72,6 @@ func (m Model) handleDetailKey(key string) (tea.Model, tea.Cmd) {
 
 	case key == "-" || key == "_":
 		return m.adjustFilePriority(-1)
-
-	case key == km.Preview:
-		return m.previewFile()
 	}
 
 	return m.handleListKey(key)
@@ -194,17 +191,59 @@ func (m Model) filesTab(p panes, height int) []string {
 	return lines
 }
 
-// previewFile streams the file under the Files-tab cursor to the
-// configured player.
+// previewFile streams a file to the configured player, from any pane.
 //
 // Any file is allowed, not just recognized video: players handle audio
 // too, and an extension whitelist would only refuse things that work.
 // The mediaMarker in the file list is the discoverability hint instead.
+//
+// When it cannot play anything it says so. It used to return silently,
+// which is how pressing v on a torrent in the list -- the obvious way to
+// play one -- looked like a broken feature rather than a key that had not
+// been wired up.
 func (m Model) previewFile() (tea.Model, tea.Cmd) {
-	if m.detailTab != tabFiles || m.detailCursor >= len(m.detail.Files) {
+	t, ok := m.cursorTorrent()
+	if !ok {
 		return m, nil
 	}
-	return m, previewCmd(m.client, m.player, m.detail.Snapshot.ID, m.detail.Files[m.detailCursor])
+
+	// The detail pane is fetched for whatever the cursor is on, so its
+	// file list belongs to this torrent -- unless the fetch has not
+	// landed yet, which is a second or so after the cursor moves.
+	if !m.detailLoaded || m.detail.Snapshot.ID != t.ID {
+		cmd := m.setStatus(errStatus(fmt.Errorf("still reading %s", t.Name)))
+		return m, cmd
+	}
+	if len(m.detail.Files) == 0 {
+		cmd := m.setStatus(errStatus(fmt.Errorf("no files yet -- still waiting for this torrent's metadata")))
+		return m, cmd
+	}
+
+	// The file under the cursor when the Files tab is open and the cursor
+	// is on one; otherwise the biggest file in the torrent.
+	//
+	// Pressing v on a row in the list is how anyone would try to play a
+	// torrent, and it used to do nothing at all -- the key was claimed
+	// only by the detail pane, and only on one of its three tabs. The
+	// largest file is what "play this" means: the feature is bigger than
+	// the sample, the sample bigger than the subtitles.
+	f := largestFile(m.detail.Files)
+	if m.detailTab == tabFiles && m.detailCursor < len(m.detail.Files) {
+		f = m.detail.Files[m.detailCursor]
+	}
+	return m, previewCmd(m.client, m.player, m.detail.Snapshot.ID, f)
+}
+
+// largestFile returns the biggest file of a torrent. Callers must not
+// pass an empty list.
+func largestFile(files []engine.FileInfo) engine.FileInfo {
+	largest := files[0]
+	for _, f := range files[1:] {
+		if f.Length > largest.Length {
+			largest = f
+		}
+	}
+	return largest
 }
 
 func (m Model) adjustFilePriority(delta int) (tea.Model, tea.Cmd) {
