@@ -113,6 +113,18 @@ func (m Model) renderPrompt(sigil, buf string, width int) string {
 		m.styles.Accent.Render("█")
 }
 
+// footerRateW is the cell each transfer total is drawn in: the arrow, a
+// space, the widest rate format.Rate can produce ("1023.9KiB/s"), and one
+// space before whatever comes next.
+//
+// Fixed, because everything to the right of these two numbers moves when
+// they do otherwise -- the separator and the torrent count slid a cell
+// left and right every second as a speed crossed 10, 100 or a unit
+// boundary, which is the sort of movement the eye follows and the mind
+// then has to dismiss.
+// 2 cells for "↓ ", 11 for the rate, 1 to keep it off the next thing.
+const footerRateW = 14
+
 // renderFooter draws the single bottom line: transfer totals on the left,
 // any transient status message on the right.
 func (m Model) renderFooter(p panes) string {
@@ -128,8 +140,10 @@ func (m Model) renderFooter(p panes) string {
 		return m.styles.StatusBar.Render(" press any key to close help")
 	}
 	g := m.global
-	left := fmt.Sprintf(" ↓ %s  ↑ %s  │  %d torrents",
-		formatRate(g.DownloadBPS), formatRate(g.UploadBPS), g.NumTorrents)
+	left := " " +
+		padRight("↓ "+formatRate(g.DownloadBPS), footerRateW) +
+		padRight("↑ "+formatRate(g.UploadBPS), footerRateW) +
+		fmt.Sprintf("│  %d torrents", g.NumTorrents)
 
 	statusStyle := m.styles.StatusBar
 	if m.statusIsErr {
