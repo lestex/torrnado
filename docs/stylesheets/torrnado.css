@@ -95,6 +95,29 @@
   border-bottom: 1px solid var(--tn-border);
 }
 
+/* Material gives the header's repo block a fixed 11.7rem, whatever is in
+ * it. "lestex/torrnado" measures 169px, so about 112px of the block was
+ * empty and the name sat that far short of the header's right edge --
+ * left-aligned inside a box wider than its contents, which reads as the
+ * whole thing being misplaced rather than merely padded.
+ *
+ * Sized to its contents instead, so it ends where the name ends and a
+ * longer or shorter repo name simply moves the left edge. max-width goes
+ * with it, or the fixed value would still cap and ellipsise the name. */
+.md-header__source {
+  width: auto;
+  max-width: none;
+}
+
+/* The name inside is capped at 100% of that block, which once the block
+ * sizes to its contents is circular: the box shrinks to the text, then
+ * clips the text to the box, and "lestex/torrnado" came out ellipsised.
+ * The block is only rendered above Material's tablet breakpoint, so there
+ * is no narrow-screen case for the cap to protect. */
+.md-source__repository {
+  max-width: none;
+}
+
 [data-md-color-scheme="slate"] .md-typeset code,
 [data-md-color-scheme="default"] .md-typeset code {
   border: 1px solid var(--tn-border-muted);
