@@ -23,7 +23,7 @@ func startTestDaemon(t *testing.T) *Client {
 	t.Cleanup(func() { eng.Close() })
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
-	srv, err := Serve(sock, eng)
+	srv, err := Serve(sock, eng, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}

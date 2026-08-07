@@ -2,11 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"path"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/player"
 )
 
 // Each of these returns a tea.Cmd: a function bubbletea runs off the main
@@ -111,5 +113,21 @@ func setPriorityCmd(c *ipc.Client, id engine.TorrentID, fileIndex int, prio engi
 		}
 		d, err := c.Detail(id)
 		return detailLoadedMsg{detail: d, err: err}
+	}
+}
+
+// previewCmd asks the daemon for a stream URL and opens it in the
+// configured player. The daemon resumes the torrent and raises the file's
+// priority as part of handing the URL over.
+func previewCmd(c *ipc.Client, playerCmd string, id engine.TorrentID, f engine.FileInfo) tea.Cmd {
+	return func() tea.Msg {
+		url, err := c.PreviewURL(id, f.Index)
+		if err != nil {
+			return errStatus(err)
+		}
+		if err := player.Launch(playerCmd, url); err != nil {
+			return errStatus(err)
+		}
+		return okStatus(fmt.Sprintf("playing %s", path.Base(f.Path)))
 	}
 }

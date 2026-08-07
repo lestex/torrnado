@@ -77,6 +77,7 @@ type Model struct {
 	filter statusFilter
 
 	keymap KeyMap
+	player string // command used to preview a file, from config
 
 	// cursor indexes visibleTorrents, not torrents: it points at what is
 	// on screen, so filtering moves it with the list rather than leaving
@@ -114,12 +115,13 @@ type Model struct {
 
 // New builds the initial Model. client and its Events() channel must
 // already be connected.
-func New(client *ipc.Client, km KeyMap, th theme.Theme) Model {
+func New(client *ipc.Client, km KeyMap, th theme.Theme, player string) Model {
 	return Model{
 		client:   client,
 		events:   client.Events(),
 		keymap:   km,
 		styles:   newStyles(th),
+		player:   player,
 		selected: map[engine.TorrentID]bool{},
 	}
 }
