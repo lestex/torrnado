@@ -1,7 +1,26 @@
-# torrnado
+---
+hide:
+  - toc
+---
 
-A terminal BitTorrent client: a vim-like TUI on top of a torrent engine
-that runs as a background daemon.
+<div class="tn-hero" markdown>
+
+<h1 class="tn-hero__title">torrnado</h1>
+
+<p class="tn-hero__tagline">
+A terminal BitTorrent client with a vim-like TUI.<br>
+The engine runs as a daemon, so closing the terminal doesn't stop the download.
+</p>
+
+<div class="tn-cta" markdown>
+[$ get started](getting-started/installation.md){ .tn-btn .tn-btn--primary }
+[view on github](https://github.com/lestex/torrnado){ .tn-btn .tn-btn--ghost }
+</div>
+
+</div>
+
+<div class="tn-terminal" markdown>
+<div class="tn-terminal__bar"><i></i><i></i><i></i><span>torrnado - ~/Downloads</span></div>
 
 ```
 ┌──────────────────┐┌────────────────────────────────────────────────────────────────────┐
@@ -13,10 +32,20 @@ that runs as a background daemon.
 │  Seeding         │└────────────────────────────────────────────────────────────────────┘
 │  Completed       │┌────────────────────────────────────────────────────────────────────┐
 │  Stopped         ││  ─ [Pieces]  Peers   Files                                         │
-│                  ││  1950/24208 pieces verified × 256.0KiB                              │
+│                  ││  1950/24208 pieces verified × 256.0KiB                             │
 └──────────────────┘└────────────────────────────────────────────────────────────────────┘
  ↓ 21.4MiB/s  ↑ 0B/s  │  3 torrents                              added 1 torrent(s)
 ```
+
+</div>
+
+<div class="tn-stats">
+  <span>macOS</span>
+  <span>Linux</span>
+  <span>MIT License</span>
+  <span>Go 1.25+</span>
+  <span><b>v0.1.0</b></span>
+</div>
 
 ## The idea
 
@@ -28,6 +57,89 @@ That is the one design decision everything else follows from. The TUI and
 the CLI are both thin clients that talk to the engine over a local Unix
 socket, so neither of them owns the torrents; quitting either one is not
 an event the daemon notices.
+
+<p class="tn-label">// features</p>
+
+<div class="tn-features" markdown>
+
+<div class="tn-feature" markdown>
+### runs detached
+One daemon; the TUI and the CLI attach and detach freely. Quitting a
+client is not something the engine notices.
+</div>
+
+<div class="tn-feature" markdown>
+### survives restarts
+The torrent list, paused state, save paths, rate limits and per-file
+priorities are written to disk and restored on start.
+</div>
+
+<div class="tn-feature" markdown>
+### streams while downloading
+Press ++v++ on a video and it opens in your player at once, seeking
+included - the read position drives which pieces are fetched.
+</div>
+
+<div class="tn-feature" markdown>
+### three panes, vim keys
+A status sidebar, the torrent list and a docked Pieces/Peers/Files pane.
+++colon++ opens a command palette; ++h++ lists every key.
+</div>
+
+<div class="tn-feature" markdown>
+### fully scriptable
+Every action is a subcommand, so `torrnado add`, `torrnado list` and
+friends work in a shell script or a cron job.
+</div>
+
+<div class="tn-feature" markdown>
+### waits for your VPN
+Optionally holds every transfer until the system's traffic leaves through
+a tunnel, and lets them go again when it reconnects.
+</div>
+
+</div>
+
+<p class="tn-label">$ install torrnado</p>
+
+<div class="tn-install" markdown>
+
+=== "Released binary"
+
+    ```sh
+    tar xzf torrnado_0.1.0_linux_amd64.tar.gz
+    ./torrnado version
+    ```
+
+    Archives for Linux and macOS on both architectures, plus
+    `checksums.txt`, are on the [releases
+    page](https://github.com/lestex/torrnado/releases).
+
+=== "From source"
+
+    ```sh
+    go build -o torrnado ./cmd/torrnado
+    ```
+
+    Requires Go 1.25+. `make build` instead stamps the version, commit and
+    date in, so `torrnado version` says more than "dev".
+
+=== "Docker"
+
+    ```sh
+    docker build -t torrnado .
+    docker run --rm -v "$PWD/downloads:/downloads" torrnado version
+    ```
+
+    For leaving it running on a box - see [Docker](server/docker.md).
+
+</div>
+
+<p class="tn-after-install" markdown>
+then run `torrnado` to start - [quick start →](getting-started/quick-start.md)
+</p>
+
+## Where to go next
 
 <div class="grid cards" markdown>
 
@@ -67,26 +179,8 @@ an event the daemon notices.
 
 </div>
 
-## What it does
-
-- **Runs detached.** One daemon; the TUI and CLI attach and detach freely.
-- **Survives restarts.** The torrent list, paused state, save paths, rate
-  limits and per-file priorities are written to disk and restored.
-- **Streams while downloading.** Press ++v++ on a video and it opens in
-  your player at once, seeking included - the read position drives which
-  pieces are fetched.
-- **Scripts.** Every action is a subcommand, so `torrnado add`,
-  `torrnado list` and friends work in a shell script or a cron job.
-- **Stays out of the way.** Vim-like keys, no mouse, no configuration
-  required to start.
-
 ## What it does not do
 
 No remote control protocol, no web UI, no Windows. The socket is local by
 construction and SSH already solves the remote problem properly - see
 [non-goals](reference/caveats.md) for the full list and the reasoning.
-
-## Requirements
-
-Go 1.25+ to build, a POSIX system to run (Linux and macOS are tested), and
-a media player if you want the streaming preview.
