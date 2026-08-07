@@ -21,6 +21,7 @@ const (
 	MethodPing                   Method = "Ping"
 	MethodAddMagnet              Method = "AddMagnet"
 	MethodAddTorrentFile         Method = "AddTorrentFile"
+	MethodAddBatch               Method = "AddBatch"
 	MethodRemove                 Method = "Remove"
 	MethodSetPaused              Method = "SetPaused"
 	MethodForceRecheck           Method = "ForceRecheck"
@@ -43,9 +44,10 @@ type Request struct {
 	Seq    uint64
 	Method Method
 
-	ID     string // torrent id (hex infohash) for single-torrent ops
-	Source string // magnet uri or .torrent file path, for single add
-	Opts   engine.AddOpts
+	ID      string   // torrent id (hex infohash) for single-torrent ops
+	Source  string   // magnet uri or .torrent file path, for single add
+	Sources []string // for AddBatch, already expanded by the caller
+	Opts    engine.AddOpts
 
 	DeleteData bool
 	Paused     bool
@@ -67,6 +69,11 @@ type Response struct {
 	Err string
 
 	ID string
+	// AddBatch reports both halves of a partial success: the ids that
+	// were added, and a message per source that failed. They are not
+	// index-aligned -- a batch can half work, and both facts matter.
+	IDs  []string
+	Errs []string
 
 	Snapshot []engine.TorrentSnapshot
 	Detail   *engine.TorrentDetail

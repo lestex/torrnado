@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/lestex/torrnado/internal/engine"
@@ -147,6 +148,26 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 		resp.ID = string(id)
+
+	case MethodAddBatch:
+		// One round trip for the whole batch: adding fifty torrents
+		// should not mean fifty calls. A source that fails is recorded
+		// and the rest carry on.
+		for _, src := range req.Sources {
+			var id engine.TorrentID
+			var err error
+			if strings.HasPrefix(src, "magnet:") {
+				id, err = s.eng.AddMagnet(src, req.Opts)
+			} else {
+				id, err = s.eng.AddTorrentFile(src, req.Opts)
+			}
+			if err != nil {
+				resp.Errs = append(resp.Errs, fmt.Sprintf("%s: %v", src, err))
+				continue
+			}
+			resp.IDs = append(resp.IDs, string(id))
+		}
+		resp.OK = true
 
 	case MethodRemove:
 		if err := s.eng.RemoveTorrent(engine.TorrentID(req.ID), req.DeleteData); err != nil {
