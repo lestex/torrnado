@@ -67,6 +67,15 @@ const (
 	StateDownloading
 	StateSeeding
 	StateError
+	// StateBlocked is a torrent held by the VPN guard: it would be
+	// running, but the system is not on a VPN and config says it must be.
+	//
+	// Appended rather than slotted in beside StatePaused, because these
+	// values go over the wire as gob-encoded ints: inserting one would
+	// silently renumber every state above it, and a daemon that has been
+	// up for a week talking to a freshly built client would report
+	// seeding torrents as errored.
+	StateBlocked
 )
 
 func (s State) String() string {
@@ -83,6 +92,8 @@ func (s State) String() string {
 		return "seeding"
 	case StateError:
 		return "error"
+	case StateBlocked:
+		return "blocked"
 	default:
 		return "unknown"
 	}
@@ -242,6 +253,16 @@ type GlobalStats struct {
 	DiskTotalBytes int64
 	ListenPort     int
 	DhtNodes       int
+	// VPNRequired is whether the VPN guard is switched on at all. Without
+	// it a client cannot tell "not on a VPN" from "not looking", and would
+	// have to show an alarming red nothing to everyone who never asked for
+	// the guard.
+	VPNRequired bool
+	// VPNActive is the last verdict, and VPNInterface what traffic would
+	// leave by. Only meaningful while VPNRequired: the check is not run
+	// otherwise.
+	VPNActive    bool
+	VPNInterface string
 	// UploadLimit/DownloadLimit are the current global rate caps in
 	// bytes/sec (0 = unlimited).
 	UploadLimit   int64
@@ -256,6 +277,22 @@ type Event struct {
 	Torrents []TorrentSnapshot
 	Global   GlobalStats
 	At       time.Time
+}
+
+// VPNStatus is what a Config.VPNCheck reports: whether the system's
+// traffic leaves through a VPN, by which interface, and why not when it
+// does not.
+//
+// Declared here rather than taken from internal/vpn so this package keeps
+// no internal dependencies -- the daemon converts one to the other. It
+// also means a test can drive the guard with a closure instead of a
+// network.
+type VPNStatus struct {
+	Active    bool
+	Interface string
+	// Reason explains a false Active, for the log line the daemon writes
+	// when transfers are held.
+	Reason string
 }
 
 // AddOpts controls how a torrent is added.
