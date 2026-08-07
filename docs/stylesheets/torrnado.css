@@ -148,23 +148,22 @@
   text-align: center;
   padding: 3.2rem 0 1.6rem;
   position: relative;
-  /* The glow below is deliberately wider than this box, which on a narrow
-   * screen put its edge 84px past the viewport and scrolled the whole
-   * landing page sideways. Clipped rather than shrunk, so the bleed is
-   * unchanged on a wide screen; `clip` rather than `hidden` because
-   * hidden would make this a scroll container. */
-  overflow-x: clip;
 }
 
-/* The glow behind the wordmark, echoing GitHub's own hero. Sits behind
- * content and never intercepts a click. */
+/* The glow behind the wordmark, in the accent. Sits behind content and
+ * never intercepts a click. */
 .tn-hero::before {
   content: "";
   position: absolute;
   left: 50%;
   top: 0;
-  width: 44rem;
-  max-width: 130%;
+  /* Never wider than the hero. It used to be 130%, which on a narrow
+   * screen reached past the viewport and scrolled the landing page
+   * sideways; clipping that overflow only traded the scroll for a hard
+   * vertical edge where the gradient was cut. Sized to fit instead, so
+   * the gradient reaches transparent on its own and there is no edge to
+   * see. */
+  width: min(44rem, 100%);
   height: 22rem;
   transform: translateX(-50%);
   background: radial-gradient(
