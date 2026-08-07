@@ -3,10 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/lestex/torrnado/internal/config"
+	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
 )
@@ -17,12 +21,180 @@ import (
 // Every subcommand needs those three steps, and forgetting the close
 // leaks a connection on the daemon side, so they live here once.
 func withClient(fn func(*ipc.Client) error) error {
-	client, err := dialOrSpawn()
+	cfg, _, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	client, err := dialOrSpawn(cfg)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 	return fn(client)
+}
+
+// eachTorrent runs fn for every id given, reporting failures as it goes
+// but carrying on. One bad id should not stop the rest, though the exit
+// status still has to reflect that something went wrong.
+func eachTorrent(ids []string, fn func(*ipc.Client, engine.TorrentID) error) error {
+	return withClient(func(c *ipc.Client) error {
+		var failed int
+		for _, id := range ids {
+			if err := fn(c, engine.TorrentID(id)); err != nil {
+				fmt.Printf("failed on %s: %v\n", id, err)
+				failed++
+			}
+		}
+		if failed > 0 {
+			return fmt.Errorf("%d of %d failed", failed, len(ids))
+		}
+		return nil
+	})
+}
+
+func newRemoveCmd() *cobra.Command {
+	var deleteData bool
+
+	cmd := &cobra.Command{
+		Use:   "remove <torrent-id>...",
+		Short: "Remove one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.Remove(id, deleteData)
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&deleteData, "delete-data", false, "also delete the downloaded files")
+	return cmd
+}
+
+// Pause and resume are separate commands rather than one that toggles.
+// A script that says "pause" has to mean it, whatever state the torrent
+// happens to be in.
+func newPauseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pause <torrent-id>...",
+		Short: "Pause one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.SetPaused(id, true)
+			})
+		},
+	}
+}
+
+func newResumeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "resume <torrent-id>...",
+		Short: "Resume one or more torrents",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.SetPaused(id, false)
+			})
+		},
+	}
+}
+
+func newRecheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "recheck <torrent-id>...",
+		Short: "Re-verify downloaded data against the torrent's piece hashes",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.ForceRecheck(id)
+			})
+		},
+	}
+}
+
+func newPriorityCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "priority <torrent-id> <file-index> <none|low|normal|high|now>",
+		Short: "Set a file's download priority",
+		Long: "Sets how badly one file's data is wanted. File indexes are the\n" +
+			"positions shown by the detail view, counting from zero.\n\n" +
+			"Note that \"low\" is accepted but stored as \"normal\": the torrent\n" +
+			"library has no level between \"not wanted\" and \"wanted\".",
+		Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			idx, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("file-index must be a number: %w", err)
+			}
+			prio, ok := engine.ParsePriority(args[2])
+			if !ok {
+				return fmt.Errorf("unknown priority %q (want: none, low, normal, high, now)", args[2])
+			}
+			return withClient(func(c *ipc.Client) error {
+				return c.SetFilePriority(engine.TorrentID(args[0]), idx, prio)
+			})
+		},
+	}
+}
+
+func newLimitCmd() *cobra.Command {
+	var torrentID string
+
+	cmd := &cobra.Command{
+		Use:   "limit <up|down> <rate|unlimited>",
+		Short: "Set a rate limit (global by default, or per-torrent with --torrent)",
+		Long: "Sets an upload or download speed cap. Global limits are enforced\n" +
+			"precisely by the torrent library.\n\n" +
+			"Per-torrent limits (--torrent <id>) are a best-effort approximation:\n" +
+			"the library throttles the whole client and offers no per-torrent\n" +
+			"hook, so the daemon toggles the torrent off and on around the cap\n" +
+			"each second. It averages out, but it is bursty.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			direction := strings.ToLower(args[0])
+			if direction != "up" && direction != "down" {
+				return fmt.Errorf("direction must be \"up\" or \"down\", got %q", args[0])
+			}
+			bps, err := config.ParseRate(args[1])
+			if err != nil {
+				return err
+			}
+
+			return withClient(func(c *ipc.Client) error {
+				if torrentID != "" {
+					// The per-torrent call sets both directions at once, so
+					// -1 means "leave this one alone".
+					up, down := int64(-1), int64(-1)
+					if direction == "up" {
+						up = bps
+					} else {
+						down = bps
+					}
+					return c.SetTorrentRateLimit(engine.TorrentID(torrentID), up, down)
+				}
+				if direction == "up" {
+					return c.SetGlobalUploadLimit(bps)
+				}
+				return c.SetGlobalDownloadLimit(bps)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&torrentID, "torrent", "", "limit only this torrent (approximate)")
+	return cmd
+}
+
+func newMoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "move <torrent-id> <new-directory>",
+		Short: "Move a torrent's downloaded data to a new directory",
+		Long: "Moves the files, then re-verifies them in place. The torrent is\n" +
+			"re-added internally, which resets any custom per-file priorities.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withClient(func(c *ipc.Client) error {
+				return c.MoveStorage(engine.TorrentID(args[0]), args[1])
+			})
+		},
+	}
 }
 
 func newListCmd() *cobra.Command {

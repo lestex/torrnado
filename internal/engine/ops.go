@@ -325,6 +325,10 @@ func (e *Engine) SetGlobalDownloadLimit(bps int64) {
 
 // SetTorrentRateLimit caps one torrent's speed, approximately.
 //
+// Zero means unlimited and a negative value means "leave this direction
+// as it is", so one direction can be changed without having to know, and
+// resend, the other.
+//
 // Unlike the global limits this is not enforced by the library, which has
 // no per-torrent throttle at all. It is approximated a tick at a time --
 // see enforceRateLimit -- so it averages out near the cap but is bursty.
@@ -334,8 +338,12 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 		return err
 	}
 	e.mu.Lock()
-	tr.upLimit = uploadBps
-	tr.downLimit = downloadBps
+	if uploadBps >= 0 {
+		tr.upLimit = uploadBps
+	}
+	if downloadBps >= 0 {
+		tr.downLimit = downloadBps
+	}
 	e.mu.Unlock()
 
 	e.snapshotAndBroadcastNow()

@@ -162,6 +162,42 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 
+	case MethodForceRecheck:
+		if err := s.eng.ForceRecheck(engine.TorrentID(req.ID)); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
+	case MethodSetFilePriority:
+		if err := s.eng.SetFilePriority(engine.TorrentID(req.ID), req.FileIndex, req.Priority); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
+	case MethodSetGlobalUploadLimit:
+		s.eng.SetGlobalUploadLimit(req.UploadBps)
+		resp.OK = true
+
+	case MethodSetGlobalDownloadLimit:
+		s.eng.SetGlobalDownloadLimit(req.DownloadBps)
+		resp.OK = true
+
+	case MethodSetTorrentRateLimit:
+		if err := s.eng.SetTorrentRateLimit(engine.TorrentID(req.ID), req.UploadBps, req.DownloadBps); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
+	case MethodMoveStorage:
+		if err := s.eng.MoveStorage(engine.TorrentID(req.ID), req.NewDir); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
 	case MethodList:
 		resp.OK = true
 		resp.Snapshot = s.eng.ListTorrents()

@@ -3,6 +3,7 @@ module github.com/lestex/torrnado
 go 1.25.0
 
 require (
+	github.com/BurntSushi/toml v0.3.1
 	github.com/anacrolix/dht/v2 v2.23.0
 	github.com/anacrolix/torrent v1.61.0
 	github.com/spf13/cobra v1.10.2

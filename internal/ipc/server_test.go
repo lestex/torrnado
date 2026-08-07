@@ -77,3 +77,40 @@ func TestDispatchReportsEngineErrors(t *testing.T) {
 		t.Errorf("Err = %q, want it to carry the engine's message", resp.Err)
 	}
 }
+
+// Every case that names a torrent is the same handful of lines copied,
+// which is exactly where the wrong request field gets pasted. Each must
+// route an unknown id to the same failure.
+func TestDispatchRejectsUnknownIDEverywhere(t *testing.T) {
+	s := newTestServer(t)
+
+	for _, req := range []*Request{
+		{Method: MethodRemove, ID: "nope"},
+		{Method: MethodSetPaused, ID: "nope", Paused: true},
+		{Method: MethodForceRecheck, ID: "nope"},
+		{Method: MethodSetFilePriority, ID: "nope", FileIndex: 0, Priority: engine.PriorityHigh},
+		{Method: MethodSetTorrentRateLimit, ID: "nope", UploadBps: 1024},
+		{Method: MethodMoveStorage, ID: "nope", NewDir: t.TempDir()},
+		{Method: MethodDetail, ID: "nope"},
+	} {
+		resp := s.dispatch(req)
+		if resp.OK || resp.Err == "" {
+			t.Errorf("%s with an unknown id: OK=%v Err=%q", req.Method, resp.OK, resp.Err)
+		}
+	}
+}
+
+// The global limits take no torrent id, so they succeed with no torrents
+// at all -- and setting one must not be reported as a failure.
+func TestDispatchGlobalLimits(t *testing.T) {
+	s := newTestServer(t)
+
+	for _, req := range []*Request{
+		{Method: MethodSetGlobalUploadLimit, UploadBps: 500 << 10},
+		{Method: MethodSetGlobalDownloadLimit, DownloadBps: 0}, // 0 means unlimited
+	} {
+		if resp := s.dispatch(req); !resp.OK {
+			t.Errorf("%s: %q", req.Method, resp.Err)
+		}
+	}
+}

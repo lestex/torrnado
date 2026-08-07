@@ -191,6 +191,36 @@ func (c *Client) SetPaused(id engine.TorrentID, paused bool) error {
 	return err
 }
 
+func (c *Client) ForceRecheck(id engine.TorrentID) error {
+	_, err := c.call(&Request{Method: MethodForceRecheck, ID: string(id)})
+	return err
+}
+
+func (c *Client) SetFilePriority(id engine.TorrentID, fileIndex int, prio engine.Priority) error {
+	_, err := c.call(&Request{Method: MethodSetFilePriority, ID: string(id), FileIndex: fileIndex, Priority: prio})
+	return err
+}
+
+func (c *Client) SetGlobalUploadLimit(bps int64) error {
+	_, err := c.call(&Request{Method: MethodSetGlobalUploadLimit, UploadBps: bps})
+	return err
+}
+
+func (c *Client) SetGlobalDownloadLimit(bps int64) error {
+	_, err := c.call(&Request{Method: MethodSetGlobalDownloadLimit, DownloadBps: bps})
+	return err
+}
+
+func (c *Client) SetTorrentRateLimit(id engine.TorrentID, uploadBps, downloadBps int64) error {
+	_, err := c.call(&Request{Method: MethodSetTorrentRateLimit, ID: string(id), UploadBps: uploadBps, DownloadBps: downloadBps})
+	return err
+}
+
+func (c *Client) MoveStorage(id engine.TorrentID, newDir string) error {
+	_, err := c.call(&Request{Method: MethodMoveStorage, ID: string(id), NewDir: newDir})
+	return err
+}
+
 func (c *Client) List() ([]engine.TorrentSnapshot, error) {
 	resp, err := c.call(&Request{Method: MethodList})
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/lestex/torrnado/internal/config"
 	"github.com/lestex/torrnado/internal/ipc"
 )
 
@@ -16,11 +17,8 @@ import (
 // This is why a torrent keeps downloading after the command that added it
 // exits: the work happens in a separate, long-lived process, and every
 // command here is a thin client to it.
-func dialOrSpawn() (*ipc.Client, error) {
-	sock, err := socketPath()
-	if err != nil {
-		return nil, err
-	}
+func dialOrSpawn(cfg config.Config) (*ipc.Client, error) {
+	sock := cfg.DaemonSocket
 
 	if c, err := ipc.Dial(sock); err == nil {
 		return c, nil
@@ -54,7 +52,7 @@ func spawnDaemon() error {
 		return err
 	}
 
-	dir, err := dataDir()
+	dir, err := config.DefaultDataDir()
 	if err != nil {
 		return err
 	}
@@ -67,7 +65,14 @@ func spawnDaemon() error {
 		return err
 	}
 
-	cmd := exec.Command(exe, "daemon")
+	args := []string{"daemon"}
+	// The daemon has to read the same config this process did, or it
+	// would come up with different paths and never be found again.
+	if configPathFlag != "" {
+		args = append(args, "--config", configPathFlag)
+	}
+
+	cmd := exec.Command(exe, args...)
 	// The child must not share our terminal: it outlives us, and anything
 	// it printed would land in the middle of a later shell prompt.
 	cmd.Stdout = logFile
