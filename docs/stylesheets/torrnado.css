@@ -106,8 +106,16 @@
  * and a bare class loses to them: the rules applied and changed nothing.
  * The source margin is also set twice in Material, at two breakpoints;
  * one rule outside any media query beats both on source order. */
+/* Three things sat between the spiral and the wordmark, not one: the
+ * logo button's own 9.6px of right padding, this margin, and dead space
+ * inside the SVG itself. Measuring the button's box rather than the drawn
+ * ink hid two of them and reported 19px for a gap that was really 36. */
+[dir="ltr"] .md-header__button.md-logo {
+  padding-right: 0.2rem;
+}
+
 [dir="ltr"] .md-header__title {
-  margin-left: 0.6rem;
+  margin-left: 0.3rem;
 }
 
 [dir="ltr"] .md-header__source {
