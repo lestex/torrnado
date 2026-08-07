@@ -97,19 +97,21 @@
 
 /* Material spaces the header generously: 1rem between the logo and the
  * title, and 1.4rem between the search field and the repo block. With the
- * repo block now only as wide as its contents, both gaps read as drift
- * rather than rhythm. Tightened to 0.6rem and 0.8rem, which closes the
- * logo gap from 29px to 19px and the search gap from 34px to 19px, so the
- * two ends of the bar are spaced alike.
+ * repo block now only as wide as its contents, both read as drift rather
+ * than rhythm.
  *
- * Both selectors carry the direction attribute because Material's own do,
- * and a bare class loses to them: the rules applied and changed nothing.
- * The source margin is also set twice in Material, at two breakpoints;
- * one rule outside any media query beats both on source order. */
-/* Three things sat between the spiral and the wordmark, not one: the
- * logo button's own 9.6px of right padding, this margin, and dead space
- * inside the SVG itself. Measuring the button's box rather than the drawn
- * ink hid two of them and reported 19px for a gap that was really 36. */
+ * The logo gap took three passes because three separate things sat in it,
+ * not one: the button's own 9.6px of right padding, the title's margin,
+ * and dead space inside the SVG. Measuring the button's box rather than
+ * the drawn ink hid two of them and reported 19px for a gap that was
+ * really 36. Trimming the SVG's viewBox fixed the first, and these two
+ * rules the rest, ending at 20px from ink to text.
+ *
+ * Every selector here carries the direction attribute because Material's
+ * own do, and a bare class loses to them: written without it, the rules
+ * applied to the right elements and changed nothing. The source margin is
+ * also set twice in Material, at two breakpoints; one rule outside any
+ * media query beats both on source order. */
 [dir="ltr"] .md-header__button.md-logo {
   padding-right: 0.2rem;
 }
@@ -133,6 +135,13 @@
  * that the active state would otherwise apply to it. */
 .md-header__topic + .md-header__topic {
   display: none;
+}
+
+/* The name is set in the code face wherever it appears as a wordmark, in
+ * the header and in the hero, because the thing it names is a terminal
+ * program. Inter is left to the prose. */
+.md-header__topic:first-child .md-ellipsis {
+  font-family: var(--md-code-font-family, monospace);
 }
 
 .md-header__title--active .md-header__topic:first-child {
@@ -302,10 +311,15 @@ html .md-footer-meta.md-typeset .md-copyright a:focus {
 }
 
 .md-typeset .tn-hero__title {
-  font-size: 4.2rem;
-  line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 3.6rem;
+  line-height: 1.1;
+  font-weight: 700;
+  /* Monospace carries its own spacing, and the -0.04em that kept Inter
+   * from looking loose at this size pulls a mono face into a huddle.
+   * Slightly negative rather than tight, and a step smaller, because a
+   * fixed-pitch face sets wider at the same nominal size. */
+  letter-spacing: -0.02em;
   margin: 0 0 0.6rem;
   background: linear-gradient(180deg, var(--tn-fg) 30%, var(--tn-fg-muted) 130%);
   -webkit-background-clip: text;
