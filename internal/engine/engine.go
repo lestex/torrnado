@@ -35,6 +35,24 @@ type Config struct {
 	// setting; anacrolix/torrent has no per-torrent encryption policy.
 	DisableEncryption bool
 
+	// RequireVPN holds every transfer, in both directions, while VPNCheck
+	// reports the system is not on a VPN. Torrents are not paused: the
+	// user's own pause flags are left exactly as they were, and transfers
+	// resume by themselves when the VPN comes back.
+	//
+	// It stops piece data. Tracker announces and DHT traffic carry on --
+	// they are client-wide and can only be turned off when the client is
+	// built -- so a blocked daemon is still visible to the swarm.
+	RequireVPN bool
+	// VPNCheck reports whether the system is on a VPN. Called once at
+	// startup and again on every tick, so it must be cheap and must not
+	// block. Only consulted when RequireVPN is set.
+	//
+	// Leaving it nil with RequireVPN set blocks everything: nothing can be
+	// verified, and a guard that gives up and allows transfers is not a
+	// guard.
+	VPNCheck func() VPNStatus
+
 	// UploadRateLimit/DownloadRateLimit are global, client-wide caps in
 	// bytes/sec (0 = unlimited). The library supports a single pair of
 	// limiters at the Client level and nothing per torrent -- see
@@ -101,6 +119,12 @@ type tracked struct {
 	// tick once a torrent is done.
 	completeLogged bool
 
+	// holdData stops data moving for the duration of an operation that is
+	// rearranging the torrent underneath it -- a storage move. Without it
+	// the next tick would happily allow transfers again halfway through,
+	// since nothing else about the torrent says it is busy.
+	holdData bool
+
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
 
@@ -143,6 +167,15 @@ type Engine struct {
 	mu       sync.Mutex
 	torrents map[TorrentID]*tracked
 	subs     map[chan Event]struct{}
+
+	// vpn is the last verdict from cfg.VPNCheck and blocked is what it
+	// means for transfers. Separate from any torrent's paused flag: one is
+	// a condition of the machine, the other is what the user asked for,
+	// and conflating them would have a VPN drop rewrite the session file
+	// with everything paused. Guarded by mu.
+	vpn        VPNStatus
+	blocked    bool
+	vpnChecked bool
 
 	lastTick time.Time
 	closeCh  chan struct{}
@@ -209,9 +242,51 @@ func New(cfg Config) (*Engine, error) {
 		lastTick:    time.Now(),
 		closeCh:     make(chan struct{}),
 	}
+	// Before the tick loop and before RestoreSession can add anything, so
+	// a daemon started off-VPN never has a torrent that is briefly
+	// allowed to transfer.
+	e.refreshVPN()
+
 	e.wg.Add(1)
 	go e.tickLoop()
 	return e, nil
+}
+
+// refreshVPN re-runs the VPN check and records what it means, logging the
+// transitions and nothing else -- the check runs every second, and a line
+// per second saying the same thing is not a log, it is a wall.
+func (e *Engine) refreshVPN() {
+	if !e.cfg.RequireVPN {
+		return // not asked for; nothing is ever blocked
+	}
+
+	// Called outside the lock: it dials a socket and enumerates
+	// interfaces, and every RPC would queue behind it.
+	st := VPNStatus{Reason: "no VPN check configured"}
+	if e.cfg.VPNCheck != nil {
+		st = e.cfg.VPNCheck()
+	}
+
+	blocked := !st.Active
+
+	e.mu.Lock()
+	changed := !e.vpnChecked || e.blocked != blocked
+	e.vpn = st
+	e.blocked = blocked
+	e.vpnChecked = true
+	e.mu.Unlock()
+
+	// The switches themselves are turned in tick, which calls this first
+	// and then applies the verdict to every torrent -- so a change takes
+	// effect on the same tick that noticed it.
+	if !changed {
+		return
+	}
+	if st.Active {
+		e.log.Info("VPN detected, transfers allowed", "interface", st.Interface)
+	} else {
+		e.log.Warn("transfers held: the system is not on a VPN", "reason", st.Reason)
+	}
 }
 
 // newClientOnPortRange binds the first port in [low,high] that is free.
@@ -353,6 +428,11 @@ func (e *Engine) tickLoop() {
 
 // tick recomputes speeds and publishes the current state.
 func (e *Engine) tick() {
+	// Before the lock, and before the switches below are turned: a VPN
+	// that dropped a moment ago should stop transfers on this tick, not
+	// the next one.
+	e.refreshVPN()
+
 	e.mu.Lock()
 	now := time.Now()
 	elapsed := now.Sub(e.lastTick).Seconds()
@@ -363,7 +443,7 @@ func (e *Engine) tick() {
 
 	for _, tr := range e.torrents {
 		tr.updateRates(elapsed)
-		tr.enforceRateLimit()
+		tr.applyDataFlow(e.blocked)
 	}
 	ev := e.eventLocked()
 	// Collected under the lock, logged outside it: the destination may be
@@ -417,6 +497,9 @@ func (e *Engine) eventLocked() Event {
 	ev.Global.NumTorrents = len(ev.Torrents)
 	ev.Global.ListenPort = e.client.LocalPort()
 	ev.Global.DhtNodes = dhtNodeCount(e.client)
+	ev.Global.VPNRequired = e.cfg.RequireVPN
+	ev.Global.VPNActive = e.vpn.Active
+	ev.Global.VPNInterface = e.vpn.Interface
 	if free, total, err := diskUsage(e.cfg.DataDir); err == nil {
 		ev.Global.DiskFreeBytes = free
 		ev.Global.DiskTotalBytes = total

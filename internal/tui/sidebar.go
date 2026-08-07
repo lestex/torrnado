@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/lestex/torrnado/internal/engine"
 )
 
@@ -44,8 +46,10 @@ func (f statusFilter) matches(t engine.TorrentSnapshot) bool {
 	case filterStopped:
 		// Paused rather than State == StatePaused: a paused torrent that
 		// is being rechecked reports State as "checking", and it is still
-		// stopped.
-		return t.Paused || t.State == engine.StateError
+		// stopped. Blocked belongs here too -- a torrent held by the VPN
+		// guard is not running, and this is the filter someone reaches for
+		// to find out what is not.
+		return t.Paused || t.State == engine.StateError || t.State == engine.StateBlocked
 	default:
 		return true
 	}
@@ -89,12 +93,15 @@ func (m Model) renderSidebar(p panes) string {
 	// Daemon-wide facts that used to live in the top stats bar; they sit
 	// at the bottom of the sidebar so the footer can stay one line.
 	g := m.global
-	stats := []string{
-		m.styles.ColHeader.Render(truncate("Daemon", w)),
-		m.styles.Muted.Render(truncate(fmt.Sprintf(" port %d", g.ListenPort), w)),
-		m.styles.Muted.Render(truncate(fmt.Sprintf(" dht %d", g.DhtNodes), w)),
-		m.styles.Muted.Render(truncate(" free "+formatBytes(g.DiskFreeBytes), w)),
+	stats := []string{m.daemonHeading(w)}
+	if line, ok := m.vpnLine(w); ok {
+		stats = append(stats, line)
 	}
+	stats = append(stats,
+		m.styles.Muted.Render(truncate(fmt.Sprintf("port: %d", g.ListenPort), w)),
+		m.styles.Muted.Render(truncate(fmt.Sprintf("dht: %d", g.DhtNodes), w)),
+		m.styles.Muted.Render(truncate("free: "+formatBytes(g.DiskFreeBytes), w)),
+	)
 
 	// Push the daemon block to the bottom when there's room, drop it when
 	// there isn't.
@@ -106,4 +113,67 @@ func (m Model) renderSidebar(p panes) string {
 	}
 
 	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// vpnLine reports the VPN guard, and whether there is anything to report.
+//
+// Drawn only when the guard is switched on. A "vpn: none" on every daemon
+// would read as a warning to the many people who never asked for one, and
+// the daemon does not even run the check unless it was asked to -- so
+// there would be nothing behind the word.
+func (m Model) vpnLine(w int) (string, bool) {
+	if !m.global.VPNRequired {
+		return "", false
+	}
+	if !m.global.VPNActive {
+		// The one line in this block that is not muted: it is the reason
+		// every torrent is sitting still.
+		return m.styles.Error.Render(truncate("vpn: blocked", w)), true
+	}
+	// The interface name, because "which VPN am I on" is the question
+	// after "am I on one" -- and a daemon that thinks it is protected by
+	// the wrong interface is worth being able to see.
+	iface := m.global.VPNInterface
+	if iface == "" {
+		iface = "on"
+	}
+	return m.styles.Success.Render(truncate("vpn: "+iface, w)), true
+}
+
+// daemonStatusDot is the lit indicator beside the Daemon heading.
+//
+// The numbers under it cannot say whether the daemon is still there: the
+// port and the free space keep whatever they last were pushed, so a dead
+// daemon looks exactly like a quiet one. The dot is the only thing that
+// changes, which is why it is worth a color of its own.
+const daemonStatusDot = "●"
+
+// daemonHeading is "Daemon" followed by that dot, green while the event
+// stream is alive and red once it has ended.
+//
+// The dot trails the word rather than leading it so the heading starts in
+// the same column as the values beneath it -- a leading dot indents the
+// only line in the block that is not indented.
+func (m Model) daemonHeading(w int) string {
+	head := m.styles.ColHeader.Render(truncate("Daemon", w))
+
+	// Two cells for the space and the dot. Dropped rather than truncated
+	// when the sidebar is too narrow: half a status light says nothing.
+	if w < lipgloss.Width("Daemon")+2 {
+		return head
+	}
+
+	return head + " " + m.daemonDotStyle().Render(daemonStatusDot)
+}
+
+// daemonDotStyle is green while the daemon is answering and red once it
+// has gone. Split out because the color is the whole content of the dot,
+// and a rendered string cannot be asserted on: lipgloss strips color
+// when it is not writing to a terminal, so under `go test` both branches
+// render the same character.
+func (m Model) daemonDotStyle() lipgloss.Style {
+	if m.daemonDown {
+		return m.styles.Error
+	}
+	return m.styles.Success
 }

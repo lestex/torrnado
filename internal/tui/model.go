@@ -115,6 +115,11 @@ type Model struct {
 	torrents []engine.TorrentSnapshot
 	global   engine.GlobalStats
 
+	// daemonDown records that the event stream has ended. One-way: the
+	// client does not redial, so a daemon that comes back needs the TUI
+	// restarted, and a dot that went green again would be lying.
+	daemonDown bool
+
 	// filter narrows the list to one status. The full set is kept above,
 	// so changing it is a cheap re-render rather than a refetch.
 	filter   statusFilter

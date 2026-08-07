@@ -38,7 +38,7 @@ type styles struct {
 	Title         lipgloss.Style
 
 	// Pane is the bordered box every part of the interface sits in.
-	// PaneFocused differs only in border colour: which pane is
+	// PaneFocused differs only in border color: which pane is
 	// highlighted is the only cue about where keystrokes will go.
 	Pane        lipgloss.Style
 	PaneFocused lipgloss.Style
@@ -91,7 +91,7 @@ func newStyles(t theme.Theme) styles {
 			Background(t.SelectedBg).
 			Bold(true),
 
-		// A table's own labels should not be the same colour as the
+		// A table's own labels should not be the same color as the
 		// chrome around it. This is the list's column headings, the
 		// sidebar's section titles and the detail pane's headers, so
 		// lightening it here keeps the three panes speaking with one

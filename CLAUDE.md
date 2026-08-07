@@ -88,6 +88,14 @@ internal/stream   Loopback HTTP server handing torrent files to a media
                   cannot carry a byte stream. Depends only on engine.
 internal/player   Launches the configured player detached, so it outlives
                   the TUI. Not tea.ExecProcess -- that suspends the TUI.
+internal/vpn      Reports whether traffic leaves through a tunnel, for the
+                  `vpn.required` guard. Stdlib only: a UDP dial (which
+                  sends nothing) gives the interface the route table would
+                  use, then a build-tagged classifier says what kind of
+                  device that is -- sysfs on Linux, point-to-point with no
+                  MAC on darwin. Classifies by device, never by name, and
+                  fails closed. The engine does not import it; the daemon
+                  passes it in as a closure.
 internal/tui      bubbletea Model. Three panes (status sidebar, torrent
                   list, docked Pieces/Peers/Files detail pane) + command
                   palette; keys route by which pane has focus, not by a
@@ -104,10 +112,12 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
                   passthrough to the same IPC the TUI uses.
 ```
 
-Dependency order is strict and one-directional: `format` and `engine` have
-no internal deps; `ipc` depends only on `engine`; `config` depends on
-`format`; `tui` depends on `engine`, `ipc`, `config`, `theme`, `batch`;
-`cmd` depends on everything. Nothing in `internal/engine` or
+Dependency order is strict and one-directional: `format`, `engine` and
+`vpn` have no internal deps; `ipc` depends only on `engine`; `config`
+depends on `format`; `tui` depends on `engine`, `ipc`, `config`, `theme`,
+`batch`; `cmd` depends on everything. `engine` taking its VPN check as a
+`func() VPNStatus` rather than importing `vpn` is what keeps that first
+clause true. Nothing in `internal/engine` or
 `internal/ipc` imports `internal/tui` or `cmd` -- if you find yourself
 wanting to, the abstraction has leaked.
 

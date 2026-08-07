@@ -35,7 +35,7 @@ surface. The player is detached, so it keeps playing after you quit the TUI.
 
 `:theme` opens a floating picker over the panes. Moving through it
 applies each theme as you go -- the list, sidebar and detail pane
-underneath recolour live, so you judge a theme on your own torrents
+underneath recolor live, so you judge a theme on your own torrents
 rather than on a swatch. `enter` keeps it, `esc` puts back the one you
 started with. Your own themes from the themes directory are listed
 alongside the built-ins and marked `(user)`; one that fails to parse is

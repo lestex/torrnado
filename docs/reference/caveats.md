@@ -27,6 +27,14 @@ tells you what to add to `config.toml`; it will not edit that file for
 you. Re-encoding it from the parsed struct would lose the comments and
 ordering of something you wrote by hand.
 
+**No kill switch.** `vpn.required` holds transfers while the system is
+off-VPN, but tracker announces and DHT traffic keep going -- both are
+client-wide settings the library only reads when the client is built, so
+changing them means tearing the client down and re-adding every torrent
+every time the VPN moves. Blocking traffic outright is the firewall's job,
+and it does it better than a torrent client can. See
+[Configuration](../guide/configuration.md#requiring-a-vpn).
+
 ## Rough edges
 
 **Per-torrent rate limits are approximate.** The library throttles the

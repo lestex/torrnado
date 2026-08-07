@@ -163,3 +163,48 @@ func TestValidateRejectsUnknownLogLevel(t *testing.T) {
 		}
 	}
 }
+
+// The VPN guard is opt-in: installing torrnado must never stop a download
+// for a reason the user did not ask for.
+func TestVPNGuardIsOffByDefault(t *testing.T) {
+	cfg, err := Default()
+	if err != nil {
+		t.Fatalf("Default: %v", err)
+	}
+	if cfg.VPN.Required {
+		t.Error("vpn.required defaults to true; it must be opt-in")
+	}
+	if len(cfg.VPN.Interfaces) != 0 {
+		t.Errorf("vpn.interfaces defaults to %v, want empty -- detection needs no configuration",
+			cfg.VPN.Interfaces)
+	}
+}
+
+func TestLoadParsesTheVPNGuard(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `
+[vpn]
+required = true
+interfaces = ["utun4", "wg0"]
+`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.VPN.Required {
+		t.Error("vpn.required = false after being set to true")
+	}
+	if got := strings.Join(cfg.VPN.Interfaces, ","); got != "utun4,wg0" {
+		t.Errorf("vpn.interfaces = %q, want \"utun4,wg0\"", got)
+	}
+}
+
+// An empty name matches no interface, so accepting one would quietly
+// weaken a guard the user believes they configured.
+func TestValidateRejectsAnEmptyVPNInterface(t *testing.T) {
+	_, err := Load(writeConfig(t, "[vpn]\nrequired = true\ninterfaces = [\"utun4\", \"\"]"))
+	if err == nil {
+		t.Fatal("an empty interface name should be an error")
+	}
+	if !strings.Contains(err.Error(), "vpn.interfaces") {
+		t.Errorf("error should name the key, got: %v", err)
+	}
+}

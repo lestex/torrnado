@@ -45,7 +45,7 @@ func TestOverlayLeavesTheFrameTheSameShape(t *testing.T) {
 
 // A styled frame is the real case: every line is full of escape
 // sequences, and cutting one as bytes severs a sequence and bleeds
-// colour across the rest of the screen.
+// color across the rest of the screen.
 func TestOverlayKeepsStyledLinesIntact(t *testing.T) {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
 	var lines []string
@@ -62,7 +62,7 @@ func TestOverlayKeepsStyledLinesIntact(t *testing.T) {
 			t.Errorf("line %d is %d columns, want 30: %q", i, w, line)
 		}
 	}
-	// The box's own cells must not have inherited the frame's colour,
+	// The box's own cells must not have inherited the frame's color,
 	// and the frame either side of it must keep its own.
 	spliced := strings.Split(got, "\n")[2]
 	if !strings.Contains(spliced, "##########") {

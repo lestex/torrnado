@@ -82,8 +82,8 @@ func (m Model) handleDetailKey(key string) (tea.Model, tea.Cmd) {
 
 // renderDetailTabs draws the tab strip.
 //
-// The active tab is bracketed as well as coloured, so the two remain
-// distinguishable on a 16-colour terminal where accent and muted can end
+// The active tab is bracketed as well as colored, so the two remain
+// distinguishable on a 16-color terminal where accent and muted can end
 // up looking alike.
 func (m Model) renderDetailTabs(p panes) string {
 	var b strings.Builder

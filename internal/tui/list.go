@@ -212,7 +212,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 	// partway through by a nested style's ANSI reset.
 	// The styles carry the same pair of states as the markers, and had
 	// the same problem: a selected row under the cursor showed the
-	// cursor's colour and lost the selection's background entirely.
+	// cursor's color and lost the selection's background entirely.
 	style := m.styles.Row
 	switch {
 	case isCursor && selected:
@@ -229,7 +229,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 // progressCell renders a fraction as a bar of barW cells followed by its
 // percentage, or as the percentage alone when barW is 0.
 //
-// Drawn in one colour rather than two, unlike the underline this
+// Drawn in one color rather than two, unlike the underline this
 // replaced. A row is rendered with a single style so that a cursor or
 // selection highlight runs the whole way across it; styling the bar's
 // halves separately would end that style mid-row and leave a hole in the

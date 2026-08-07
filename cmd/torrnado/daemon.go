@@ -12,6 +12,7 @@ import (
 	"github.com/lestex/torrnado/internal/ipc"
 	"github.com/lestex/torrnado/internal/logging"
 	"github.com/lestex/torrnado/internal/stream"
+	"github.com/lestex/torrnado/internal/vpn"
 )
 
 func newDaemonCmd() *cobra.Command {
@@ -66,6 +67,8 @@ func runDaemon() error {
 		UploadRateLimit:   int64(cfg.RateLimit.Upload),
 		DownloadRateLimit: int64(cfg.RateLimit.Download),
 		Seed:              cfg.Network.Seed,
+		RequireVPN:        cfg.VPN.Required,
+		VPNCheck:          vpnChecker(cfg.VPN.Interfaces),
 		StateDir:          cfg.StateDir,
 		Logger:            lg.Logger,
 		LibraryLevel:      libLevel,
@@ -139,4 +142,25 @@ func runDaemon() error {
 		return nil
 	}
 	return nil
+}
+
+// vpnChecker adapts internal/vpn to the closure the engine takes.
+//
+// The engine holds no dependency on the vpn package -- it is handed a
+// function and knows nothing about interfaces or routes -- so the
+// conversion between the two Status types lives here, at the one place
+// that knows about both.
+//
+// The error is deliberately dropped: vpn.Detect already reports a failure
+// as "not on a VPN" with a Reason, which is both what the guard should do
+// with it and what the log should say.
+func vpnChecker(interfaces []string) func() engine.VPNStatus {
+	return func() engine.VPNStatus {
+		st, _ := vpn.Detect(interfaces)
+		return engine.VPNStatus{
+			Active:    st.Active,
+			Interface: st.Interface,
+			Reason:    st.String(),
+		}
+	}
 }

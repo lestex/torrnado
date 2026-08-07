@@ -17,7 +17,7 @@ import (
 //
 // The cutting has to understand ANSI. Every line of the frame is full of
 // escape sequences, and slicing one as bytes severs a sequence in the
-// middle: the terminal then reads the tail of a colour code as text and
+// middle: the terminal then reads the tail of a color code as text and
 // paints the rest of the screen with whatever it did manage to parse.
 // ansi.Truncate and ansi.TruncateLeft measure printable width and, more
 // to the point, re-emit the style that was active at the cut -- which is

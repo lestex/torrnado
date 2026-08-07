@@ -100,6 +100,11 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 			ownStorage: ownStorage,
 		}
 	}
+	// Before anything can be transferred: a torrent added while the VPN
+	// guard is holding, or added paused, must not get the second or so
+	// until the next tick as a head start. A library torrent is allowed
+	// both directions the moment it is added.
+	e.torrents[id].applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
 	// A magnet carries no file list -- that metadata has to be fetched
@@ -225,14 +230,15 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	}
 	e.mu.Lock()
 	tr.paused = paused
+	// Resuming records the intent and asks for the switches to be turned;
+	// whether they actually turn is applyDataFlow's decision, since the
+	// VPN guard may be holding everything. The intent is what is
+	// persisted either way, so a resume during a VPN outage takes effect
+	// the moment the VPN returns rather than being forgotten.
+	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
-	if paused {
-		tr.t.DisallowDataDownload()
-		tr.t.DisallowDataUpload()
-	} else {
-		tr.t.AllowDataDownload()
-		tr.t.AllowDataUpload()
+	if !paused {
 		// A torrent added paused never had its files marked wanted, and
 		// would otherwise sit at zero forever after being resumed. Skip
 		// it if any file already has a priority, so resuming does not
@@ -537,9 +543,14 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		return fmt.Errorf("create %s: %w", newDir, err)
 	}
 
+	e.mu.Lock()
 	wasPaused := tr.paused
-	tr.t.DisallowDataDownload()
-	tr.t.DisallowDataUpload()
+	// Held rather than switched off directly: the tick applies its own
+	// verdict every second, and would allow transfers again in the middle
+	// of the move -- nothing else about the torrent says it is busy.
+	tr.holdData = true
+	tr.applyDataFlow(e.blocked)
+	e.mu.Unlock()
 
 	oldPath := tr.savePath
 	for _, f := range tr.t.Files() {
@@ -630,10 +641,8 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		if verifyErr != nil {
 			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
 		}
-		if !wasPaused {
-			t.AllowDataDownload()
-			t.AllowDataUpload()
-		}
+		tr.holdData = false
+		tr.applyDataFlow(e.blocked)
 		e.mu.Unlock()
 		e.snapshotAndBroadcastNow()
 	}()

@@ -50,7 +50,7 @@ torrnado
 ## Try a theme
 
 Press ++colon++ and type `theme`. The picker floats over the panes and
-recolours the interface as you move through it, so you judge a theme on
+recolors the interface as you move through it, so you judge a theme on
 your own torrents. ++enter++ keeps it, ++esc++ puts back the one you
 started with.
 

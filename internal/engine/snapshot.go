@@ -26,28 +26,55 @@ func (tr *tracked) updateRates(elapsed float64) {
 	tr.lastUploaded = uploaded
 }
 
-// enforceRateLimit applies a torrent's own speed cap, roughly.
+// applyDataFlow turns the two switches that decide whether a torrent may
+// move piece data, from every reason it might not be allowed to.
 //
-// The library's rate limiters are client-wide; there is no hook to
-// throttle a single torrent's network I/O. So this approximates one: each
-// tick, a torrent over its cap is forbidden from moving data, and allowed
-// again once it falls back under. That averages out near the limit over
-// a second or so, but it is bursty -- a real token bucket it is not.
+// One funnel, because the reasons are independent and each was setting
+// the switches on its own: the tick's rate limiting used to call
+// AllowDataDownload unconditionally whenever a torrent was under its cap,
+// which would have turned any other reason back on a second after it was
+// applied. Anything that wants to stop or start data goes through here.
+//
+// The rate-limit half is an approximation. The library's limiters are
+// client-wide, with no hook to throttle a single torrent's network I/O,
+// so a torrent over its cap is forbidden from moving data until it falls
+// back under. That averages out near the limit over a second or so, but
+// it is bursty -- a real token bucket it is not.
+//
 // Callers must hold e.mu.
-func (tr *tracked) enforceRateLimit() {
-	if tr.paused {
-		return // pause already forbids both directions
-	}
-	if tr.downLimit > 0 && tr.lastDownBPS > float64(tr.downLimit) {
-		tr.t.DisallowDataDownload()
-	} else {
+func (tr *tracked) applyDataFlow(blocked bool) {
+	down, up := tr.dataFlow(blocked)
+
+	if down {
 		tr.t.AllowDataDownload()
-	}
-	if tr.upLimit > 0 && tr.lastUpBPS > float64(tr.upLimit) {
-		tr.t.DisallowDataUpload()
 	} else {
-		tr.t.AllowDataUpload()
+		tr.t.DisallowDataDownload()
 	}
+
+	if up {
+		tr.t.AllowDataUpload()
+	} else {
+		tr.t.DisallowDataUpload()
+	}
+}
+
+// dataFlow is applyDataFlow's decision, without the library calls -- which
+// is the whole of the logic and the only part that can be asserted on:
+// anacrolix/torrent has no accessor for either switch, so a test can set
+// one and never read it back.
+//
+// Callers must hold e.mu.
+func (tr *tracked) dataFlow(blocked bool) (down, up bool) {
+	// blocked is the VPN guard and holdData a move in progress; both are
+	// conditions of the moment. paused is what the user asked for. None of
+	// them is allowed to overwrite another, which is why they are read
+	// together here rather than each turning the switches itself.
+	if tr.paused || blocked || tr.holdData {
+		return false, false
+	}
+	down = tr.downLimit <= 0 || tr.lastDownBPS <= float64(tr.downLimit)
+	up = tr.upLimit <= 0 || tr.lastUpBPS <= float64(tr.upLimit)
+	return down, up
 }
 
 // snapshotLocked builds the public view of one torrent. Callers must hold
@@ -81,7 +108,12 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		// downloading because no file data is moving yet.
 		state = StateChecking
 	case tr.paused:
+		// Above blocked: a paused torrent is paused for its own reason and
+		// stays that way when the VPN comes back, so saying "blocked"
+		// would promise it is about to start.
 		state = StatePaused
+	case e.blocked:
+		state = StateBlocked
 	case total > 0 && completed >= total:
 		state = StateSeeding
 	}
