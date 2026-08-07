@@ -297,7 +297,23 @@
   border: 0;
   white-space: pre;
   font-size: 0.6rem;
-  line-height: 1.35;
+  /* Exactly 1, so the box-drawing glyphs touch. Any leading at all leaves
+   * a gap between one row's │ and the next, and the frame that should be
+   * a solid rule renders as a dashed one. */
+  line-height: 1;
+}
+
+/* Material offers a copy button on every code block. This block is a
+ * screenshot of a running program, not something anyone wants on their
+ * clipboard, and the button floats over the frame's top-right corner
+ * where it collides with the border.
+ *
+ * The container is .md-code__nav in Material 9.7; older versions called
+ * the button .md-clipboard, so both are named here rather than betting on
+ * the version a future rebuild pins. */
+.tn-terminal .md-code__nav,
+.tn-terminal .md-clipboard {
+  display: none;
 }
 
 /* Stat bar -------------------------------------------------------------- */
