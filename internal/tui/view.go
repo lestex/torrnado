@@ -34,18 +34,18 @@ func (m Model) View() string {
 		helpW, helpH := m.width-borderWidth, m.height-1-borderHeight
 		return lipgloss.JoinVertical(lipgloss.Left,
 			m.styles.Pane.Width(helpW).Height(helpH).
-				Render(m.renderHelp(helpW-2, helpH)),
+				Render(m.renderHelp(helpW-2*panePadX, helpH)),
 			m.renderFooter(p),
 		)
 	}
 
 	sidebar := m.styles.pane(m.focus == focusSidebar).
-		Width(p.sidebarContentW).
+		Width(p.sidebarBoxW).
 		Height(p.sidebarContentH).
 		Render(clampBlock(m.renderSidebar(p), p.sidebarContentH))
 
 	list := m.styles.pane(m.focus == focusList).
-		Width(p.listContentW).
+		Width(p.listBoxW).
 		Height(p.listContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderListHeader(p),
@@ -53,7 +53,7 @@ func (m Model) View() string {
 		), p.listContentH))
 
 	detail := m.styles.pane(m.focus == focusDetail).
-		Width(p.detailContentW).
+		Width(p.detailBoxW).
 		Height(p.detailContentH).
 		Render(clampBlock(lipgloss.JoinVertical(lipgloss.Left,
 			m.renderDetailTabs(p),
@@ -64,7 +64,16 @@ func (m Model) View() string {
 		sidebar,
 		lipgloss.JoinVertical(lipgloss.Left, list, detail),
 	)
-	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
+	frame := lipgloss.JoinVertical(lipgloss.Left, body, m.renderFooter(p))
+
+	// Spliced over the finished frame rather than joined to it, so the
+	// panes stay on screen underneath and a theme is previewed on the
+	// real interface.
+	if m.themePicker {
+		box, x, y := m.renderThemePicker()
+		return overlay(frame, box, x, y)
+	}
+	return frame
 }
 
 // clampBlock trims a rendered block to at most height lines, for the same
@@ -81,6 +90,29 @@ func clampBlock(s string, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
+// renderPrompt draws the input line for search and command mode: the
+// sigil, what has been typed, and a block where the next character will
+// land.
+//
+// Plain text, the way vim's ex line is. This used to borrow SelectedRow
+// -- the list's selection highlight -- which painted a block of
+// background around the typed text and stopped dead at the end of it,
+// reading as a stray highlight rather than a prompt.
+//
+// Trimming happens before styling, not after: truncate measures printable
+// width but cuts runes, so trimming an already-styled string cuts through
+// its escape sequences.
+func (m Model) renderPrompt(sigil, buf string, width int) string {
+	// The leading space, the sigil and the cursor are a cell each.
+	room := width - 3
+	if room < 1 {
+		return truncate(" "+sigil, width)
+	}
+	return m.styles.Accent.Render(" "+sigil) +
+		m.styles.Base.Render(truncateTail(buf, room)) +
+		m.styles.Accent.Render("█")
+}
+
 // renderFooter draws the single bottom line: transfer totals on the left,
 // any transient status message on the right.
 func (m Model) renderFooter(p panes) string {
@@ -88,9 +120,9 @@ func (m Model) renderFooter(p panes) string {
 	// put it, and the totals are less useful than seeing what you typed.
 	switch m.mode {
 	case modeSearch:
-		return truncate(m.styles.SelectedRow.Render(" /"+m.searchQuery), p.footerW)
+		return m.renderPrompt("/", m.searchQuery, p.footerW)
 	case modeCommand:
-		return truncate(m.styles.SelectedRow.Render(" :"+m.commandBuf), p.footerW)
+		return m.renderPrompt(":", m.commandBuf, p.footerW)
 	}
 	if m.showHelp {
 		return m.styles.StatusBar.Render(" press any key to close help")
@@ -99,21 +131,27 @@ func (m Model) renderFooter(p panes) string {
 	left := fmt.Sprintf(" ↓ %s  ↑ %s  │  %d torrents",
 		formatRate(g.DownloadBPS), formatRate(g.UploadBPS), g.NumTorrents)
 
-	right := ""
-	if m.status != "" {
-		style := m.styles.StatusBar
-		if m.statusIsErr {
-			style = m.styles.StatusErr
-		}
-		right = style.Render(m.status)
+	statusStyle := m.styles.StatusBar
+	if m.statusIsErr {
+		statusStyle = m.styles.StatusErr
 	}
 
-	gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(right) - 1
-	if gap < 1 {
-		// Not enough room for both. The totals are the line's reason for
-		// existing, so the status goes rather than wrapping onto a row
-		// the layout has not allocated.
-		return truncate(m.styles.StatusBar.Render(left), p.footerW)
+	// Both, when both fit.
+	if gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(m.status) - 1; m.status == "" || gap >= 1 {
+		line := m.styles.StatusBar.Render(left)
+		if m.status != "" {
+			line += strings.Repeat(" ", gap) + statusStyle.Render(m.status) + " "
+		}
+		return truncate(line, p.footerW)
 	}
-	return m.styles.StatusBar.Render(left) + strings.Repeat(" ", gap) + right + " "
+
+	// Otherwise the message takes the line. It answers something the user
+	// just did and clears itself after a few seconds, while the totals
+	// are always a keystroke away and are back the moment it expires --
+	// and this used to drop the message instead, so a long one (every
+	// error naming a path, say) simply never appeared.
+	//
+	// Truncated before styling: truncate measures printable width but
+	// cuts runes, so trimming a styled string cuts its escape sequences.
+	return statusStyle.Render(truncate(" "+m.status, p.footerW))
 }

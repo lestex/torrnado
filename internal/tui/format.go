@@ -24,6 +24,34 @@ func formatETA(d time.Duration) string { return format.ETA(d) }
 // contain CJK and emoji, which occupy two cells each, so counting runes
 // would let a name overflow its column and shear every column to its
 // right. lipgloss.Width accounts for that (and for any embedded ANSI).
+// truncateTail keeps the *end* of a string that does not fit, marking the
+// cut with a leading ellipsis.
+//
+// For an input line: while typing, what matters is what was just entered,
+// so a pasted magnet uri scrolls rather than showing its first 40
+// characters forever.
+func truncateTail(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	if width == 1 {
+		return "…"
+	}
+	// Trim runes off the front until what is left, plus the ellipsis,
+	// fits.
+	runes := []rune(s)
+	for len(runes) > 0 {
+		runes = runes[1:]
+		if lipgloss.Width(string(runes))+1 <= width {
+			return "…" + string(runes)
+		}
+	}
+	return "…"
+}
+
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""

@@ -44,7 +44,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.RemoveData, "remove them and delete the data too"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
-		{km.Command, "command palette: :add, :limit-up, :move, :q"},
+		{km.Command, "command palette: :add, :theme, :limit-up, :move, :q"},
 		{km.Preview, "stream the selected file to your player, even while downloading"},
 		{km.Help, "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},

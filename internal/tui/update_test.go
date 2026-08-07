@@ -1,11 +1,13 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/lestex/torrnado/internal/engine"
 )
@@ -371,5 +373,138 @@ func TestDDChordExpires(t *testing.T) {
 	}
 	if !m.pendingDD {
 		t.Error("the stale d should have started a fresh chord")
+	}
+}
+
+// A status message describes something that happened, so it has to go
+// away. "rechecking 1 torrent(s)" outliving the recheck by however long
+// the TUI stays open reads as a job that never finished.
+func TestAStatusMessageExpires(t *testing.T) {
+	m := testModel()
+
+	next, cmd := m.Update(okStatus("rechecking 1 torrent(s)"))
+	m = next.(Model)
+	if m.status != "rechecking 1 torrent(s)" {
+		t.Fatalf("status = %q, want the message", m.status)
+	}
+	if cmd == nil {
+		t.Fatal("setting a status returned no command to clear it")
+	}
+
+	next, _ = m.Update(statusExpiredMsg{seq: m.statusSeq})
+	m = next.(Model)
+
+	if m.status != "" {
+		t.Errorf("status = %q after expiring, want it cleared", m.status)
+	}
+}
+
+// The timer for a message that has already been replaced must not wipe
+// the one now on screen -- two commands in quick succession is the
+// ordinary case, not a rare one.
+func TestAStaleExpiryLeavesTheCurrentMessage(t *testing.T) {
+	m := testModel()
+
+	next, _ := m.Update(okStatus("added 1 torrent(s)"))
+	m = next.(Model)
+	stale := statusExpiredMsg{seq: m.statusSeq}
+
+	next, _ = m.Update(okStatus("rechecking 1 torrent(s)"))
+	m = next.(Model)
+
+	next, _ = m.Update(stale)
+	m = next.(Model)
+
+	if m.status != "rechecking 1 torrent(s)" {
+		t.Errorf("status = %q, want the newer message to survive", m.status)
+	}
+}
+
+// The command really does carry the sequence number it was made with,
+// which is what stops a stale timer clearing a newer message. Run with a
+// delay short enough to wait for.
+func TestExpireStatusCmdCarriesItsSequence(t *testing.T) {
+	msg := expireStatusCmd(7, time.Millisecond)()
+	expired, ok := msg.(statusExpiredMsg)
+	if !ok {
+		t.Fatalf("expireStatusCmd produced %T, want statusExpiredMsg", msg)
+	}
+	if expired.seq != 7 {
+		t.Errorf("seq = %d, want 7", expired.seq)
+	}
+}
+
+// An error is the answer to "why did nothing happen", so it is worth
+// reading twice -- but it still goes away.
+func TestAnErrorStaysLongerThanAConfirmation(t *testing.T) {
+	m := testModel()
+
+	if _, cmd := m.Update(okStatus("done")); cmd == nil {
+		t.Error("a confirmation has no expiry")
+	}
+	if _, cmd := m.Update(errStatus(errors.New("nope"))); cmd == nil {
+		t.Error("an error has no expiry")
+	}
+	if statusErrorTTL <= statusTTL {
+		t.Errorf("error TTL %v should outlast the plain one %v", statusErrorTTL, statusTTL)
+	}
+}
+
+// A lost daemon is a standing condition rather than an event, so it stays
+// until it is replaced.
+func TestALostConnectionDoesNotExpire(t *testing.T) {
+	m := testModel()
+
+	next, cmd := m.Update(engineClosedMsg{})
+	m = next.(Model)
+
+	if m.status == "" {
+		t.Fatal("a lost connection said nothing")
+	}
+	if cmd != nil {
+		t.Error("the lost-connection message was given an expiry")
+	}
+}
+
+// A message too long to sit beside the transfer totals takes the line
+// instead of being dropped. Every error that names a path is too long
+// for an 80-column footer, and one that never appears is the same as no
+// error at all.
+func TestALongStatusIsShownRatherThanDropped(t *testing.T) {
+	m := testModel("a")
+	m.width, m.height = 80, 24
+	p := layout(m.width, m.height)
+
+	m.status = `unknown theme "nope" (built-in themes: [catppuccin dracula gruvbox nord plain])`
+	m.statusIsErr = true
+
+	footer := m.renderFooter(p)
+
+	if !strings.Contains(footer, "unknown theme") {
+		t.Errorf("a long status was dropped from the footer: %q", footer)
+	}
+	if w := lipgloss.Width(footer); w > p.footerW {
+		t.Errorf("the footer is %d columns, want at most %d: %q", w, p.footerW, footer)
+	}
+}
+
+// A short one still shares the line with the totals, which are the
+// footer's reason for existing the rest of the time.
+func TestAShortStatusSharesTheFooter(t *testing.T) {
+	m := testModel("a")
+	m.width, m.height = 120, 30
+	p := layout(m.width, m.height)
+	m.status = "paused 1 torrent(s)"
+
+	footer := m.renderFooter(p)
+
+	if !strings.Contains(footer, "paused 1 torrent(s)") {
+		t.Errorf("the status is missing: %q", footer)
+	}
+	if !strings.Contains(footer, "torrents") {
+		t.Errorf("the totals are missing: %q", footer)
+	}
+	if w := lipgloss.Width(footer); w > p.footerW {
+		t.Errorf("the footer is %d columns, want at most %d", w, p.footerW)
 	}
 }

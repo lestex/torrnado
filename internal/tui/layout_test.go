@@ -28,6 +28,41 @@ func TestLayoutTilesTheTerminal(t *testing.T) {
 	}
 }
 
+// The text area is the box less its padding, and a render function told
+// otherwise draws lines wider than the pane -- which lipgloss wraps,
+// growing the box and pushing the frame off the screen.
+func TestContentIsTheBoxLessItsPadding(t *testing.T) {
+	for _, s := range []struct{ w, h int }{{minWidth, minHeight}, {80, 24}, {200, 60}} {
+		p := layout(s.w, s.h)
+		for name, pair := range map[string][2]int{
+			"sidebar": {p.sidebarBoxW, p.sidebarContentW},
+			"list":    {p.listBoxW, p.listContentW},
+			"detail":  {p.detailBoxW, p.detailContentW},
+		} {
+			box, content := pair[0], pair[1]
+			if want := box - 2*panePadX; content != want {
+				t.Errorf("%dx%d: %s content is %d columns, want %d (box %d less %d padding)",
+					s.w, s.h, name, content, want, box, 2*panePadX)
+			}
+		}
+	}
+}
+
+// The box is the pane less its border, and that is what lipgloss is given
+// -- so the panes still tile the terminal exactly with padding added.
+func TestBoxIsThePaneLessItsBorder(t *testing.T) {
+	p := layout(120, 40)
+	for name, pair := range map[string][2]int{
+		"sidebar": {p.sidebarW, p.sidebarBoxW},
+		"list":    {p.listW, p.listBoxW},
+		"detail":  {p.detailW, p.detailBoxW},
+	} {
+		if pane, box := pair[0], pair[1]; box != pane-borderWidth {
+			t.Errorf("%s box is %d columns, want %d", name, box, pane-borderWidth)
+		}
+	}
+}
+
 // Content areas are what is left inside the borders, and must never go
 // negative -- a negative width silently becomes a very wide one once it
 // reaches strings.Repeat.
@@ -35,6 +70,7 @@ func TestLayoutContentAreasArePositive(t *testing.T) {
 	for _, s := range []struct{ w, h int }{{minWidth, minHeight}, {80, 24}, {300, 100}} {
 		p := layout(s.w, s.h)
 		for name, v := range map[string]int{
+			"sidebarBoxW": p.sidebarBoxW, "listBoxW": p.listBoxW, "detailBoxW": p.detailBoxW,
 			"sidebarContentW": p.sidebarContentW, "sidebarContentH": p.sidebarContentH,
 			"listContentW": p.listContentW, "listContentH": p.listContentH,
 			"detailContentW": p.detailContentW, "detailContentH": p.detailContentH,

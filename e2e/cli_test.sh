@@ -243,6 +243,35 @@ fi
 out=$("$TORRNADO" --config "$CFG" list 2>&1)
 assert_not_contains "a separate config sees its own daemon only" "$out" "$SAMPLE_IH"
 
+# `config` reads the file and nothing else, so it has to work with no
+# daemon anywhere -- that is most of its value when something is wrong.
+UNUSED_SOCK="$E2E_TMP/unused.sock"
+CFG2="$E2E_TMP/inspect.toml"
+cat >"$CFG2" <<EOF
+download_dir  = "$E2E_TMP/inspect-downloads"
+daemon_socket = "$UNUSED_SOCK"
+state_dir     = "$E2E_TMP/inspect-state"
+theme         = "nord"
+EOF
+
+out=$("$TORRNADO" --config "$CFG2" config 2>&1)
+assert_contains "config reports the file it read" "$out" "$CFG2"
+assert_contains "config reports the download directory" "$out" "$E2E_TMP/inspect-downloads"
+assert_contains "config reports the socket path" "$out" "$UNUSED_SOCK"
+assert_contains "config reports a setting from the file" "$out" "nord"
+# Derived from state_dir rather than configured, so it is the one a user
+# cannot work out by reading their own config file.
+assert_contains "config reports where the session is kept" "$out" "$E2E_TMP/inspect-state/session.json"
+
+if [ -S "$UNUSED_SOCK" ]; then
+	fail "config does not start a daemon" "a daemon appeared at $UNUSED_SOCK"
+else
+	pass "config does not start a daemon"
+fi
+
+out=$("$TORRNADO" --config "$E2E_TMP/absent.toml" config 2>&1)
+assert_contains "config says when there is no file" "$out" "not found"
+
 assert_failure "an unknown config key is rejected" \
 	sh -c "echo 'downlaod_dir = \"/tmp/x\"' > '$E2E_TMP/bad.toml'; '$TORRNADO' --config '$E2E_TMP/bad.toml' list"
 

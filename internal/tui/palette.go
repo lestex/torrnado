@@ -64,6 +64,15 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		}
 		return m, moveCmd(m.client, t.ID, args[0])
 
+	case "theme":
+		// With no argument the picker opens, which is how you find out
+		// what the names are; with one it applies directly, for when
+		// you already know.
+		if len(args) == 0 {
+			return m.openThemePicker()
+		}
+		return m.setThemeByName(args[0])
+
 	case "sort":
 		if len(args) == 0 {
 			return m, func() tea.Msg {

@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/lipgloss"
@@ -78,6 +79,45 @@ func Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// Available returns every theme that can be loaded: the built-ins plus
+// any <name>.toml in themesDir.
+//
+// A user file shadowing a built-in is listed once, because Load already
+// prefers the file -- two entries would offer a choice that does not
+// exist. A missing or unreadable directory yields the built-ins rather
+// than an error: having no themes directory is the ordinary case, not a
+// failure.
+func Available(themesDir string) []string {
+	seen := map[string]bool{}
+	for name := range builtins {
+		seen[name] = true
+	}
+	if entries, err := os.ReadDir(themesDir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if name := strings.TrimSuffix(e.Name(), ".toml"); name != e.Name() {
+				seen[name] = true
+			}
+		}
+	}
+
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// IsUserTheme reports whether name resolves to a file in themesDir
+// rather than to a built-in, so a picker can say which is which.
+func IsUserTheme(name, themesDir string) bool {
+	_, err := os.Stat(filepath.Join(themesDir, name+".toml"))
+	return err == nil
 }
 
 // Load resolves a theme by name: a user's own themesDir/<name>.toml

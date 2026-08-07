@@ -138,6 +138,17 @@ type Model struct {
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool
 
+	// The theme picker: the palette it is choosing from, where the
+	// cursor is in it, what is applied, and what to put back on escape.
+	// themesDir is kept because a user's own themes live on disk and are
+	// re-read as the cursor moves.
+	themePicker bool
+	themeNames  []string
+	themeCursor int
+	theme       theme.Theme
+	themeSaved  theme.Theme
+	themesDir   string
+
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
 	pendingAt time.Time
@@ -157,21 +168,42 @@ type Model struct {
 
 	status      string
 	statusIsErr bool
+	// statusSeq counts status messages, so the timer that clears one can
+	// tell whether it is still the message on screen.
+	statusSeq int
 
 	width, height int
 	quitting      bool
 }
 
-// New builds the initial Model. client and its Events() channel must
+// Options is what a Model needs from the outside world.
+//
+// A struct rather than positional parameters: the list had grown to the
+// point of two adjacent strings, and a caller that swapped ThemesDir and
+// Player would compile and then behave strangely at runtime.
+type Options struct {
+	Client *ipc.Client
+	Keys   KeyMap
+	Theme  theme.Theme
+	// ThemesDir is where a user's own themes live, re-read when the
+	// theme picker changes selection.
+	ThemesDir string
+	// Player is the command used to preview a file.
+	Player string
+}
+
+// New builds the initial Model. The client and its Events() channel must
 // already be connected.
-func New(client *ipc.Client, km KeyMap, th theme.Theme, player string) Model {
+func New(o Options) Model {
 	return Model{
-		client:   client,
-		events:   client.Events(),
-		keymap:   km,
-		styles:   newStyles(th),
-		player:   player,
-		selected: map[engine.TorrentID]bool{},
+		client:    o.Client,
+		events:    o.Client.Events(),
+		keymap:    o.Keys,
+		styles:    newStyles(o.Theme),
+		theme:     o.Theme,
+		themesDir: o.ThemesDir,
+		player:    o.Player,
+		selected:  map[engine.TorrentID]bool{},
 	}
 }
 
@@ -292,7 +324,61 @@ func (m *Model) syncDetail() tea.Cmd {
 	return loadDetail(m.client, t.ID)
 }
 
-func (m *Model) setStatus(msg statusMsg) {
+// How long a status message stays on screen. Errors linger, because they
+// are usually the answer to "why did nothing happen" and are worth
+// reading twice; a confirmation has done its job as soon as it is seen.
+const (
+	statusTTL      = 5 * time.Second
+	statusErrorTTL = 12 * time.Second
+)
+
+// setStatus shows a message and returns the command that will clear it.
+//
+// It mutates the receiver, so it must be called on its own line:
+//
+//	cmd := m.setStatus(okStatus("done"))
+//	return m, cmd
+//
+// `return m, m.setStatus(...)` is two operands of one return statement, and
+// the spec orders the function calls among themselves but not against the
+// plain operand beside them -- so whether the returned copy carries the
+// message is left to the compiler.
+//
+// A status bar reporting "rechecking 1 torrent(s)" is describing
+// something that happened, not something that is still true -- and the
+// message outlived the recheck by however long the TUI stayed open,
+// which reads as a job that never finished.
+//
+// A caller that drops the returned command gets the old behaviour: a
+// message that stays until something replaces it. That is deliberate for
+// a lost connection, which is a condition rather than an event.
+func (m *Model) setStatus(msg statusMsg) tea.Cmd {
 	m.status = msg.text
 	m.statusIsErr = msg.isErr
+	m.statusSeq++
+
+	ttl := statusTTL
+	if msg.isErr {
+		ttl = statusErrorTTL
+	}
+	return expireStatusCmd(m.statusSeq, ttl)
+}
+
+// expireStatusCmd asks for a status to be cleared after a delay. Split
+// out so a test can exercise it with a delay it does not have to sit
+// through -- tea.Tick's command really does wait.
+func expireStatusCmd(seq int, after time.Duration) tea.Cmd {
+	return tea.Tick(after, func(time.Time) tea.Msg {
+		return statusExpiredMsg{seq: seq}
+	})
+}
+
+// clearStatus removes the message with the given sequence number, and
+// does nothing if a newer one has replaced it.
+func (m *Model) clearStatus(seq int) {
+	if seq != m.statusSeq {
+		return
+	}
+	m.status = ""
+	m.statusIsErr = false
 }

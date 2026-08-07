@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/lestex/torrnado/internal/engine"
@@ -70,5 +71,44 @@ func TestVisibleTorrentsAppliesTheFilter(t *testing.T) {
 	got := m.visibleTorrents()
 	if len(got) != 1 || got[0].Name != "b" {
 		t.Errorf("filterSeeding returned %v", got)
+	}
+}
+
+// The same pair of independent states as a torrent row: a filter can be
+// the applied one, under the sidebar's cursor, or both. Drawing only the
+// applied one hid the cursor exactly when it sat on the filter already
+// in use.
+func TestSidebarShowsTheCursorOnTheActiveFilter(t *testing.T) {
+	m := testModel("a")
+	m.focus = focusSidebar
+	m.filter = filterAll
+	m.sidebarCursor = int(filterAll)
+	p := layout(120, 30)
+
+	onActive := m.renderSidebar(p)
+	if !strings.Contains(onActive, ">"+filterNames[filterAll]) {
+		t.Errorf("no cursor marker on the active filter:\n%s", onActive)
+	}
+
+	// And it still marks a filter that is not the applied one.
+	m.sidebarCursor = int(filterSeeding)
+	onOther := m.renderSidebar(p)
+	if !strings.Contains(onOther, ">"+filterNames[filterSeeding]) {
+		t.Errorf("no cursor marker on an inactive filter:\n%s", onOther)
+	}
+	if strings.Contains(onOther, ">"+filterNames[filterAll]) {
+		t.Errorf("the cursor is drawn on two filters at once:\n%s", onOther)
+	}
+}
+
+// With the sidebar unfocused its cursor is not a thing the user is
+// moving, so it is not drawn at all.
+func TestSidebarHidesItsCursorWhenUnfocused(t *testing.T) {
+	m := testModel("a")
+	m.focus = focusList
+	m.sidebarCursor = int(filterSeeding)
+
+	if got := m.renderSidebar(layout(120, 30)); strings.Contains(got, ">") {
+		t.Errorf("an unfocused sidebar drew a cursor:\n%s", got)
 	}
 }

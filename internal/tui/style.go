@@ -20,7 +20,11 @@ type styles struct {
 	SelectedRow lipgloss.Style
 	Row         lipgloss.Style
 	CursorRow   lipgloss.Style
-	ColHeader   lipgloss.Style
+	// CursorSelectedRow is a row that is both. Neither of the other two
+	// can stand in for it: one loses the selection, the other loses the
+	// cursor.
+	CursorSelectedRow lipgloss.Style
+	ColHeader         lipgloss.Style
 
 	// The two halves of a progress underline: how far along, and the
 	// track it runs on.
@@ -48,16 +52,24 @@ type styles struct {
 }
 
 func newStyles(t theme.Theme) styles {
+	// The padding sits inside the width the pane is given (lipgloss wraps
+	// at width minus horizontal padding), so it costs the text area, not
+	// the frame. layout() subtracts the same panePadX from what the
+	// render functions are told they have.
 	pane := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(t.Border)
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(t.Border).
+		Padding(0, panePadX)
 
 	return styles{
 		theme: t,
 
 		Base: lipgloss.NewStyle().Foreground(t.Foreground),
 
-		StatusBar: lipgloss.NewStyle().Foreground(t.Muted),
+		// Foreground rather than Muted: the footer carries the transfer
+		// totals and whatever just happened, which is worth reading
+		// without leaning in.
+		StatusBar: lipgloss.NewStyle().Foreground(t.Foreground),
 
 		StatusErr: lipgloss.NewStyle().
 			Foreground(t.Error).
@@ -72,7 +84,19 @@ func newStyles(t theme.Theme) styles {
 
 		CursorRow: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 
-		ColHeader: lipgloss.NewStyle().Foreground(t.Muted).Bold(true),
+		// The selection's background with the cursor's foreground, so
+		// both states are legible at once.
+		CursorSelectedRow: lipgloss.NewStyle().
+			Foreground(t.Accent).
+			Background(t.SelectedBg).
+			Bold(true),
+
+		// A table's own labels should not be the same colour as the
+		// chrome around it. This is the list's column headings, the
+		// sidebar's section titles and the detail pane's headers, so
+		// lightening it here keeps the three panes speaking with one
+		// voice.
+		ColHeader: lipgloss.NewStyle().Foreground(t.Foreground).Bold(true),
 
 		ProgressFill:  lipgloss.NewStyle().Foreground(t.Accent),
 		ProgressTrack: lipgloss.NewStyle().Foreground(t.Border),

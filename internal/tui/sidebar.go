@@ -61,21 +61,29 @@ func (m Model) renderSidebar(p panes) string {
 		m.styles.ColHeader.Render(truncate("Status", w)),
 	)
 
+	// Two independent states again, as in the list: a filter can be the
+	// applied one, under the sidebar's cursor, or both. Drawing only the
+	// applied one hid the cursor exactly when it was on the filter you
+	// were already using.
 	for i, name := range filterNames {
-		label := " " + name
-		if statusFilter(i) == m.filter {
-			lines = append(lines, m.styles.SidebarItemActive.Render(padRight(label, w)))
-			continue
+		active := statusFilter(i) == m.filter
+		underCursor := m.focus == focusSidebar && i == m.sidebarCursor
+
+		mark := " "
+		if underCursor {
+			mark = ">"
 		}
+
 		style := m.styles.SidebarItem
-		// With the sidebar focused its cursor can sit on a filter that
-		// is not applied yet, so it needs a cue distinct from the active
-		// one.
-		if m.focus == focusSidebar && i == m.sidebarCursor {
+		switch {
+		case active && underCursor:
+			style = m.styles.CursorSelectedRow
+		case active:
+			style = m.styles.SidebarItemActive
+		case underCursor:
 			style = m.styles.CursorRow
-			label = ">" + name
 		}
-		lines = append(lines, style.Render(padRight(label, w)))
+		lines = append(lines, style.Render(padRight(mark+name, w)))
 	}
 
 	// Daemon-wide facts that used to live in the top stats bar; they sit

@@ -41,6 +41,7 @@ func main() {
 		newMoveCmd(),
 		newListCmd(),
 		newPreviewCmd(),
+		newConfigCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

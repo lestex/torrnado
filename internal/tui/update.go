@@ -33,18 +33,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(listenForEvents(m.events), m.syncDetail())
 
 	case engineClosedMsg:
+		// Set directly, with no expiry: the daemon being gone is a
+		// standing condition, not an event that has passed.
 		m.status = "lost connection to daemon"
 		m.statusIsErr = true
 		return m, nil
 
 	case statusMsg:
-		m.setStatus(msg)
+		cmd := m.setStatus(msg)
+		return m, cmd
+
+	case statusExpiredMsg:
+		m.clearStatus(msg.seq)
 		return m, nil
 
 	case detailLoadedMsg:
 		if msg.err != nil {
-			m.setStatus(errStatus(msg.err))
-			return m, nil
+			cmd := m.setStatus(errStatus(msg.err))
+			return m, cmd
 		}
 		// A reply for a torrent the cursor has already left is stale;
 		// dropping it stops a slow fetch overwriting the pane after the
@@ -75,6 +81,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.showHelp {
 		m.showHelp = false
 		return m, nil
+	}
+
+	// The theme picker takes every key while it is open. A floating
+	// window that let keys through would move a cursor nobody can see.
+	if m.themePicker {
+		return m.handleThemeKey(key)
 	}
 
 	// While typing at a prompt, keys are text rather than commands.

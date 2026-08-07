@@ -328,6 +328,23 @@ surface. The player is detached, so it keeps playing after you quit the TUI.
 > not torrnado: approve it once in System Settings → Privacy & Security, or
 > `xattr -d com.apple.quarantine /Applications/<player>.app`.
 
+### Switching themes
+
+`:theme` opens a floating picker over the panes. Moving through it
+applies each theme as you go -- the list, sidebar and detail pane
+underneath recolour live, so you judge a theme on your own torrents
+rather than on a swatch. `enter` keeps it, `esc` puts back the one you
+started with. Your own themes from the themes directory are listed
+alongside the built-ins and marked `(user)`; one that fails to parse is
+reported and stepped over rather than applied.
+
+`:theme nord` switches straight to a named theme without opening the
+picker.
+
+The choice lasts for the session. torrnado will not rewrite your
+`config.toml` -- doing so would re-encode the file and lose its comments
+and ordering -- so to keep a theme, put `theme = "nord"` in it yourself.
+
 ## TUI keybinds
 
 Vim-like navigation, not vim's editing model -- there's no insert/visual
@@ -371,6 +388,7 @@ always apply to the list's selection or cursor row.
 | `:limit-up <rate>` / `:limit-down <rate>`               | set the *global* rate limit (`500k`, `2M`, `unlimited`) |
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
+| `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
 | `:q` / `:quit`                                          | quit the TUI                              |
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
@@ -419,7 +437,17 @@ torrnado move <id> <new-directory>
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
+torrnado config                       where the config lives, and what is in effect
 ```
+
+`torrnado config` is the one command that never touches the daemon: it
+prints the config file it would read (saying so when there isn't one),
+every path derived from it -- downloads, state, socket, session file,
+saved metainfo -- and the settings actually in effect, defaults and
+overrides together. Useful when a setting seems to be ignored, since the
+first answer is usually that the file is somewhere other than where it
+was written. What it prints is what a daemon started *now* would use; one
+already running may have been started with something else.
 
 `list --watch` renders the daemon's pushed events rather than polling, so
 it updates when state actually changes (~1s) and costs no extra requests.
@@ -549,3 +577,7 @@ than left as a surprise:
   still runs in the background, just not in its own session. The
   Unix-socket IPC design itself doesn't extend to Windows without a
   different transport (named pipes), which is out of scope here.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
