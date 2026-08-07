@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -239,7 +245,8 @@ func newPreviewCmd() *cobra.Command {
 }
 
 func newListCmd() *cobra.Command {
-	return &cobra.Command{
+	var watch bool
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List torrents known to the daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -248,18 +255,97 @@ func newListCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				// tabwriter lines columns up by padding them once it has
-				// seen every row, so the widest name still fits.
-				w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-				fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS\tETA")
-				for _, s := range snaps {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d\t%s\n",
-						s.ID, s.Name, s.State, s.Progress*100,
-						format.Rate(s.DownloadBPS), format.Rate(s.UploadBPS),
-						format.Ratio(s.Ratio), s.NumSeeds, s.NumPeers, format.ETA(s.ETA))
+				if !watch {
+					return writeTorrentTable(os.Stdout, snaps)
 				}
-				return w.Flush()
+				return watchTorrents(c, snaps)
 			})
 		},
 	}
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false,
+		"redraw as the daemon reports changes, until interrupted")
+	return cmd
+}
+
+// writeTorrentTable renders the snapshot table used by both `list` and
+// its --watch mode, so the two can't drift apart.
+func writeTorrentTable(out io.Writer, snaps []engine.TorrentSnapshot) error {
+	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS")
+	for _, s := range snaps {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d\n",
+			s.ID, s.Name, s.State, s.Progress*100,
+			format.Rate(s.DownloadBPS), format.Rate(s.UploadBPS), format.Ratio(s.Ratio),
+			s.NumSeeds, s.NumPeers)
+	}
+	return w.Flush()
+}
+
+// watchTorrents redraws the table until interrupted.
+//
+// It renders the daemon's pushed events rather than polling List on a
+// timer: the daemon already broadcasts a snapshot every tick, so this
+// costs no extra RPCs and updates exactly when the state actually
+// changes. initial is the snapshot already fetched, drawn immediately so
+// the first frame isn't a blank second.
+func watchTorrents(c *ipc.Client, initial []engine.TorrentSnapshot) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Cursor-home-and-clear only makes sense on a terminal. Piped into a
+	// file or a pager, escape codes would be garbage in the output, so
+	// there the frames simply append.
+	tty := isTerminal(os.Stdout)
+
+	draw := func(snaps []engine.TorrentSnapshot, global engine.GlobalStats) error {
+		var b bytes.Buffer
+		if tty {
+			b.WriteString("\033[H\033[2J")
+		}
+		if err := writeTorrentTable(&b, snaps); err != nil {
+			return err
+		}
+		fmt.Fprintf(&b, "\n%s  |  %d torrents  |  ↓ %s  ↑ %s  |  ctrl-c to stop\n",
+			time.Now().Format("15:04:05"), len(snaps),
+			format.Rate(global.DownloadBPS), format.Rate(global.UploadBPS))
+		_, err := os.Stdout.Write(b.Bytes())
+		return err
+	}
+
+	// List returns snapshots without the daemon's aggregate stats, so the
+	// first frame's totals are summed from the rows rather than shown as
+	// zero until the first event lands.
+	if err := draw(initial, sumRates(initial)); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case ev, ok := <-c.Events():
+			if !ok {
+				return fmt.Errorf("lost connection to daemon")
+			}
+			if err := draw(ev.Torrents, ev.Global); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func sumRates(snaps []engine.TorrentSnapshot) engine.GlobalStats {
+	g := engine.GlobalStats{NumTorrents: len(snaps)}
+	for _, s := range snaps {
+		g.DownloadBPS += s.DownloadBPS
+		g.UploadBPS += s.UploadBPS
+	}
+	return g
+}
+
+// isTerminal reports whether f is a character device, i.e. a terminal
+// rather than a pipe or a file.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }

@@ -22,11 +22,18 @@ type Server struct {
 	// rather than taking the stream server itself, so this package still
 	// depends on nothing but engine. Nil disables the method.
 	previewURL func(engine.TorrentID, int) string
+	// lock is held open for the daemon's lifetime; closing it is what
+	// releases the exclusive flock.
+	lock *os.File
 
 	wg sync.WaitGroup
 }
 
-// Serve starts listening on socketPath.
+// Serve starts listening on socketPath. If another daemon owns that
+// socket, it returns an error rather than displacing it.
+//
+// Ownership is decided by an exclusive lock file, not by dialing the
+// socket -- see acquireDaemonLock for why probing is not sound.
 // previewURL may be nil, which disables MethodPreviewURL.
 func Serve(socketPath string, eng *engine.Engine,
 	previewURL func(engine.TorrentID, int) string,
@@ -34,16 +41,24 @@ func Serve(socketPath string, eng *engine.Engine,
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create socket dir: %w", err)
 	}
+
+	lock, err := acquireDaemonLock(socketPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// A Unix socket is a file, and binding fails if one is already there.
-	// A daemon that crashed leaves its socket behind, so clear it first.
+	// Only safe to remove now: holding the lock means no live daemon can
+	// be listening on it.
 	os.Remove(socketPath)
 
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
+		releaseDaemonLock(lock)
 		return nil, fmt.Errorf("listen on %s: %w", socketPath, err)
 	}
 
-	s := &Server{eng: eng, ln: ln, socketPath: socketPath, previewURL: previewURL}
+	s := &Server{eng: eng, ln: ln, socketPath: socketPath, previewURL: previewURL, lock: lock}
 	s.wg.Add(1)
 	go s.acceptLoop()
 	return s, nil
@@ -55,6 +70,7 @@ func (s *Server) Close() error {
 	err := s.ln.Close()
 	s.wg.Wait()
 	os.Remove(s.socketPath)
+	releaseDaemonLock(s.lock)
 	return err
 }
 
