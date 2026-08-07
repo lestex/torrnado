@@ -96,6 +96,44 @@ func newPurgeCmd() *cobra.Command {
 	}
 }
 
+// newOpenCmd shows a torrent's folder in the configured opener -- the
+// same thing the TUI's "o" does, for the same reason `preview --play`
+// exists beside the TUI's "v": every action should be reachable from a
+// script.
+func newOpenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "open <torrent-id>...",
+		Short: "Open a torrent's folder in the configured file manager",
+		Long: "Opens the directory holding the torrent's files -- its own folder for\n" +
+			"a multi-file torrent, the save path for a single-file one -- using the\n" +
+			"`opener` command from config.toml.\n\n" +
+			"The program is detached, so it outlives this command.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, _, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				d, err := c.Detail(id)
+				if err != nil {
+					return err
+				}
+				dir := d.Snapshot.DataDir
+				if dir == "" {
+					dir = d.Snapshot.SavePath
+				}
+				// The save path stands in for a torrent with nothing on
+				// disk yet, the same fallback the TUI makes.
+				if _, err := os.Stat(dir); err != nil && d.Snapshot.SavePath != "" {
+					dir = d.Snapshot.SavePath
+				}
+				return launch.Detached(cfg.Opener, dir)
+			})
+		},
+	}
+}
+
 // Pause and resume are separate commands rather than one that toggles.
 // A script that says "pause" has to mean it, whatever state the torrent
 // happens to be in.
