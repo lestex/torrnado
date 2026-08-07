@@ -72,6 +72,7 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintln(w, "Settings")
 	fmt.Fprintf(w, "  theme\t%s\n", cfg.Theme)
 	fmt.Fprintf(w, "  player\t%s\n", cfg.Player)
+	fmt.Fprintf(w, "  opener\t%s\n", cfg.Opener)
 	fmt.Fprintf(w, "  rate_limit.upload\t%s\n", cfg.RateLimit.Upload)
 	fmt.Fprintf(w, "  rate_limit.download\t%s\n", cfg.RateLimit.Download)
 	fmt.Fprintf(w, "  port\t%s\n", portRangeText(cfg.Port))

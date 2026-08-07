@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -80,10 +81,20 @@ type Config struct {
 	// a restart: the session file and a copy of each torrent's metainfo.
 	StateDir string `toml:"state_dir"`
 	Theme    string `toml:"theme"`
-	// Player is the command run to preview a file, given the stream URL
-	// as its final argument. May carry fixed flags ("mpv --no-terminal");
-	// it is split on spaces, not run through a shell.
+	// Player is the command run to preview a file, given the stream URL.
+	// May carry fixed flags ("mpv --no-terminal"); it is split on spaces,
+	// not run through a shell. %f is replaced by the URL, or the URL is
+	// appended when the command does not name it.
 	Player string `toml:"player"`
+	// Opener is the command run to show a torrent's folder, given the
+	// directory the same way Player is given the URL -- so
+	// "alacritty --working-directory %f" opens a terminal there instead
+	// of a file manager.
+	//
+	// The default is the platform's own "open this with whatever is
+	// registered": `open` on macOS, `xdg-open` elsewhere, which is the
+	// user's file manager rather than one this program picked for them.
+	Opener string `toml:"opener"`
 
 	RateLimit RateLimits        `toml:"rate_limit"`
 	Port      PortRange         `toml:"port"`
@@ -122,6 +133,20 @@ var KnownActions = []string{
 	"filter_next", "filter_prev",
 }
 
+// defaultOpener is the platform's own "open this the way the desktop
+// would" command.
+//
+// xdg-open rather than a named file manager: it launches whatever this
+// user has registered -- nautilus on GNOME, dolphin on KDE, thunar on
+// XFCE -- which is a better guess than any one of them, and naming a
+// specific one is what the config key is for.
+func defaultOpener() string {
+	if runtime.GOOS == "darwin" {
+		return "open"
+	}
+	return "xdg-open"
+}
+
 // Default returns a Config with every field set to its XDG-aware default.
 func Default() (Config, error) {
 	downloadDir, err := DefaultDownloadDir()
@@ -142,6 +167,7 @@ func Default() (Config, error) {
 		StateDir:     stateDir,
 		Theme:        "dracula",
 		Player:       "mpv",
+		Opener:       defaultOpener(),
 		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
@@ -206,6 +232,9 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Player) == "" {
 		return fmt.Errorf("player: must not be empty")
+	}
+	if strings.TrimSpace(c.Opener) == "" {
+		return fmt.Errorf("opener: must not be empty")
 	}
 	if c.StateDir == "" {
 		return fmt.Errorf("state_dir: must not be empty")
