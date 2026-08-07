@@ -76,6 +76,26 @@ func newRemoveCmd() *cobra.Command {
 	return cmd
 }
 
+// Purge is its own verb rather than a flag on remove, because it is the
+// opposite half of what remove does: remove keeps the files and drops the
+// torrent, purge keeps the torrent and drops the files.
+func newPurgeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "purge <torrent-id>...",
+		Short: "Delete a torrent's data, keeping the torrent in the list",
+		Long: "Deletes the downloaded files and keeps the torrent, paused and at\n" +
+			"zero, with its save path, rate limits and place in the list intact.\n" +
+			"For freeing space without losing the entry -- resuming downloads it\n" +
+			"again.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
+				return c.PurgeData(id)
+			})
+		},
+	}
+}
+
 // Pause and resume are separate commands rather than one that toggles.
 // A script that says "pause" has to mean it, whatever state the torrent
 // happens to be in.

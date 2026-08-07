@@ -87,6 +87,7 @@ func TestDispatchRejectsUnknownIDEverywhere(t *testing.T) {
 
 	for _, req := range []*Request{
 		{Method: MethodRemove, ID: "nope"},
+		{Method: MethodPurgeData, ID: "nope"},
 		{Method: MethodSetPaused, ID: "nope", Paused: true},
 		{Method: MethodForceRecheck, ID: "nope"},
 		{Method: MethodSetFilePriority, ID: "nope", FileIndex: 0, Priority: engine.PriorityHigh},

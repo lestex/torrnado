@@ -45,6 +45,9 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 	case "resume":
 		return m.setPausedTargets(false)
 
+	case "purge":
+		return m.purgeTargets(m.visibleTorrents())
+
 	case "recheck":
 		return m.recheckTargets(m.visibleTorrents())
 

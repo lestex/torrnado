@@ -11,6 +11,7 @@ torrnado                              attach the TUI (spawns a daemon if needed)
 torrnado daemon                       run the engine in the foreground
 torrnado add <sources...>             add torrent(s); --save-path, --paused
 torrnado remove <id...>               remove; --delete-data
+torrnado purge <id...>                delete the data, keep the torrent
 torrnado pause <id...>
 torrnado resume <id...>
 torrnado recheck <id...>

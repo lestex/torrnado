@@ -36,6 +36,23 @@ func removeCmd(c *ipc.Client, ids []engine.TorrentID, deleteData bool) tea.Cmd {
 	}
 }
 
+// purgeCmd deletes the data of each target, keeping the torrents.
+func purgeCmd(c *ipc.Client, ids []engine.TorrentID) tea.Cmd {
+	return func() tea.Msg {
+		var failed int
+		for _, id := range ids {
+			if err := c.PurgeData(id); err != nil {
+				failed++
+			}
+		}
+		if failed > 0 {
+			return errStatus(fmt.Errorf("deleted the data of %d/%d torrents (%d failed)",
+				len(ids)-failed, len(ids), failed))
+		}
+		return okStatus(fmt.Sprintf("deleted the data of %d torrent(s), kept the torrent(s)", len(ids)))
+	}
+}
+
 // pauseCmd toggles each target's pause state.
 //
 // It reads Snapshot.Paused rather than deriving it from State: State

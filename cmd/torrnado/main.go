@@ -33,6 +33,7 @@ func main() {
 		newDaemonCmd(),
 		newAddCmd(),
 		newRemoveCmd(),
+		newPurgeCmd(),
 		newPauseCmd(),
 		newResumeCmd(),
 		newRecheckCmd(),

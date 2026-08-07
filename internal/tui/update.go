@@ -219,6 +219,9 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	case key == km.RemoveData:
 		return m.removeTargets(visible, true)
 
+	case key == km.Purge:
+		return m.purgeTargets(visible)
+
 	case key == km.Pause:
 		targets := m.targets(visible)
 		if len(targets) == 0 {
@@ -322,6 +325,23 @@ func (m Model) removeTargets(visible []engine.TorrentSnapshot, deleteData bool) 
 	// selection pointing at them would apply the next action to nothing.
 	m.selected = map[engine.TorrentID]bool{}
 	return m, removeCmd(m.client, ids, deleteData)
+}
+
+// purgeTargets deletes the data of the marked torrents and keeps them.
+//
+// The selection is left alone, unlike removeTargets: the rows are still
+// there afterwards, and clearing it would make the next action apply to
+// something else.
+func (m Model) purgeTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.Cmd) {
+	targets := m.targets(visible)
+	if len(targets) == 0 {
+		return m, nil
+	}
+	ids := make([]engine.TorrentID, len(targets))
+	for i, t := range targets {
+		ids[i] = t.ID
+	}
+	return m, purgeCmd(m.client, ids)
 }
 
 func (m Model) recheckTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.Cmd) {

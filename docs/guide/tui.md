@@ -46,6 +46,7 @@ mode, just the movement/action idioms.
 | `space`            | toggle selection (for batch operations)            |
 | `x`, `dd`          | remove selected (or cursor row), keep data on disk |
 | `D`                | remove selected (or cursor row), delete data too   |
+| `X`                | delete the data, keep the torrent in the list      |
 | `p`                | toggle pause/resume on selected (or cursor row)    |
 | `r`                | force recheck on selected (or cursor row)          |
 | `enter`            | move focus into the detail pane                    |
@@ -67,8 +68,9 @@ always apply to the list's selection or cursor row.
 | Command                                              | Effect                                    |
 |-------------------------------------------------------|--------------------------------------------|
 | `:add <magnet\|file\|url\|dir\|glob\|magnet-list-file> ...` | add one or more torrents (see Batch add)  |
-| `:remove` / `:remove!` `[id]`                          | remove (without/with data); selection or cursor row if no id |
-| `:pause [id]` / `:resume [id]`                         | absolute pause/resume; selection or cursor row if no id |
+| `:remove` / `:remove!`                                 | remove (without/with data); acts on the selection, or the cursor row |
+| `:purge`                                               | delete the data, keep the torrent; selection or cursor row |
+| `:pause` / `:resume`                                   | absolute pause/resume; selection or cursor row |
 | `:recheck`                                             | force recheck on selection or cursor row  |
 | `:limit-up <rate>` / `:limit-down <rate>`               | set the *global* rate limit (`500k`, `2M`, `unlimited`) |
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
@@ -107,8 +109,9 @@ torrnado add magnets.txt             # one magnet uri per line
 | Command                                              | Effect                                    |
 |-------------------------------------------------------|--------------------------------------------|
 | `:add <magnet\|file\|url\|dir\|glob\|magnet-list-file> ...` | add one or more torrents (see Batch add)  |
-| `:remove` / `:remove!` `[id]`                          | remove (without/with data); selection or cursor row if no id |
-| `:pause [id]` / `:resume [id]`                         | absolute pause/resume; selection or cursor row if no id |
+| `:remove` / `:remove!`                                 | remove (without/with data); acts on the selection, or the cursor row |
+| `:purge`                                               | delete the data, keep the torrent; selection or cursor row |
+| `:pause` / `:resume`                                   | absolute pause/resume; selection or cursor row |
 | `:recheck`                                             | force recheck on selection or cursor row  |
 | `:limit-up <rate>` / `:limit-down <rate>`               | set the *global* rate limit (`500k`, `2M`, `unlimited`) |
 | `:move <dir>`                                           | move the cursor row's data to a new directory |

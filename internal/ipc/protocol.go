@@ -23,6 +23,7 @@ const (
 	MethodAddTorrentFile         Method = "AddTorrentFile"
 	MethodAddBatch               Method = "AddBatch"
 	MethodRemove                 Method = "Remove"
+	MethodPurgeData              Method = "PurgeData"
 	MethodSetPaused              Method = "SetPaused"
 	MethodForceRecheck           Method = "ForceRecheck"
 	MethodSetFilePriority        Method = "SetFilePriority"

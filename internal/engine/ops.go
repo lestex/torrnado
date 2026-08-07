@@ -175,11 +175,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 
 	// Work out the paths before dropping the torrent: afterwards the file
 	// list is gone.
-	files := filesOrNil(tr.t)
-	paths := make([]string, 0, len(files))
-	for _, f := range files {
-		paths = append(paths, filepath.Join(tr.savePath, f.Path()))
-	}
+	paths := dataPaths(tr.savePath, tr.t)
 
 	tr.t.Drop()
 	if tr.ownStorage != nil {
@@ -187,9 +183,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 	}
 
 	if deleteData {
-		for _, p := range paths {
-			os.Remove(p)
-		}
+		deleteFiles(paths)
 		removeEmptyDirs(tr.savePath, paths)
 	}
 	e.log.Info("torrent removed", "id", id, "deleted_data", deleteData)
@@ -198,6 +192,41 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// dataPaths lists every place on disk a torrent's data can be: each
+// file, and the ".part" the file storage writes an unfinished one to.
+//
+// Both, because which of the two exists depends on whether every piece of
+// that file has landed and been verified -- and the whole point of
+// listing them is to delete them, where missing the .part leaves the
+// bytes behind. A half-downloaded torrent is *entirely* .part files.
+//
+// Empty before metadata arrives: there is no file list to build one from,
+// and nothing has been written either.
+func dataPaths(savePath string, t *torrent.Torrent) []string {
+	files := filesOrNil(t)
+	paths := make([]string, 0, len(files)*2)
+	for _, f := range files {
+		p := filepath.Join(savePath, f.Path())
+		paths = append(paths, p, p+partFileSuffix)
+	}
+	return paths
+}
+
+// partFileSuffix is what anacrolix/torrent's file storage appends to a
+// file it has not finished. Not exported by the library (storage's
+// fileExtra.partFilePath), so it is spelled out here; if it ever changes,
+// deletions start missing incomplete data.
+const partFileSuffix = ".part"
+
+// deleteFiles removes each path, ignoring the ones that are not there --
+// dataPaths lists both a file and its .part, and only one of the two
+// exists at a time.
+func deleteFiles(paths []string) {
+	for _, p := range paths {
+		os.Remove(p)
+	}
 }
 
 // removeEmptyDirs removes the directories a multi-file torrent left
@@ -524,6 +553,114 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 		e.snapshotAndBroadcastNow()
 	}()
 	return nil
+}
+
+// PurgeData deletes a torrent's data and keeps the torrent, paused, at
+// zero -- for freeing space without losing the entry, its save path, its
+// limits or its place in the list. Resuming it downloads the data again.
+//
+// Deleting the files is not enough on its own: a running torrent holds
+// its own picture of which pieces it has, and one whose data was deleted
+// underneath it goes on reporting 100% and offering pieces it cannot
+// read. The library has no way to make it look again short of hashing
+// every piece, so the torrent is dropped and re-added instead, which is
+// instant and hashes nothing.
+//
+// Nothing has to clear the piece-completion database by hand, which is
+// worth knowing before adding code that does: for any piece the database
+// calls complete, the file storage stats the files it spans, and a
+// missing one both reports incomplete and corrects the record. Deleting
+// the data is what makes the record wrong, and looking at it is what
+// fixes it.
+//
+// Re-adding does invalidate any open reader, so a stream of this torrent
+// stops -- the same caveat MoveStorage carries, for the same reason.
+func (e *Engine) PurgeData(id TorrentID) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	if tr.t.Info() == nil {
+		return fmt.Errorf("torrent metadata not available yet")
+	}
+
+	e.mu.Lock()
+	// Paused, not merely held: a torrent left running would start
+	// downloading the data again the moment it came back, which is the
+	// opposite of what was asked for. Held as well, so nothing moves in
+	// the window before the pause takes effect.
+	tr.paused = true
+	tr.holdData = true
+	tr.applyDataFlow(e.blocked)
+	e.mu.Unlock()
+
+	paths := dataPaths(tr.savePath, tr.t)
+	ih := tr.t.InfoHash()
+	mi := tr.t.Metainfo()
+	oldStorage := tr.ownStorage
+
+	tr.t.Drop()
+	if oldStorage != nil {
+		oldStorage.Close()
+	}
+
+	deleteFiles(paths)
+	removeEmptyDirs(tr.savePath, paths)
+
+	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
+	if err != nil {
+		return e.purgeFailed(tr, id, fmt.Errorf("rebuild spec: %w", err))
+	}
+	spec.InfoHash = ih
+	// The same v1/v2 trap MoveStorage documents: an allocated-but-empty
+	// piece-layer map makes the library take a v1 torrent for a v2 one and
+	// refuse to add it.
+	if len(spec.PieceLayers) == 0 {
+		spec.PieceLayers = nil
+	}
+	var newStorage storage.ClientImplCloser
+	if oldStorage != nil {
+		newStorage = storage.NewFile(tr.savePath)
+		spec.Storage = newStorage
+	}
+
+	t, _, err := e.client.AddTorrentSpec(spec)
+	if err != nil {
+		if newStorage != nil {
+			newStorage.Close()
+		}
+		return e.purgeFailed(tr, id, fmt.Errorf("re-add torrent after purge: %w", err))
+	}
+
+	e.mu.Lock()
+	tr.t = t
+	tr.ownStorage = newStorage
+	tr.holdData = false
+	tr.applyDataFlow(e.blocked) // still paused, so still off
+	e.mu.Unlock()
+
+	e.log.Info("torrent data deleted", "id", id, "name", t.Name(), "save_path", tr.savePath)
+	e.persist()
+	e.snapshotAndBroadcastNow()
+	return nil
+}
+
+// purgeFailed records a purge that could not put the torrent back.
+//
+// The data is already gone and the old torrent already dropped, so there
+// is no state to return to; what is left is to say so where the user will
+// see it, rather than leaving a row that goes on showing the figures of a
+// torrent that is no longer running at all.
+func (e *Engine) purgeFailed(tr *tracked, id TorrentID, err error) error {
+	e.mu.Lock()
+	tr.lastErr = err.Error()
+	tr.holdData = false
+	e.mu.Unlock()
+
+	e.log.Error("the data was deleted but the torrent could not be re-added", "id", id, "err", err)
+	e.persist()
+	e.snapshotAndBroadcastNow()
+	return err
 }
 
 // MoveStorage relocates a torrent's downloaded data to a new directory.
