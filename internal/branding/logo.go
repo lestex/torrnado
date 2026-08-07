@@ -3,10 +3,12 @@
 //
 // The mark is a spiral: a vortex seen from above, for a client named
 // after a storm. It exists in three renderings that are meant to stay the
-// same shape rather than three separate designs -- docs/assets/logo.svg
-// draws it as a real Archimedean spiral for the site, its favicon and any
-// future desktop icon, and the constants here approximate that curve in
-// character cells for the TUI.
+// same shape rather than three separate designs. The vector original is
+// overrides/.icons/torrnado/logo.svg, a real Archimedean spiral that
+// strokes currentColor so it takes the color of whatever draws it;
+// docs/assets/favicon.svg is the same path with the accent baked in,
+// because a browser tab has no page for currentColor to inherit from.
+// The constants here approximate that curve in character cells.
 //
 // This is its own package rather than a corner of internal/tui because
 // the TUI is not the only thing that will want it: a web or desktop front
