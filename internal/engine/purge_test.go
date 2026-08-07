@@ -1,10 +1,14 @@
 package engine
 
 import (
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/anacrolix/torrent/bencode"
+	"github.com/anacrolix/torrent/metainfo"
 )
 
 // completedTorrent adds a torrent whose data is already on disk and
@@ -173,5 +177,101 @@ func TestDataPathsIsEmptyWithoutMetadata(t *testing.T) {
 	// And purging one says so rather than doing half the work.
 	if err := e.PurgeData(id); err == nil {
 		t.Error("purging a torrent with no metadata should be refused")
+	}
+}
+
+// writeMultiFileTorrent builds a torrent of a directory holding two
+// files, which is what a real distribution torrent looks like: an image
+// and a checksum beside it, inside a directory of the torrent's name.
+func writeMultiFileTorrent(t *testing.T, parent string) (torrentPath, payloadDir string) {
+	t.Helper()
+
+	payloadDir = filepath.Join(parent, "release")
+	if err := os.MkdirAll(payloadDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, 64*1024)
+	if _, err := rand.Read(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(payloadDir, "image.iso"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(payloadDir, "CHECKSUM"), []byte("deadbeef\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	info := metainfo.Info{PieceLength: 16 * 1024}
+	if err := info.BuildFromFilePath(payloadDir); err != nil {
+		t.Fatalf("build info: %v", err)
+	}
+	info.MetaVersion = 0
+	info.FileTree = metainfo.FileTree{}
+
+	var mi metainfo.MetaInfo
+	var err error
+	if mi.InfoBytes, err = bencode.Marshal(info); err != nil {
+		t.Fatalf("marshal info: %v", err)
+	}
+
+	torrentPath = filepath.Join(parent, "release.torrent")
+	f, err := os.Create(torrentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := mi.Write(f); err != nil {
+		t.Fatalf("write torrent file: %v", err)
+	}
+	return torrentPath, payloadDir
+}
+
+// A real distribution torrent is a directory of files, not one file, and
+// a finished one has had every file marked read-only by the library. Both
+// have to go -- and so does the directory they were in, or purging a
+// library of them leaves a tree of empty folders behind.
+func TestPurgeDataDeletesAMultiFileTorrentsDirectory(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath, payloadDir := writeMultiFileTorrent(t, cfg.DataDir)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// Verified, so the completion database agrees the data is all there,
+	// and read-only, the way the library leaves a finished file.
+	if err := e.ForceRecheck(id); err != nil {
+		t.Fatalf("ForceRecheck: %v", err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if snap := findSnapshot(t, e, id); !snap.Checking && snap.Progress == 1 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	for _, name := range []string{"image.iso", "CHECKSUM"} {
+		if err := os.Chmod(filepath.Join(payloadDir, name), 0o444); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := e.PurgeData(id); err != nil {
+		t.Fatalf("PurgeData: %v", err)
+	}
+
+	if _, err := os.Stat(payloadDir); !os.IsNotExist(err) {
+		left, _ := os.ReadDir(payloadDir)
+		t.Errorf("the torrent's directory is still there with %d entries: %v", len(left), err)
+	}
+	if snap := findSnapshot(t, e, id); snap.Progress != 0 {
+		t.Errorf("progress = %.2f after a purge, want 0", snap.Progress)
 	}
 }
