@@ -14,7 +14,31 @@ on:
   # keeps this out of release.yml's way.
   push:
     branches: ["**"]
+    # A change that cannot affect the binary should not spend ten minutes
+    # of two runners proving it. Documentation gets its own strict build
+    # in docs.yml instead. A commit touching both docs and code still
+    # runs everything -- these paths only skip the workflow when they are
+    # the *only* thing that changed.
+    #
+    # Nothing here is a required status check, so a docs-only pull request
+    # merges with this workflow absent rather than stuck pending. Adding
+    # required checks later would need these filters mirrored there.
+    # Repeated verbatim under pull_request below: GitHub Actions' parser
+    # does not support YAML anchors, so the two lists have to be kept in
+    # step by hand.
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "docs-requirements.txt"
+      - "**.md"
+      - ".github/workflows/docs.yml"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "docs-requirements.txt"
+      - "**.md"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:

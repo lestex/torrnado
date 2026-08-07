@@ -20,18 +20,32 @@ on:
       - mkdocs.yml
       - docs-requirements.txt
       - .github/workflows/docs.yml
+  # ci.yml skips documentation-only changes, so without this a broken
+  # --strict build would first be seen on main, after the merge, by the
+  # job that publishes. The build job runs here; deploy does not.
+  pull_request:
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - docs-requirements.txt
+      - .github/workflows/docs.yml
   # So a broken build can be fixed and redeployed without an empty commit.
   workflow_dispatch:
 
+# Only the deploy job needs to write to Pages, and it asks for that
+# itself. Granting it here would hand a write-scoped token to every pull
+# request build as well, for a job that only ever builds.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One deployment at a time, and let a newer push win: an in-flight build
 # of older docs is not worth waiting for.
+#
+# Keyed by ref rather than a bare "pages": pull request builds share this
+# workflow now, and with one group across every ref a PR build would
+# cancel an in-flight deployment of main.
 concurrency:
-  group: pages
+  group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -62,7 +76,14 @@ jobs:
 
   deploy:
     needs: build
+    # A pull request builds the site to prove it still builds; publishing
+    # it would put unreviewed docs on torrnado.dev.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
