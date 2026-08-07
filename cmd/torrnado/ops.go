@@ -19,7 +19,7 @@ import (
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/ipc"
-	"github.com/lestex/torrnado/internal/player"
+	"github.com/lestex/torrnado/internal/launch"
 )
 
 // withClient connects to (or spawns) the daemon, runs fn, and always
@@ -253,7 +253,7 @@ func newPreviewCmd() *cobra.Command {
 					return err
 				}
 				if play {
-					return player.Launch(cfg.Player, url)
+					return launch.Detached(cfg.Player, url)
 				}
 				fmt.Println(url)
 				return nil

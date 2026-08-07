@@ -8,7 +8,7 @@ import (
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
-	"github.com/lestex/torrnado/internal/player"
+	"github.com/lestex/torrnado/internal/launch"
 )
 
 // Each of these returns a tea.Cmd: a function bubbletea runs off the main
@@ -142,7 +142,7 @@ func previewCmd(c *ipc.Client, playerCmd string, id engine.TorrentID, f engine.F
 		if err != nil {
 			return errStatus(err)
 		}
-		if err := player.Launch(playerCmd, url); err != nil {
+		if err := launch.Detached(playerCmd, url); err != nil {
 			return errStatus(err)
 		}
 		return okStatus(fmt.Sprintf("playing %s", path.Base(f.Path)))
