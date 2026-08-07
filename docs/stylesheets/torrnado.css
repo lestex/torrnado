@@ -1,99 +1,112 @@
 /* torrnado docs theme.
  *
- * Two jobs: repaint Material in GitHub's palette, and provide the
+ * Two jobs: repaint Material in the TUI's own palette, and provide the
  * landing-page components (hero, terminal frame, stat bar, feature grid).
  *
- * The colors are GitHub's own Primer tokens rather than approximations,
- * so a screenshot of the docs sits next to a screenshot of the repo
- * without the two looking like different products.
+ * The colors are dracula, which is what `theme` defaults to in
+ * internal/config, so the site and the screenshot on it are the same
+ * scheme rather than two that merely coexist. They are copied from
+ * internal/theme/builtin.go rather than sampled off the screenshot: a
+ * capture carries the display's color profile, and every value read back
+ * a few points adrift.
+ *
+ * Changing the site's colors means editing the two blocks below and
+ * nothing else - every rule in this file derives from these tokens.
  */
 
 /* ---------------------------------------------------------------- palette */
 
 [data-md-color-scheme="slate"] {
-  --gh-canvas: #0d1117;
-  --gh-canvas-subtle: #161b22;
-  --gh-canvas-inset: #010409;
-  --gh-border: #30363d;
-  --gh-border-muted: #21262d;
-  --gh-fg: #e6edf3;
-  --gh-fg-muted: #8b949e;
-  --gh-accent: #4493f8;
-  --gh-success: #3fb950;
-  --gh-btn: #238636;
-  --gh-btn-hover: #2ea043;
+  /* dracula, the TUI's default theme, taken from internal/theme/builtin.go
+   * rather than sampled off a screenshot - a capture carries the display
+   * profile with it, and every value came out a few points adrift. */
+  --tn-canvas: #282a36;        /* Background */
+  --tn-canvas-subtle: #31333f; /* between Background and Border */
+  --tn-canvas-inset: #21222c;
+  --tn-border: #44475a;        /* Border / SelectedBg */
+  --tn-border-muted: #383a4a;
+  --tn-fg: #f8f8f2;            /* Foreground */
+  /* dracula's own Muted is #6272a4, which scores 3.03 against the
+   * background: fine for short terminal labels, not for paragraphs of
+   * muted prose. Lightened until it passes at 4.72. */
+  --tn-fg-muted: #8b93b8;
+  --tn-accent: #bd93f9;        /* Accent */
+  --tn-success: #50fa7b;       /* Success */
+  --tn-warning: #f1fa8c;       /* Warning */
+  --tn-btn: #bd93f9;
+  --tn-btn-hover: #caa9fa;
+  /* The accent is light, so the button takes dark text rather than white. */
+  --tn-btn-fg: #282a36;
 
-  --md-default-bg-color: var(--gh-canvas);
-  --md-default-fg-color: var(--gh-fg);
-  --md-default-fg-color--light: var(--gh-fg-muted);
-  --md-default-fg-color--lighter: #6e7681;
-  --md-default-fg-color--lightest: var(--gh-border-muted);
+  --md-primary-fg-color: var(--tn-canvas-subtle);
+  --md-primary-bg-color: var(--tn-fg);
+  --md-accent-fg-color: var(--tn-accent);
 
-  --md-primary-fg-color: var(--gh-canvas-subtle);
-  --md-primary-bg-color: var(--gh-fg);
-  --md-accent-fg-color: var(--gh-accent);
-
-  --md-typeset-a-color: var(--gh-accent);
-  --md-code-bg-color: var(--gh-canvas-subtle);
-  --md-code-fg-color: var(--gh-fg);
-  --md-footer-bg-color: var(--gh-canvas-inset);
-  --md-footer-bg-color--dark: var(--gh-canvas-inset);
+  --md-typeset-a-color: var(--tn-accent);
+  --md-code-bg-color: var(--tn-canvas-subtle);
+  --md-code-fg-color: var(--tn-fg);
+  --md-footer-bg-color: var(--tn-canvas-inset);
+  --md-footer-bg-color--dark: var(--tn-canvas-inset);
 }
 
 [data-md-color-scheme="default"] {
-  --gh-canvas: #ffffff;
-  --gh-canvas-subtle: #f6f8fa;
-  --gh-canvas-inset: #f6f8fa;
-  --gh-border: #d1d9e0;
-  --gh-border-muted: #d8dee4;
-  --gh-fg: #1f2328;
-  --gh-fg-muted: #59636e;
-  --gh-accent: #0969da;
-  --gh-success: #1a7f37;
-  --gh-btn: #1f883d;
-  --gh-btn-hover: #1a7f37;
+  /* dracula has no light counterpart, so this keeps its purple and puts it
+   * on a neutral ground, darkened until it carries body text on white. */
+  --tn-canvas: #ffffff;
+  --tn-canvas-subtle: #f6f6fb;
+  --tn-canvas-inset: #f6f6fb;
+  --tn-border: #dcdce7;
+  --tn-border-muted: #e6e6ef;
+  --tn-fg: #282a36;
+  --tn-fg-muted: #5a5f7a;
+  --tn-accent: #6f42c1;
+  --tn-success: #1a7f37;
+  --tn-warning: #9a6700;
+  --tn-btn: #7c3aed;
+  --tn-btn-hover: #6d28d9;
+  --tn-btn-fg: #ffffff;
 
-  --md-default-bg-color: var(--gh-canvas);
-  --md-default-fg-color: var(--gh-fg);
-  --md-default-fg-color--light: var(--gh-fg-muted);
+  --md-default-bg-color: var(--tn-canvas);
+  --md-default-fg-color: var(--tn-fg);
+  --md-default-fg-color--light: var(--tn-fg-muted);
 
   /* Material paints the header background from --md-primary-fg-color and
    * its text from --md-primary-bg-color. The names read backwards; get
    * them the wrong way round in the light scheme and you get white text
    * on a white header, which is invisible rather than merely ugly. */
-  --md-primary-fg-color: var(--gh-canvas-subtle);
-  --md-primary-bg-color: var(--gh-fg);
-  --md-accent-fg-color: var(--gh-accent);
+  --md-primary-fg-color: var(--tn-canvas-subtle);
+  --md-primary-bg-color: var(--tn-fg);
+  --md-accent-fg-color: var(--tn-accent);
 
-  --md-typeset-a-color: var(--gh-accent);
-  --md-code-bg-color: var(--gh-canvas-subtle);
+  --md-typeset-a-color: var(--tn-accent);
+  --md-code-bg-color: var(--tn-canvas-subtle);
 }
 
 /* Material draws the header from the primary color; GitHub's is a flat
  * dark bar with a hairline rather than a saturated block. */
 .md-header {
-  background-color: var(--gh-canvas-subtle);
-  border-bottom: 1px solid var(--gh-border);
+  background-color: var(--tn-canvas-subtle);
+  border-bottom: 1px solid var(--tn-border);
   box-shadow: none;
 }
 
 .md-tabs {
-  background-color: var(--gh-canvas-subtle);
-  border-bottom: 1px solid var(--gh-border);
+  background-color: var(--tn-canvas-subtle);
+  border-bottom: 1px solid var(--tn-border);
 }
 
 [data-md-color-scheme="slate"] .md-typeset code,
 [data-md-color-scheme="default"] .md-typeset code {
-  border: 1px solid var(--gh-border-muted);
+  border: 1px solid var(--tn-border-muted);
   border-radius: 6px;
 }
 
 .md-typeset pre > code {
-  border: 1px solid var(--gh-border);
+  border: 1px solid var(--tn-border);
 }
 
 .md-typeset table:not([class]) th {
-  background-color: var(--gh-canvas-subtle);
+  background-color: var(--tn-canvas-subtle);
 }
 
 /* --------------------------------------------------------------- landing */
@@ -150,8 +163,8 @@
   transform: translateX(-50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(56, 105, 216, 0.20) 0%,
-    rgba(56, 105, 216, 0.07) 40%,
+    rgba(189, 147, 249, 0.18) 0%,
+    rgba(189, 147, 249, 0.06) 40%,
     transparent 70%
   );
   pointer-events: none;
@@ -161,7 +174,7 @@
 [data-md-color-scheme="default"] .tn-hero::before {
   background: radial-gradient(
     ellipse at center,
-    rgba(9, 105, 218, 0.10) 0%,
+    rgba(111, 66, 193, 0.10) 0%,
     transparent 70%
   );
 }
@@ -183,7 +196,7 @@
   font-weight: 800;
   letter-spacing: -0.04em;
   margin: 0 0 0.6rem;
-  background: linear-gradient(180deg, var(--gh-fg) 30%, var(--gh-fg-muted) 130%);
+  background: linear-gradient(180deg, var(--tn-fg) 30%, var(--tn-fg-muted) 130%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -192,7 +205,7 @@
 .md-typeset .tn-hero__tagline {
   font-size: 0.92rem;
   line-height: 1.7;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
   margin: 0 auto 1.6rem;
   max-width: 34rem;
 }
@@ -221,35 +234,35 @@
 }
 
 .md-typeset .tn-btn--primary {
-  background-color: var(--gh-btn);
-  border-color: rgba(240, 246, 252, 0.1);
-  color: #ffffff;
+  background-color: var(--tn-btn);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--tn-btn-fg);
 }
 
 .md-typeset .tn-btn--primary:hover {
-  background-color: var(--gh-btn-hover);
-  color: #ffffff;
+  background-color: var(--tn-btn-hover);
+  color: var(--tn-btn-fg);
 }
 
 .md-typeset .tn-btn--ghost {
-  background-color: var(--gh-canvas-subtle);
-  border-color: var(--gh-border);
-  color: var(--gh-fg);
+  background-color: var(--tn-canvas-subtle);
+  border-color: var(--tn-border);
+  color: var(--tn-fg);
 }
 
 .md-typeset .tn-btn--ghost:hover {
-  background-color: var(--gh-border-muted);
-  border-color: var(--gh-fg-muted);
-  color: var(--gh-fg);
+  background-color: var(--tn-border-muted);
+  border-color: var(--tn-fg-muted);
+  color: var(--tn-fg);
 }
 
 /* Terminal frame -------------------------------------------------------- */
 
 .tn-terminal {
-  border: 1px solid var(--gh-border);
+  border: 1px solid var(--tn-border);
   border-radius: 8px;
   overflow: hidden;
-  background-color: var(--gh-canvas-inset);
+  background-color: var(--tn-canvas-inset);
   margin: 0 0 2.4rem;
 }
 
@@ -258,8 +271,8 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.45rem 0.7rem;
-  background-color: var(--gh-canvas-subtle);
-  border-bottom: 1px solid var(--gh-border);
+  background-color: var(--tn-canvas-subtle);
+  border-bottom: 1px solid var(--tn-border);
 }
 
 .tn-terminal__bar i {
@@ -277,7 +290,7 @@
   flex: 1;
   text-align: center;
   font-size: 0.62rem;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
   font-style: normal;
 }
 
@@ -304,10 +317,10 @@
   gap: 0.5rem 1.4rem;
   padding: 0.9rem 1rem;
   margin: 0 0 3.2rem;
-  border-top: 1px solid var(--gh-border);
-  border-bottom: 1px solid var(--gh-border);
+  border-top: 1px solid var(--tn-border);
+  border-bottom: 1px solid var(--tn-border);
   font-size: 0.68rem;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
 }
 
 /* Separators are drawn rather than typed, so adding or removing an item
@@ -315,11 +328,11 @@
 .tn-stats > span:not(:last-child)::after {
   content: "·";
   margin-left: 1.4rem;
-  color: var(--gh-border);
+  color: var(--tn-border);
 }
 
 .tn-stats b {
-  color: var(--gh-fg);
+  color: var(--tn-fg);
   font-weight: 600;
 }
 
@@ -331,7 +344,7 @@
   gap: 0.8rem;
   font-family: var(--md-code-font-family, monospace);
   font-size: 0.7rem;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
   margin: 0 0 1.4rem;
   font-weight: 400;
 }
@@ -340,7 +353,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--gh-border);
+  background: var(--tn-border);
 }
 
 /* Feature grid ---------------------------------------------------------- */
@@ -348,7 +361,7 @@
 .tn-features {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--gh-border);
+  border: 1px solid var(--tn-border);
   border-radius: 8px;
   overflow: hidden;
   margin: 0 0 3.2rem;
@@ -356,8 +369,8 @@
 
 .tn-feature {
   padding: 1.4rem 1.3rem;
-  border-right: 1px solid var(--gh-border);
-  border-bottom: 1px solid var(--gh-border);
+  border-right: 1px solid var(--tn-border);
+  border-bottom: 1px solid var(--tn-border);
   transition: background-color 120ms;
 }
 
@@ -368,14 +381,14 @@
 .tn-feature:nth-last-child(-n + 3) { border-bottom: 0; }
 
 .tn-feature:hover {
-  background-color: var(--gh-canvas-subtle);
+  background-color: var(--tn-canvas-subtle);
 }
 
 .md-typeset .tn-feature h3 {
   margin: 0 0 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--gh-fg);
+  color: var(--tn-fg);
 }
 
 /* Cards are not link targets, and a hovering pilcrow in the middle of a
@@ -386,7 +399,7 @@
 
 .md-typeset .tn-feature h3::before {
   content: ">";
-  color: var(--gh-success);
+  color: var(--tn-success);
   margin-right: 0.4rem;
   font-family: var(--md-code-font-family, monospace);
 }
@@ -395,7 +408,7 @@
   margin: 0;
   font-size: 0.72rem;
   line-height: 1.65;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
 }
 
 /* Install block --------------------------------------------------------- */
@@ -406,32 +419,32 @@
 
 .tn-install .tabbed-set > label {
   font-size: 0.7rem;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
 }
 
 .tn-install .tabbed-set > input:checked + label {
-  color: var(--gh-fg);
-  border-color: var(--gh-success);
+  color: var(--tn-fg);
+  border-color: var(--tn-success);
 }
 
 .md-typeset .tn-after-install {
   font-size: 0.72rem;
-  color: var(--gh-fg-muted);
+  color: var(--tn-fg-muted);
 }
 
 /* Responsive ------------------------------------------------------------ */
 
 @media screen and (max-width: 76.1875em) {
   .tn-features { grid-template-columns: repeat(2, 1fr); }
-  .tn-feature:nth-child(3n) { border-right: 1px solid var(--gh-border); }
+  .tn-feature:nth-child(3n) { border-right: 1px solid var(--tn-border); }
   .tn-feature:nth-child(2n) { border-right: 0; }
-  .tn-feature:nth-last-child(-n + 3) { border-bottom: 1px solid var(--gh-border); }
+  .tn-feature:nth-last-child(-n + 3) { border-bottom: 1px solid var(--tn-border); }
   .tn-feature:nth-last-child(-n + 2) { border-bottom: 0; }
 }
 
 @media screen and (max-width: 44.9375em) {
   .md-typeset .tn-hero__title { font-size: 2.8rem; }
   .tn-features { grid-template-columns: 1fr; }
-  .tn-feature { border-right: 0 !important; border-bottom: 1px solid var(--gh-border) !important; }
+  .tn-feature { border-right: 0 !important; border-bottom: 1px solid var(--tn-border) !important; }
   .tn-feature:last-child { border-bottom: 0 !important; }
 }
