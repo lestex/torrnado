@@ -3,7 +3,7 @@
  * Two jobs: repaint Material in GitHub's palette, and provide the
  * landing-page components (hero, terminal frame, stat bar, feature grid).
  *
- * The colours are GitHub's own Primer tokens rather than approximations,
+ * The colors are GitHub's own Primer tokens rather than approximations,
  * so a screenshot of the docs sits next to a screenshot of the repo
  * without the two looking like different products.
  */
@@ -69,7 +69,7 @@
   --md-code-bg-color: var(--gh-canvas-subtle);
 }
 
-/* Material draws the header from the primary colour; GitHub's is a flat
+/* Material draws the header from the primary color; GitHub's is a flat
  * dark bar with a hairline rather than a saturated block. */
 .md-header {
   background-color: var(--gh-canvas-subtle);
@@ -99,9 +99,9 @@
 /* --------------------------------------------------------------- landing */
 
 /* The landing page hides both sidebars, which otherwise leave it wider
- * than every other page and visibly off-centre: hiding only the table of
+ * than every other page and visibly off-center: hiding only the table of
  * contents collapses the right column while the nav keeps the left,
- * pushing the content 138px right of centre and stretching it from 883px
+ * pushing the content 138px right of center and stretching it from 883px
  * to 1174px.
  *
  * With both gone the content is free to fill the grid, so it is pinned
@@ -129,7 +129,7 @@
 }
 
 /* The hero and everything under it stay inside Material's normal content
- * column -- the width does not change on this page, only the styling. */
+ * column - the width does not change on this page, only the styling. */
 
 .tn-hero {
   text-align: center;
@@ -172,7 +172,7 @@
 }
 
 /* The wordmark is the page title, so Material hangs a permalink pilcrow
- * off it -- a stray para-mark in the middle of a hero. */
+ * off it - a stray para-mark in the middle of a hero. */
 .md-typeset .tn-hero__title .headerlink {
   display: none;
 }
@@ -281,39 +281,18 @@
   font-style: normal;
 }
 
-/* The ASCII screenshot must never wrap -- a wrapped box drawing is
- * unreadable -- so it scrolls sideways on a narrow screen instead. */
-.tn-terminal .highlight pre,
-.tn-terminal pre {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--gh-canvas-inset);
-  overflow-x: auto;
-}
-
-.tn-terminal .highlight pre > code,
-.tn-terminal pre > code {
-  border: 0;
-  white-space: pre;
-  font-size: 0.6rem;
-  /* Exactly 1, so the box-drawing glyphs touch. Any leading at all leaves
-   * a gap between one row's │ and the next, and the frame that should be
-   * a solid rule renders as a dashed one. */
-  line-height: 1;
-}
-
-/* Material offers a copy button on every code block. This block is a
- * screenshot of a running program, not something anyone wants on their
- * clipboard, and the button floats over the frame's top-right corner
- * where it collides with the border.
+/* A real screenshot of the running TUI rather than ASCII art. Box-drawing
+ * glyphs never rendered as clean rules here: the character advance works
+ * out fractional, so every column starts mid-pixel and the vertical
+ * borders rasterize unevenly row to row.
  *
- * The container is .md-code__nav in Material 9.7; older versions called
- * the button .md-clipboard, so both are named here rather than betting on
- * the version a future rebuild pins. */
-.tn-terminal .md-code__nav,
-.tn-terminal .md-clipboard {
-  display: none;
+ * width and height are also set on the element itself, so the frame
+ * reserves the right space before the image loads and nothing below it
+ * jumps. */
+.tn-terminal img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* Stat bar -------------------------------------------------------------- */

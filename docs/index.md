@@ -20,24 +20,12 @@ The engine runs as a daemon, so closing the terminal doesn't stop the download.
 
 </div>
 
-<div class="tn-terminal" markdown>
-<div class="tn-terminal__bar"><i></i><i></i><i></i><span>torrnado - ~/Downloads</span></div>
-
-```
-┌──────────────────┐┌────────────────────────────────────────────────────────────────────┐
-│ torrnado         ││    Name                  Progress            Size    Status        │
-│                  ││ >  archlinux-2026.08.01… ━━━━━━━────── 42%   1.5GiB  downloading   │
-│ Status           ││    Fedora-KDE-Desktop-L… ━━━━━━━━━━━━ 100%   3.1GiB  seeding       │
-│  All             ││ *  ubuntu-26.04-desktop… ━━──────────  11%   6.1GiB  paused        │
-│  Downloading     ││                                                                    │
-│  Seeding         │└────────────────────────────────────────────────────────────────────┘
-│  Completed       │┌────────────────────────────────────────────────────────────────────┐
-│  Stopped         ││  ─ [Pieces]  Peers   Files                                         │
-│                  ││  1950/24208 pieces verified × 256.0KiB                             │
-└──────────────────┘└────────────────────────────────────────────────────────────────────┘
- ↓ 21.4MiB/s  ↑ 0B/s  │  3 torrents                              added 1 torrent(s)
-```
-
+<div class="tn-terminal">
+<div class="tn-terminal__bar"><i></i><i></i><i></i><span>torrnado</span></div>
+<img src="assets/tui.png" width="1760" height="918"
+     alt="The torrnado TUI: a sidebar filtering by status, four torrents listed with
+          progress bars, sizes, states and speeds, and a docked Pieces tab below showing
+          a fully verified piece map. The footer reads 34.3MiB/s down, 4 torrents.">
 </div>
 
 <div class="tn-stats">
