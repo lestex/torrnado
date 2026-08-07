@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -27,6 +28,12 @@ func (e *Engine) AddMagnet(uri string, opts AddOpts) (TorrentID, error) {
 
 // AddTorrentFile adds a torrent from a local .torrent file.
 func (e *Engine) AddTorrentFile(path string, opts AddOpts) (TorrentID, error) {
+	// Check the file is there before accepting it. Anything that is not a
+	// magnet reaches this function, so without this a typo is silently
+	// added as a torrent that can never download.
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("read torrent file: %w", err)
+	}
 	name := strings.TrimSuffix(filepath.Base(path), ".torrent")
 	return e.add(name, fakeID(path), opts)
 }
