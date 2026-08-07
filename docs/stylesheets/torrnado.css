@@ -98,6 +98,36 @@
 
 /* --------------------------------------------------------------- landing */
 
+/* The landing page hides both sidebars, which otherwise leave it wider
+ * than every other page and visibly off-centre: hiding only the table of
+ * contents collapses the right column while the nav keeps the left,
+ * pushing the content 138px right of centre and stretching it from 883px
+ * to 1174px.
+ *
+ * With both gone the content is free to fill the grid, so it is pinned
+ * back to the measure the other pages use. That figure is not a guess:
+ * Material's grid is 61rem and each sidebar 12.1rem, so an interior
+ * page's content column is exactly 61 - 12.1 - 12.1 rem. Expressed in
+ * rem it tracks the root font size, which Material scales.
+ *
+ * Selected via :has() because Material offers no per-page hook, and the
+ * hero is the thing that makes this page different. Browsers without
+ * :has() fall back to a full-width landing page, which is untidy rather
+ * than broken.
+ */
+.md-content:has(.tn-hero) {
+  max-width: 36.8rem;
+  margin: 0 auto;
+}
+
+/* The edit pencil and the one-item "Home" breadcrumb sit in a row of
+ * their own above the hero, which reads as a stray line of furniture
+ * rather than navigation. Nobody edits the landing page from a link on
+ * the landing page. */
+.md-content:has(.tn-hero) .md-content__button {
+  display: none;
+}
+
 /* The hero and everything under it stay inside Material's normal content
  * column -- the width does not change on this page, only the styling. */
 
