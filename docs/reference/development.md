@@ -93,6 +93,53 @@ throwaway test, which should name the `utun` device carrying the traffic.
 A Tailscale with no exit node should *not* satisfy it, since the default
 route stays on `en0`.
 
+## What CI runs
+
+`.github/workflows/ci.yml`, on every push and pull request. Each job calls
+a make target rather than its own `go` invocation, so a green run there and
+a green `make check` here mean the same thing:
+
+| job | what |
+|---|---|
+| `check` | `make check` and `make e2e`, on Linux **and** macOS |
+| `race` | `make test-race` |
+| `vuln` | `govulncheck ./...` -- only vulnerabilities the code reaches |
+| `build` | `goreleaser build --snapshot`, the release build on every push |
+| `docker` | builds the image and runs `torrnado version` inside it |
+| `coverage` | a profile, with the totals in the run summary |
+
+`.github/workflows/integration.yml` runs `make systemd-test` nightly and on
+demand -- it needs a privileged container and takes minutes, which is too
+slow for every push and too valuable to run only when someone remembers.
+
+## Cutting a release
+
+The tag is the version; nothing is committed anywhere to forget to bump.
+
+```sh
+make check && make e2e
+make changelog TAG=v0.1.0       # files the pending commits under that version
+git commit -am "chore: changelog for v0.1.0"
+git tag -a v0.1.0 -m "v0.1.0"
+git push --follow-tags
+```
+
+The tag triggers `.github/workflows/release.yml`: it reruns `make check`
+against that exact commit -- a tag can be pushed at a commit CI never saw --
+then builds four archives with GoReleaser and creates the release, with
+notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`.
+
+To rehearse any of it locally:
+
+```sh
+goreleaser check                       # validate .goreleaser.yaml
+goreleaser build --snapshot --clean    # build all four targets into dist/
+git cliff --latest --strip header      # exactly what the release page gets
+```
+
+`make changelog` uses `git-cliff` from `PATH` and falls back to its
+container image, so it works on a machine that has never installed it.
+
 ## The end-to-end suites
 
 `e2e/` drives the real binary the way a user would rather than calling Go

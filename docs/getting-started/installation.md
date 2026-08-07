@@ -1,10 +1,37 @@
 # Installation
 
+## A released binary
+
+Every tag publishes archives for Linux and macOS on both architectures,
+plus `checksums.txt`, on the [releases
+page](https://github.com/lestex/torrnado/releases):
+
+```sh
+tar xzf torrnado_0.1.0_linux_amd64.tar.gz
+./torrnado version
+```
+
+Each archive carries the binary, the README, the changelog and
+`contrib/torrnado.service` for a systemd install.
+
+!!! note "Coming from a source build"
+
+    Release binaries are built without cgo, which selects a pure-Go
+    piece-completion database rather than the SQLite one a local `go build`
+    produces. The two do not read each other's files, so the first run
+    after switching re-verifies data already on disk -- once. Nothing is
+    lost; it just looks alarming.
+
+## From source
+
 Requires Go 1.25+.
 
 ```sh
-go build -o torrnado ./cmd/torrnado
+go build -o torrnado ./cmd/torrnado    # or: make build
 ```
+
+`make build` stamps the version, commit and date into the binary, so
+`torrnado version` says something more useful than "dev".
 
 Run the binary from wherever you like; there's no install step beyond
 putting it on your `$PATH`.
