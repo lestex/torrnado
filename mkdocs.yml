@@ -25,18 +25,21 @@ theme:
     - toc.follow
   palette:
     # The terminal is usually dark, so the site starts that way and can
-    # be switched.
+    # be switched. Both schemes are `custom`, which tells Material to take
+    # its colours from the CSS variables docs/stylesheets/torrnado.css
+    # sets rather than from a named palette -- that file carries GitHub's
+    # Primer tokens, which no built-in palette matches.
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: deep purple
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: deep purple
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -61,6 +64,9 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+
+extra_css:
+  - stylesheets/torrnado.css
 
 extra:
   social:

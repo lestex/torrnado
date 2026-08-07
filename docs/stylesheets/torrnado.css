@@ -1,0 +1,412 @@
+/* torrnado docs theme.
+ *
+ * Two jobs: repaint Material in GitHub's palette, and provide the
+ * landing-page components (hero, terminal frame, stat bar, feature grid).
+ *
+ * The colours are GitHub's own Primer tokens rather than approximations,
+ * so a screenshot of the docs sits next to a screenshot of the repo
+ * without the two looking like different products.
+ */
+
+/* ---------------------------------------------------------------- palette */
+
+[data-md-color-scheme="slate"] {
+  --gh-canvas: #0d1117;
+  --gh-canvas-subtle: #161b22;
+  --gh-canvas-inset: #010409;
+  --gh-border: #30363d;
+  --gh-border-muted: #21262d;
+  --gh-fg: #e6edf3;
+  --gh-fg-muted: #8b949e;
+  --gh-accent: #4493f8;
+  --gh-success: #3fb950;
+  --gh-btn: #238636;
+  --gh-btn-hover: #2ea043;
+
+  --md-default-bg-color: var(--gh-canvas);
+  --md-default-fg-color: var(--gh-fg);
+  --md-default-fg-color--light: var(--gh-fg-muted);
+  --md-default-fg-color--lighter: #6e7681;
+  --md-default-fg-color--lightest: var(--gh-border-muted);
+
+  --md-primary-fg-color: var(--gh-canvas-subtle);
+  --md-primary-bg-color: var(--gh-fg);
+  --md-accent-fg-color: var(--gh-accent);
+
+  --md-typeset-a-color: var(--gh-accent);
+  --md-code-bg-color: var(--gh-canvas-subtle);
+  --md-code-fg-color: var(--gh-fg);
+  --md-footer-bg-color: var(--gh-canvas-inset);
+  --md-footer-bg-color--dark: var(--gh-canvas-inset);
+}
+
+[data-md-color-scheme="default"] {
+  --gh-canvas: #ffffff;
+  --gh-canvas-subtle: #f6f8fa;
+  --gh-canvas-inset: #f6f8fa;
+  --gh-border: #d1d9e0;
+  --gh-border-muted: #d8dee4;
+  --gh-fg: #1f2328;
+  --gh-fg-muted: #59636e;
+  --gh-accent: #0969da;
+  --gh-success: #1a7f37;
+  --gh-btn: #1f883d;
+  --gh-btn-hover: #1a7f37;
+
+  --md-default-bg-color: var(--gh-canvas);
+  --md-default-fg-color: var(--gh-fg);
+  --md-default-fg-color--light: var(--gh-fg-muted);
+
+  /* Material paints the header background from --md-primary-fg-color and
+   * its text from --md-primary-bg-color. The names read backwards; get
+   * them the wrong way round in the light scheme and you get white text
+   * on a white header, which is invisible rather than merely ugly. */
+  --md-primary-fg-color: var(--gh-canvas-subtle);
+  --md-primary-bg-color: var(--gh-fg);
+  --md-accent-fg-color: var(--gh-accent);
+
+  --md-typeset-a-color: var(--gh-accent);
+  --md-code-bg-color: var(--gh-canvas-subtle);
+}
+
+/* Material draws the header from the primary colour; GitHub's is a flat
+ * dark bar with a hairline rather than a saturated block. */
+.md-header {
+  background-color: var(--gh-canvas-subtle);
+  border-bottom: 1px solid var(--gh-border);
+  box-shadow: none;
+}
+
+.md-tabs {
+  background-color: var(--gh-canvas-subtle);
+  border-bottom: 1px solid var(--gh-border);
+}
+
+[data-md-color-scheme="slate"] .md-typeset code,
+[data-md-color-scheme="default"] .md-typeset code {
+  border: 1px solid var(--gh-border-muted);
+  border-radius: 6px;
+}
+
+.md-typeset pre > code {
+  border: 1px solid var(--gh-border);
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--gh-canvas-subtle);
+}
+
+/* --------------------------------------------------------------- landing */
+
+/* The hero and everything under it stay inside Material's normal content
+ * column -- the width does not change on this page, only the styling. */
+
+.tn-hero {
+  text-align: center;
+  padding: 3.2rem 0 1.6rem;
+  position: relative;
+}
+
+/* The glow behind the wordmark, echoing GitHub's own hero. Sits behind
+ * content and never intercepts a click. */
+.tn-hero::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 44rem;
+  max-width: 130%;
+  height: 22rem;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(56, 105, 216, 0.20) 0%,
+    rgba(56, 105, 216, 0.07) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-md-color-scheme="default"] .tn-hero::before {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(9, 105, 218, 0.10) 0%,
+    transparent 70%
+  );
+}
+
+.tn-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The wordmark is the page title, so Material hangs a permalink pilcrow
+ * off it -- a stray para-mark in the middle of a hero. */
+.md-typeset .tn-hero__title .headerlink {
+  display: none;
+}
+
+.md-typeset .tn-hero__title {
+  font-size: 4.2rem;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin: 0 0 0.6rem;
+  background: linear-gradient(180deg, var(--gh-fg) 30%, var(--gh-fg-muted) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.md-typeset .tn-hero__tagline {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--gh-fg-muted);
+  margin: 0 auto 1.6rem;
+  max-width: 34rem;
+}
+
+/* CTAs ------------------------------------------------------------------ */
+
+.tn-cta {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2.4rem;
+}
+
+.md-typeset .tn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.md-typeset .tn-btn--primary {
+  background-color: var(--gh-btn);
+  border-color: rgba(240, 246, 252, 0.1);
+  color: #ffffff;
+}
+
+.md-typeset .tn-btn--primary:hover {
+  background-color: var(--gh-btn-hover);
+  color: #ffffff;
+}
+
+.md-typeset .tn-btn--ghost {
+  background-color: var(--gh-canvas-subtle);
+  border-color: var(--gh-border);
+  color: var(--gh-fg);
+}
+
+.md-typeset .tn-btn--ghost:hover {
+  background-color: var(--gh-border-muted);
+  border-color: var(--gh-fg-muted);
+  color: var(--gh-fg);
+}
+
+/* Terminal frame -------------------------------------------------------- */
+
+.tn-terminal {
+  border: 1px solid var(--gh-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--gh-canvas-inset);
+  margin: 0 0 2.4rem;
+}
+
+.tn-terminal__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.7rem;
+  background-color: var(--gh-canvas-subtle);
+  border-bottom: 1px solid var(--gh-border);
+}
+
+.tn-terminal__bar i {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.tn-terminal__bar i:nth-child(1) { background: #ff5f57; }
+.tn-terminal__bar i:nth-child(2) { background: #febc2e; }
+.tn-terminal__bar i:nth-child(3) { background: #28c840; }
+
+.tn-terminal__bar span {
+  flex: 1;
+  text-align: center;
+  font-size: 0.62rem;
+  color: var(--gh-fg-muted);
+  font-style: normal;
+}
+
+/* The ASCII screenshot must never wrap -- a wrapped box drawing is
+ * unreadable -- so it scrolls sideways on a narrow screen instead. */
+.tn-terminal .highlight pre,
+.tn-terminal pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--gh-canvas-inset);
+  overflow-x: auto;
+}
+
+.tn-terminal .highlight pre > code,
+.tn-terminal pre > code {
+  border: 0;
+  white-space: pre;
+  font-size: 0.6rem;
+  line-height: 1.35;
+}
+
+/* Stat bar -------------------------------------------------------------- */
+
+.tn-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.4rem;
+  padding: 0.9rem 1rem;
+  margin: 0 0 3.2rem;
+  border-top: 1px solid var(--gh-border);
+  border-bottom: 1px solid var(--gh-border);
+  font-size: 0.68rem;
+  color: var(--gh-fg-muted);
+}
+
+/* Separators are drawn rather than typed, so adding or removing an item
+ * cannot leave a dangling dot. */
+.tn-stats > span:not(:last-child)::after {
+  content: "·";
+  margin-left: 1.4rem;
+  color: var(--gh-border);
+}
+
+.tn-stats b {
+  color: var(--gh-fg);
+  font-weight: 600;
+}
+
+/* Section labels -------------------------------------------------------- */
+
+.md-typeset .tn-label {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.7rem;
+  color: var(--gh-fg-muted);
+  margin: 0 0 1.4rem;
+  font-weight: 400;
+}
+
+.md-typeset .tn-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--gh-border);
+}
+
+/* Feature grid ---------------------------------------------------------- */
+
+.tn-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--gh-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 0 3.2rem;
+}
+
+.tn-feature {
+  padding: 1.4rem 1.3rem;
+  border-right: 1px solid var(--gh-border);
+  border-bottom: 1px solid var(--gh-border);
+  transition: background-color 120ms;
+}
+
+/* Rather than nth-child arithmetic that breaks whenever a card is added,
+ * strip the trailing edges: the right border on every third card, and the
+ * bottom border on the last row. */
+.tn-feature:nth-child(3n) { border-right: 0; }
+.tn-feature:nth-last-child(-n + 3) { border-bottom: 0; }
+
+.tn-feature:hover {
+  background-color: var(--gh-canvas-subtle);
+}
+
+.md-typeset .tn-feature h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gh-fg);
+}
+
+/* Cards are not link targets, and a hovering pilcrow in the middle of a
+ * grid reads as a rendering fault rather than an affordance. */
+.md-typeset .tn-feature h3 .headerlink {
+  display: none;
+}
+
+.md-typeset .tn-feature h3::before {
+  content: ">";
+  color: var(--gh-success);
+  margin-right: 0.4rem;
+  font-family: var(--md-code-font-family, monospace);
+}
+
+.md-typeset .tn-feature p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--gh-fg-muted);
+}
+
+/* Install block --------------------------------------------------------- */
+
+.tn-install {
+  margin-bottom: 2rem;
+}
+
+.tn-install .tabbed-set > label {
+  font-size: 0.7rem;
+  color: var(--gh-fg-muted);
+}
+
+.tn-install .tabbed-set > input:checked + label {
+  color: var(--gh-fg);
+  border-color: var(--gh-success);
+}
+
+.md-typeset .tn-after-install {
+  font-size: 0.72rem;
+  color: var(--gh-fg-muted);
+}
+
+/* Responsive ------------------------------------------------------------ */
+
+@media screen and (max-width: 76.1875em) {
+  .tn-features { grid-template-columns: repeat(2, 1fr); }
+  .tn-feature:nth-child(3n) { border-right: 1px solid var(--gh-border); }
+  .tn-feature:nth-child(2n) { border-right: 0; }
+  .tn-feature:nth-last-child(-n + 3) { border-bottom: 1px solid var(--gh-border); }
+  .tn-feature:nth-last-child(-n + 2) { border-bottom: 0; }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .tn-hero__title { font-size: 2.8rem; }
+  .tn-features { grid-template-columns: 1fr; }
+  .tn-feature { border-right: 0 !important; border-bottom: 1px solid var(--gh-border) !important; }
+  .tn-feature:last-child { border-bottom: 0 !important; }
+}
