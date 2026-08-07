@@ -44,7 +44,13 @@ func main() {
 		newPreviewCmd(),
 		newOpenCmd(),
 		newConfigCmd(),
+		newVersionCmd(),
 	)
+
+	// --version as well as `version`: one is what a person types, the
+	// other is what a script or a bug report asks for.
+	root.Version = currentBuild().String()
+	root.SetVersionTemplate("torrnado {{.Version}}\n")
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

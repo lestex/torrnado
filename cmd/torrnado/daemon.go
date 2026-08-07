@@ -86,6 +86,10 @@ func runDaemon() error {
 	// because the README tells people to kill the daemon by it, and until
 	// now no line actually carried one.
 	lg.Info("daemon starting",
+		// The version first, because the daemon outlives its clients:
+		// when a new CLI meets an old daemon the only symptom is an
+		// "unknown method" error that says nothing about which is which.
+		"version", currentBuild().String(),
 		"pid", os.Getpid(),
 		"config", path,
 		"download_dir", cfg.DownloadDir,

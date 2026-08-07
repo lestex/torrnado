@@ -40,17 +40,29 @@ unexport GOROOT
 
 IMAGE := torrnado
 
+# Stamped into the binary so `torrnado version` says something useful
+# before there is a release to build. The release build passes the same
+# three variables; see .goreleaser.yaml.
+#
+# A tag when the commit has one, else a short sha -- and the toolchain
+# fills these in by itself when they are empty, so a plain `go build`
+# still reports its revision.
+VERSION   := $(shell git describe --tags --always --dirty 2>/dev/null)
+COMMIT    := $(shell git rev-parse HEAD 2>/dev/null)
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS   := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(BUILD_DATE)
+
 VENV := .venv
 PIP  := $(VENV)/bin/pip
 
-.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean docker docker-test systemd-test docs-deps docs-serve docs-build
+.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean changelog docker docker-test systemd-test docs-deps docs-serve docs-build
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk -F':.*?## ' '{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 build: ## Build the binary into the repo root
-	$(GO) build -o $(BINARY) $(PKG)
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
 
 run: build ## Build, then run it
 	./$(BINARY)
