@@ -1,0 +1,67 @@
+# Cuts a release from a v* tag: binaries for linux and macOS on both
+# architectures, checksums, and release notes generated from the same
+# cliff.toml that writes CHANGELOG.md.
+#
+# The tag is the trigger and the source of the version -- there is no
+# version committed anywhere to forget to bump. See
+# docs/reference/development.md for the ritual around it.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  # So a release whose upload failed can be retried without moving a tag.
+  workflow_dispatch:
+
+permissions:
+  contents: write # creating the release and uploading to it
+
+env:
+  # Pinned, and kept in step with the Makefile's CLIFF_IMAGE: a changelog
+  # that renders differently in CI than it does locally is worse than no
+  # changelog.
+  CLIFF_IMAGE: orhunp/git-cliff:2.13.1
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # goreleaser needs the tags to work out a version, and git-cliff
+          # needs the history to write anything at all.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+
+      # The same tests the branch had to pass, run once more against the
+      # exact commit being released -- a tag can be pushed at any commit,
+      # including one CI never saw.
+      - run: make check
+
+      # Only the newest section, which is what belongs on the release
+      # page. Written by the same config as CHANGELOG.md, so the page and
+      # the file cannot drift apart.
+      #
+      # Through the container rather than an action, because it is the
+      # same command `make changelog` falls back to and the same pinned
+      # version -- one fewer contract to get wrong, and the notes cannot
+      # come out differently here than they do locally.
+      - name: Release notes
+        run: |
+          docker run --rm -v "$PWD":/app -w /app ${{ env.CLIFF_IMAGE }} \
+            --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean --release-notes RELEASE_NOTES.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

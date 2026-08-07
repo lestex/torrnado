@@ -1,0 +1,83 @@
+# Release builds. Driven by a v* tag through .github/workflows/release.yml,
+# and exercised on every push by `goreleaser build --snapshot` in ci.yml so
+# a cross-compile that stopped working is found before a tag depends on it.
+#
+#   goreleaser check                 # validate this file
+#   goreleaser build --snapshot --clean
+version: 2
+
+project_name: torrnado
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: torrnado
+    main: ./cmd/torrnado
+    binary: torrnado
+    # CGO_ENABLED=0 is a decision, not a default worth drifting on -- the
+    # same one the Dockerfile makes, for the same reasons. It is what
+    # makes cross-compiling these four targets possible at all, and it
+    # picks the pure-Go bbolt piece-completion database over the cgo
+    # SQLite one.
+    #
+    # The two do not read each other's files: someone moving from a
+    # locally `go build`-ed binary to a release binary gets one full
+    # re-verify of data already on disk. Said in the release notes and in
+    # the install docs, because it looks exactly like a bug.
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    # -trimpath keeps build machine paths out of panic traces; the -X
+    # flags are what `torrnado version` reports.
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .FullCommit }}
+      - -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: torrnado
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+      # So a server install has the unit file to hand, which is the whole
+      # reason contrib/ exists.
+      - contrib/torrnado.service
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+# The release notes come from git-cliff, generated from the same cliff.toml
+# that writes CHANGELOG.md, and passed in with --release-notes. Two tools
+# generating two changelogs from the same commits is how they end up
+# disagreeing.
+changelog:
+  disable: true
+
+release:
+  # A -rc or -beta tag lands as a pre-release without anyone remembering
+  # to tick a box.
+  prerelease: auto
+  footer: |
+    ---
+
+    **Which build to take**: `linux_amd64` for a typical server or the
+    Docker host, `darwin_arm64` for an Apple Silicon Mac.
+
+    These binaries are built without cgo, so they keep piece-completion
+    state in a pure-Go database rather than the SQLite one a local
+    `go build` uses. Swapping one for the other re-verifies data already
+    on disk once -- it is not lost, just checked again.
