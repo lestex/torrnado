@@ -148,6 +148,12 @@
   text-align: center;
   padding: 3.2rem 0 1.6rem;
   position: relative;
+  /* The glow below is deliberately wider than this box, which on a narrow
+   * screen put its edge 84px past the viewport and scrolled the whole
+   * landing page sideways. Clipped rather than shrunk, so the bleed is
+   * unchanged on a wide screen; `clip` rather than `hidden` because
+   * hidden would make this a scroll container. */
+  overflow-x: clip;
 }
 
 /* The glow behind the wordmark, echoing GitHub's own hero. Sits behind
@@ -258,40 +264,31 @@
 
 /* Terminal frame -------------------------------------------------------- */
 
+/* Wider than the text column it sits in. The prose stays at the measure
+ * every other page uses; only the screenshot breaks out, which also buys
+ * back some scale -- the capture goes from a 3.6x downscale to about
+ * 2.8x, so the TUI text is that much less of a smudge.
+ *
+ * Centred by margin arithmetic rather than a half-width translate: a
+ * transform moves where the box is painted but not where it is laid out,
+ * so the layout box kept sticking out to the right and the landing page
+ * scrolled sideways on a phone while looking perfectly centred. Here the
+ * left margin is half the container minus half the element, which is the
+ * same result with no phantom overflow.
+ *
+ * The min() keeps it inside the viewport on a narrow screen, where 44rem
+ * would be wider than the phone.
+ *
+ * No title bar: traffic lights and a title would be decoration imitating
+ * a window this screenshot was not taken in.
+ */
 .tn-terminal {
+  width: min(44rem, 92vw);
+  margin: 0 0 2.4rem calc(50% - min(22rem, 46vw));
   border: 1px solid var(--tn-border);
   border-radius: 8px;
   overflow: hidden;
   background-color: var(--tn-canvas-inset);
-  margin: 0 0 2.4rem;
-}
-
-.tn-terminal__bar {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.45rem 0.7rem;
-  background-color: var(--tn-canvas-subtle);
-  border-bottom: 1px solid var(--tn-border);
-}
-
-.tn-terminal__bar i {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.tn-terminal__bar i:nth-child(1) { background: #ff5f57; }
-.tn-terminal__bar i:nth-child(2) { background: #febc2e; }
-.tn-terminal__bar i:nth-child(3) { background: #28c840; }
-
-.tn-terminal__bar span {
-  flex: 1;
-  text-align: center;
-  font-size: 0.62rem;
-  color: var(--tn-fg-muted);
-  font-style: normal;
 }
 
 /* A real screenshot of the running TUI rather than ASCII art. Box-drawing
