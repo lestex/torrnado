@@ -90,6 +90,14 @@
   box-shadow: none;
 }
 
+/* The footer sits at 1.109 contrast against the page: a real difference
+ * and far too small to read as an edge, so the two ran together. A
+ * hairline in the border color separates them, and mirrors the rule under
+ * the header so the page is bounded the same way top and bottom. */
+.md-footer-meta {
+  border-top: 1px solid var(--tn-border);
+}
+
 .md-tabs {
   background-color: var(--tn-canvas-subtle);
   border-bottom: 1px solid var(--tn-border);
@@ -120,8 +128,17 @@
   margin-left: 0.3rem;
 }
 
+/* The three gaps along the right of the header measured 14px from the
+ * palette toggle to the search field and 34px from the field to the
+ * GitHub mark. Both are now 19px, measured glyph to glyph rather than box
+ * to box: each control carries its own padding, so the boxes touch while
+ * the marks inside them sit far apart. */
+[dir="ltr"] .md-header__option {
+  margin-right: 0.2rem;
+}
+
 [dir="ltr"] .md-header__source {
-  margin-left: 0.8rem;
+  margin-left: 0.2rem;
 }
 
 /* Material puts two titles in the header and cross-fades them on scroll:
