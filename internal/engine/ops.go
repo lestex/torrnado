@@ -555,6 +555,114 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 	return nil
 }
 
+// PurgeData deletes a torrent's data and keeps the torrent, paused, at
+// zero -- for freeing space without losing the entry, its save path, its
+// limits or its place in the list. Resuming it downloads the data again.
+//
+// Deleting the files is not enough on its own: a running torrent holds
+// its own picture of which pieces it has, and one whose data was deleted
+// underneath it goes on reporting 100% and offering pieces it cannot
+// read. The library has no way to make it look again short of hashing
+// every piece, so the torrent is dropped and re-added instead, which is
+// instant and hashes nothing.
+//
+// Nothing has to clear the piece-completion database by hand, which is
+// worth knowing before adding code that does: for any piece the database
+// calls complete, the file storage stats the files it spans, and a
+// missing one both reports incomplete and corrects the record. Deleting
+// the data is what makes the record wrong, and looking at it is what
+// fixes it.
+//
+// Re-adding does invalidate any open reader, so a stream of this torrent
+// stops -- the same caveat MoveStorage carries, for the same reason.
+func (e *Engine) PurgeData(id TorrentID) error {
+	tr, err := e.lookup(id)
+	if err != nil {
+		return err
+	}
+	if tr.t.Info() == nil {
+		return fmt.Errorf("torrent metadata not available yet")
+	}
+
+	e.mu.Lock()
+	// Paused, not merely held: a torrent left running would start
+	// downloading the data again the moment it came back, which is the
+	// opposite of what was asked for. Held as well, so nothing moves in
+	// the window before the pause takes effect.
+	tr.paused = true
+	tr.holdData = true
+	tr.applyDataFlow(e.blocked)
+	e.mu.Unlock()
+
+	paths := dataPaths(tr.savePath, tr.t)
+	ih := tr.t.InfoHash()
+	mi := tr.t.Metainfo()
+	oldStorage := tr.ownStorage
+
+	tr.t.Drop()
+	if oldStorage != nil {
+		oldStorage.Close()
+	}
+
+	deleteFiles(paths)
+	removeEmptyDirs(tr.savePath, paths)
+
+	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
+	if err != nil {
+		return e.purgeFailed(tr, id, fmt.Errorf("rebuild spec: %w", err))
+	}
+	spec.InfoHash = ih
+	// The same v1/v2 trap MoveStorage documents: an allocated-but-empty
+	// piece-layer map makes the library take a v1 torrent for a v2 one and
+	// refuse to add it.
+	if len(spec.PieceLayers) == 0 {
+		spec.PieceLayers = nil
+	}
+	var newStorage storage.ClientImplCloser
+	if oldStorage != nil {
+		newStorage = storage.NewFile(tr.savePath)
+		spec.Storage = newStorage
+	}
+
+	t, _, err := e.client.AddTorrentSpec(spec)
+	if err != nil {
+		if newStorage != nil {
+			newStorage.Close()
+		}
+		return e.purgeFailed(tr, id, fmt.Errorf("re-add torrent after purge: %w", err))
+	}
+
+	e.mu.Lock()
+	tr.t = t
+	tr.ownStorage = newStorage
+	tr.holdData = false
+	tr.applyDataFlow(e.blocked) // still paused, so still off
+	e.mu.Unlock()
+
+	e.log.Info("torrent data deleted", "id", id, "name", t.Name(), "save_path", tr.savePath)
+	e.persist()
+	e.snapshotAndBroadcastNow()
+	return nil
+}
+
+// purgeFailed records a purge that could not put the torrent back.
+//
+// The data is already gone and the old torrent already dropped, so there
+// is no state to return to; what is left is to say so where the user will
+// see it, rather than leaving a row that goes on showing the figures of a
+// torrent that is no longer running at all.
+func (e *Engine) purgeFailed(tr *tracked, id TorrentID, err error) error {
+	e.mu.Lock()
+	tr.lastErr = err.Error()
+	tr.holdData = false
+	e.mu.Unlock()
+
+	e.log.Error("the data was deleted but the torrent could not be re-added", "id", id, "err", err)
+	e.persist()
+	e.snapshotAndBroadcastNow()
+	return err
+}
+
 // MoveStorage relocates a torrent's downloaded data to a new directory.
 // anacrolix/torrent has no live "move" API for the default file storage
 // backend, so this pauses the torrent, moves the files on disk, points
