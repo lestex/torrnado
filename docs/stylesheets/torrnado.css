@@ -95,6 +95,25 @@
   border-bottom: 1px solid var(--tn-border);
 }
 
+/* Material spaces the header generously: 1rem between the logo and the
+ * title, and 1.4rem between the search field and the repo block. With the
+ * repo block now only as wide as its contents, both gaps read as drift
+ * rather than rhythm. Tightened to 0.6rem and 0.8rem, which closes the
+ * logo gap from 29px to 19px and the search gap from 34px to 19px, so the
+ * two ends of the bar are spaced alike.
+ *
+ * Both selectors carry the direction attribute because Material's own do,
+ * and a bare class loses to them: the rules applied and changed nothing.
+ * The source margin is also set twice in Material, at two breakpoints;
+ * one rule outside any media query beats both on source order. */
+[dir="ltr"] .md-header__title {
+  margin-left: 0.6rem;
+}
+
+[dir="ltr"] .md-header__source {
+  margin-left: 0.8rem;
+}
+
 /* Material gives the header's repo block a fixed 11.7rem, whatever is in
  * it. "lestex/torrnado" measures 169px, so about 112px of the block was
  * empty and the name sat that far short of the header's right edge --
