@@ -8,7 +8,7 @@
 name: ci
 
 on:
-  # Every branch, not just master: the work happens on branches, and a
+  # Every branch, not just main: the work happens on branches, and a
   # first run that only happens at merge time is a first run too late.
   # A branch filter also means tag pushes do not match, which is what
   # keeps this out of release.yml's way.
