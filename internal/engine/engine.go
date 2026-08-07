@@ -71,8 +71,24 @@ type tracked struct {
 	downLimit int64 // bytes/sec, 0 = unlimited (best-effort; see SetTorrentRateLimit)
 	upLimit   int64
 
+	// lastPeers holds the previous per-peer byte counters, keyed by
+	// remote address, so a detail call can report instantaneous peer
+	// speeds. The library has no such rate: PeerStats.DownloadRate is a
+	// lifetime average, so speeds are deltas between detail calls, the
+	// same trick updateRates uses per torrent.
+	lastPeers   map[string]peerBytes
+	lastPeersAt time.Time
+
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
+}
+
+// peerBytes is one peer's counters from the previous detail call, plus
+// the rates derived then -- reused when two calls land close enough
+// together that a delta would be meaningless.
+type peerBytes struct {
+	down, up       int64
+	downBPS, upBPS float64
 }
 
 // Engine tracks torrents and publishes their state.

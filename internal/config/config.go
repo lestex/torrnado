@@ -44,9 +44,26 @@ type Config struct {
 	DaemonSocket string `toml:"daemon_socket"`
 	Theme        string `toml:"theme"`
 
-	RateLimit RateLimits `toml:"rate_limit"`
-	Port      PortRange  `toml:"port"`
-	Network   Network    `toml:"network"`
+	RateLimit RateLimits        `toml:"rate_limit"`
+	Port      PortRange         `toml:"port"`
+	Network   Network           `toml:"network"`
+	Keybinds  map[string]string `toml:"keybinds"`
+}
+
+// KnownActions are the TUI actions that may appear as keys in [keybinds].
+//
+// Defined here rather than in the TUI package so config can validate a
+// file without importing it -- which also keeps `torrnado daemon`, which
+// has no interface at all, from pulling one in.
+var KnownActions = []string{
+	"up", "down", "top", "bottom",
+	"select", "remove", "remove_data",
+	"pause", "recheck",
+	"search", "command", "back", "quit",
+	"help",
+	"focus_next", "focus_prev",
+	"tab_next", "tab_prev",
+	"filter_next", "filter_prev",
 }
 
 // Default returns a Config with every field set to its XDG-aware default.
@@ -63,6 +80,7 @@ func Default() (Config, error) {
 		DownloadDir:  downloadDir,
 		DaemonSocket: socket,
 		Theme:        "dracula",
+		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
 		Network:      Network{DHT: true, PEX: true, LSD: true, Encryption: true, Seed: true},
@@ -135,6 +153,22 @@ func (c Config) Validate() error {
 		}
 		if c.Port.High < c.Port.Low {
 			return fmt.Errorf("port.high (%d) must be >= port.low (%d)", c.Port.High, c.Port.Low)
+		}
+	}
+
+	// A binding naming an action that does not exist is a typo, and
+	// silently ignoring it leaves a key the user believes they rebound
+	// still doing the old thing.
+	known := make(map[string]bool, len(KnownActions))
+	for _, a := range KnownActions {
+		known[a] = true
+	}
+	for action, key := range c.Keybinds {
+		if !known[action] {
+			return fmt.Errorf("keybinds.%s: unknown action (known actions: %s)", action, strings.Join(KnownActions, ", "))
+		}
+		if key == "" {
+			return fmt.Errorf("keybinds.%s: must not be empty", action)
 		}
 	}
 

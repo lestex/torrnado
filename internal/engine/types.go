@@ -130,13 +130,50 @@ type FileInfo struct {
 }
 
 // PeerInfo describes one connected peer.
+//
+// Note the absence of choked/choking flags: anacrolix/torrent keeps both
+// (Peer.choking, Peer.peerChoking) unexported with no accessor, and the
+// only public path to that information is Client.WriteStatus, which dumps
+// the whole client's status as free text. Rather than scrape it, this
+// omits the field.
 type PeerInfo struct {
-	Addr        string
-	Client      string
+	Addr string
+	// Client is the peer's self-reported name from the extended handshake
+	// (BEP 10), falling back to the printable prefix of its peer ID (BEP
+	// 20, e.g. "-qB5210-") when no extended handshake has happened.
+	Client string
+	// PeerID is the printable prefix of the peer's 20-byte peer ID.
+	PeerID      string
 	Source      string
 	DownloadBPS float64
+	UploadBPS   float64
+	PiecesHave  int
+	PiecesTotal int
 	Progress    float64
 	Encrypted   bool
+}
+
+// PieceRun is a run-length-encoded span of consecutive pieces sharing the
+// same state, mirroring torrent.PieceStateRun.
+//
+// The library's own torrent.PieceState cannot go on the gob wire: it
+// embeds storage.Completion, which carries an `error` field, and gob
+// refuses interface values whose concrete types aren't registered. Runs
+// also keep the wire small -- a 50k-piece torrent is a handful of entries
+// rather than 50 KB pushed every second.
+type PieceRun struct {
+	Length int // number of consecutive pieces in this run
+	// Known is storage.Completion.Ok: whether the library has actually
+	// consulted storage for these pieces yet. It gates Complete, and it
+	// is false far more often than you'd expect -- a piece stays unknown
+	// until something touches it, so a torrent that has finished
+	// downloading still reports most of its pieces as unknown until peers
+	// request them back. Treating unknown as "missing" would draw a
+	// finished torrent as a half-empty map, so it is a state of its own.
+	Known    bool
+	Complete bool
+	Partial  bool // some data obtained, but not the whole piece
+	Checking bool // hashing or queued for hashing
 }
 
 // TrackerInfo describes one tracker URL known to a torrent.
@@ -145,13 +182,18 @@ type TrackerInfo struct {
 	Tier int
 }
 
-// TorrentDetail is the full detail view for one torrent: its files, peers
-// and trackers, in addition to its snapshot.
+// TorrentDetail is the full detail view for one torrent: files, peers,
+// trackers and piece states, in addition to its snapshot.
 type TorrentDetail struct {
 	Snapshot TorrentSnapshot
 	Files    []FileInfo
 	Peers    []PeerInfo
 	Trackers []TrackerInfo
+	// Pieces is the run-length-encoded piece map; the run lengths sum to
+	// NumPieces. Both are zero until metadata arrives.
+	Pieces      []PieceRun
+	NumPieces   int
+	PieceLength int64
 }
 
 // GlobalStats aggregates state across all torrents plus daemon-wide info.
