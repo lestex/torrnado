@@ -47,6 +47,14 @@ at a time. A server that refuses to boot over a malformed record is worse
 than one that comes back with fewer torrents, so it starts either way --
 `journalctl` is where you find out which happened.
 
+**It can require a VPN.** `vpn.required = true` holds every transfer while
+the machine is not on one, and lets them go again by itself when it comes
+back -- which is the case a box left running for weeks actually hits, when
+the VPN client reconnects at 4am and nobody is watching. It is off by
+default. Read what it does and does not cover in
+[Configuration](../guide/configuration.md#requiring-a-vpn) before relying
+on it.
+
 **Logs** go to stderr as text with timestamps and levels, which is what a
 service manager wants: journald timestamps and stores it with no further
 configuration.
