@@ -488,6 +488,46 @@ func TestALongStatusIsShownRatherThanDropped(t *testing.T) {
 	}
 }
 
+// The speeds sit in fixed cells, so nothing to their right moves as the
+// numbers change length. Without that the separator and the torrent count
+// slid sideways every second, which is movement the eye follows and then
+// has to dismiss.
+func TestFooterSpeedsHaveAFixedWidth(t *testing.T) {
+	p := layout(120, 30)
+
+	rates := []struct {
+		name string
+		down float64
+		up   float64
+	}{
+		{"idle", 0, 0},
+		{"kilobytes", 367.6 * 1024, 0},
+		// The widest either can be: format.Bytes switches unit at 1024, so
+		// four digits before the point is as long as it gets.
+		{"the widest rate there is", 1023.9 * 1024, 1023.9 * 1024 * 1024},
+	}
+
+	want := -1
+	for _, r := range rates {
+		m := testModel("a")
+		m.global = engine.GlobalStats{DownloadBPS: r.down, UploadBPS: r.up, NumTorrents: 3}
+
+		footer := m.renderFooter(p)
+		got, ok := columnOf(footer, "│")
+		if !ok {
+			t.Fatalf("%s: no separator in the footer: %q", r.name, footer)
+		}
+		if want == -1 {
+			want = got
+			continue
+		}
+		if got != want {
+			t.Errorf("%s: the separator moved to column %d, want %d: %q",
+				r.name, got, want, footer)
+		}
+	}
+}
+
 // A short one still shares the line with the totals, which are the
 // footer's reason for existing the rest of the time.
 func TestAShortStatusSharesTheFooter(t *testing.T) {
