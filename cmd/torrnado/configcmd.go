@@ -82,6 +82,16 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintf(w, "  network.lsd\t%t\t(accepted, but the torrent library has no LSD)\n", cfg.Network.LSD)
 	fmt.Fprintf(w, "  network.encryption\t%t\n", cfg.Network.Encryption)
 	fmt.Fprintf(w, "  network.seed\t%t\n", cfg.Network.Seed)
+	// What it does and does not cover, said where someone turning it on
+	// will read it rather than only in the docs.
+	if cfg.VPN.Required {
+		fmt.Fprintf(w, "  vpn.required\ttrue\t%s\n", vpnRequiredNote)
+	} else {
+		fmt.Fprintln(w, "  vpn.required\tfalse")
+	}
+	if len(cfg.VPN.Interfaces) > 0 {
+		fmt.Fprintf(w, "  vpn.interfaces\t%s\t(also counted as a VPN)\n", strings.Join(cfg.VPN.Interfaces, ", "))
+	}
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Logging")
@@ -112,6 +122,12 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 
 	return w.Flush()
 }
+
+// vpnRequiredNote says what the guard covers, beside the value.
+//
+// Someone reading `true` here has to know that it holds transfers but not
+// announces, or they will believe they are covered in a way they are not.
+const vpnRequiredNote = "(transfers held off-VPN; tracker/DHT announces still go out)"
 
 // portRangeText renders the listen-port range the way the config file
 // describes it, including the 0 that means "let the OS choose".

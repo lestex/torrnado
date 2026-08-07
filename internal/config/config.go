@@ -38,6 +38,26 @@ type Network struct {
 	Seed       bool `toml:"seed"`
 }
 
+// VPN gates transfers on the system being connected to a VPN.
+type VPN struct {
+	// Required holds every transfer -- download and upload -- while the
+	// system is not on a VPN. Off by default: a guard nobody asked for
+	// that stops downloads is worse than no guard at all.
+	//
+	// It stops piece data moving. Tracker announces and DHT traffic
+	// continue regardless, so the swarm still learns the real address of
+	// a blocked daemon; this is "nothing transfers off-VPN", not a
+	// network kill switch. See docs/reference/limitations.md.
+	Required bool `toml:"required"`
+	// Interfaces names devices to count as a VPN whatever the system says
+	// about them. The escape hatch for a tunnel the kernel cannot label:
+	// policy-based IPsec moves traffic over the physical interface with
+	// no tunnel device at all, and nothing can tell that apart from
+	// having no VPN. Empty is the normal case -- detection needs no
+	// configuration.
+	Interfaces []string `toml:"interfaces"`
+}
+
 // Logging configures the daemon's output.
 type Logging struct {
 	// Level is the daemon's own verbosity: debug, info, warn or error.
@@ -68,6 +88,7 @@ type Config struct {
 	RateLimit RateLimits        `toml:"rate_limit"`
 	Port      PortRange         `toml:"port"`
 	Network   Network           `toml:"network"`
+	VPN       VPN               `toml:"vpn"`
 	Log       Logging           `toml:"log"`
 	Keybinds  map[string]string `toml:"keybinds"`
 }
@@ -125,6 +146,9 @@ func Default() (Config, error) {
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
 		Network:      Network{DHT: true, PEX: true, LSD: true, Encryption: true, Seed: true},
+		// Off, so installing torrnado never stops a download for a reason
+		// the user did not ask for. Turning it on is a deliberate act.
+		VPN: VPN{Required: false},
 		// The library warns about every tracker that misbehaves, which is
 		// noise unless you are chasing one, so it starts a level above us.
 		Log: Logging{Level: "info", LibraryLevel: "warn"},
@@ -209,6 +233,14 @@ func (c Config) Validate() error {
 		}
 		if c.Port.High < c.Port.Low {
 			return fmt.Errorf("port.high (%d) must be >= port.low (%d)", c.Port.High, c.Port.Low)
+		}
+	}
+
+	// An empty name would match no interface and silently weaken a guard
+	// the user believes they configured.
+	for i, name := range c.VPN.Interfaces {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("vpn.interfaces[%d]: must not be empty", i)
 		}
 	}
 
