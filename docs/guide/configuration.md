@@ -13,6 +13,7 @@ state_dir     = "~/.local/share/torrnado"                    # session file + sa
                                                               # (a second daemon needs its own)
 theme         = "dracula"                                     # see Themes below
 player        = "mpv"                                          # used by preview; may carry flags
+opener        = "open"                                          # xdg-open on Linux; used by `o` / `torrnado open`
 
 [rate_limit]
 upload   = "unlimited"   # or "500k", "2M", "1.5G", a bare byte count, "0"
@@ -70,6 +71,31 @@ It is the one command that never contacts the daemon, which is deliberate:
 its value is highest when something is wrong and nothing is running. The
 flip side is that it prints what a daemon started *now* would use -- one
 already running may have been started with something else.
+
+## Opening a torrent's folder
+
+`o` in the TUI, or `torrnado open <id>`, shows the directory holding a
+torrent's files -- its own folder for a multi-file torrent, the save path
+for a single-file one. The program it runs is yours to choose:
+
+```toml
+opener = "open"                                 # macOS: Finder (the default)
+opener = "xdg-open"                              # Linux: your file manager (the default)
+opener = "alacritty --working-directory %f"       # a terminal in the folder instead
+opener = "nautilus"                                # or name one directly
+```
+
+`%f` is replaced by the directory. A command that does not mention it gets
+the directory appended, which is why the bare `open` and `xdg-open` above
+work. The same is true of `player`, so `mpv --title %f` places the stream
+URL rather than appending it.
+
+The command is split on spaces and run directly -- there is no shell, so
+nothing in a path is interpreted, and the substitution happens after the
+split, which keeps a directory with a space in its name a single argument.
+
+The program is detached: quitting the TUI does not close the window it
+opened.
 
 ## Requiring a VPN
 
