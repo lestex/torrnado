@@ -46,8 +46,10 @@ func (f statusFilter) matches(t engine.TorrentSnapshot) bool {
 	case filterStopped:
 		// Paused rather than State == StatePaused: a paused torrent that
 		// is being rechecked reports State as "checking", and it is still
-		// stopped.
-		return t.Paused || t.State == engine.StateError
+		// stopped. Blocked belongs here too -- a torrent held by the VPN
+		// guard is not running, and this is the filter someone reaches for
+		// to find out what is not.
+		return t.Paused || t.State == engine.StateError || t.State == engine.StateBlocked
 	default:
 		return true
 	}
@@ -91,12 +93,15 @@ func (m Model) renderSidebar(p panes) string {
 	// Daemon-wide facts that used to live in the top stats bar; they sit
 	// at the bottom of the sidebar so the footer can stay one line.
 	g := m.global
-	stats := []string{
-		m.daemonHeading(w),
+	stats := []string{m.daemonHeading(w)}
+	if line, ok := m.vpnLine(w); ok {
+		stats = append(stats, line)
+	}
+	stats = append(stats,
 		m.styles.Muted.Render(truncate(fmt.Sprintf("port: %d", g.ListenPort), w)),
 		m.styles.Muted.Render(truncate(fmt.Sprintf("dht: %d", g.DhtNodes), w)),
 		m.styles.Muted.Render(truncate("free: "+formatBytes(g.DiskFreeBytes), w)),
-	}
+	)
 
 	// Push the daemon block to the bottom when there's room, drop it when
 	// there isn't.
@@ -108,6 +113,31 @@ func (m Model) renderSidebar(p panes) string {
 	}
 
 	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// vpnLine reports the VPN guard, and whether there is anything to report.
+//
+// Drawn only when the guard is switched on. A "vpn: none" on every daemon
+// would read as a warning to the many people who never asked for one, and
+// the daemon does not even run the check unless it was asked to -- so
+// there would be nothing behind the word.
+func (m Model) vpnLine(w int) (string, bool) {
+	if !m.global.VPNRequired {
+		return "", false
+	}
+	if !m.global.VPNActive {
+		// The one line in this block that is not muted: it is the reason
+		// every torrent is sitting still.
+		return m.styles.Error.Render(truncate("vpn: blocked", w)), true
+	}
+	// The interface name, because "which VPN am I on" is the question
+	// after "am I on one" -- and a daemon that thinks it is protected by
+	// the wrong interface is worth being able to see.
+	iface := m.global.VPNInterface
+	if iface == "" {
+		iface = "on"
+	}
+	return m.styles.Success.Render(truncate("vpn: "+iface, w)), true
 }
 
 // daemonStatusDot is the lit indicator beside the Daemon heading.

@@ -17,6 +17,7 @@ func TestStatusFilterMatches(t *testing.T) {
 	pausedPart := engine.TorrentSnapshot{State: engine.StatePaused, Paused: true, TotalLength: 100, Completed: 10}
 	pausedDone := engine.TorrentSnapshot{State: engine.StatePaused, Paused: true, TotalLength: 100, Completed: 100}
 	failed := engine.TorrentSnapshot{State: engine.StateError}
+	blocked := engine.TorrentSnapshot{State: engine.StateBlocked, TotalLength: 100, Completed: 10}
 
 	cases := []struct {
 		filter statusFilter
@@ -37,7 +38,8 @@ func TestStatusFilterMatches(t *testing.T) {
 		{filterCompleted, pausedPart, false},
 
 		{filterStopped, pausedPart, true},
-		{filterStopped, failed, true}, // an errored torrent is stopped too
+		{filterStopped, failed, true},  // an errored torrent is stopped too
+		{filterStopped, blocked, true}, // so is one held by the VPN guard
 		{filterStopped, downloading, false},
 	}
 	for _, c := range cases {
@@ -113,6 +115,28 @@ func TestDaemonStatsAreLabelledAndFlushLeft(t *testing.T) {
 		if !strings.Contains(got, "\n"+want) {
 			t.Errorf("no line beginning %q:\n%s", want, got)
 		}
+	}
+}
+
+// The guard is why every torrent is sitting still, so the sidebar has to
+// say so -- and say nothing at all when there is no guard, since a daemon
+// that was never asked to check has nothing to report.
+func TestTheSidebarReportsTheVPNGuard(t *testing.T) {
+	m := testModel("a")
+	p := layout(120, 30)
+
+	if got := m.renderSidebar(p); strings.Contains(got, "vpn") {
+		t.Errorf("a daemon with no VPN guard drew a vpn line:\n%s", got)
+	}
+
+	m.global = engine.GlobalStats{VPNRequired: true, VPNActive: true, VPNInterface: "utun4"}
+	if got := m.renderSidebar(p); !strings.Contains(got, "vpn: utun4") {
+		t.Errorf("an active guard does not name the interface:\n%s", got)
+	}
+
+	m.global = engine.GlobalStats{VPNRequired: true}
+	if got := m.renderSidebar(p); !strings.Contains(got, "vpn: blocked") {
+		t.Errorf("a guard holding transfers says nothing:\n%s", got)
 	}
 }
 
