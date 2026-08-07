@@ -1,0 +1,25 @@
+# Weekly PRs for dependencies that have moved.
+#
+# Both ecosystems matter for different reasons: a Go module update is
+# usually a bug fix in anacrolix/torrent, while an action update is how a
+# workflow stays on a supported runner image. Neither is noticed by
+# anything else here.
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    # The whole point of a torrent client's dependency is the torrent
+    # library, and its updates are worth reading one at a time.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"

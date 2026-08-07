@@ -1,0 +1,33 @@
+# The systemd unit, against a real systemd.
+#
+# Kept out of ci.yml because it boots systemd as pid 1 in a privileged
+# container and takes minutes -- too slow to sit between a push and a
+# green tick, too valuable to run only when someone remembers. It has
+# caught real bugs: a signal handler installed after the engine started,
+# and a daemon that came back on restart only by accident.
+name: integration
+
+on:
+  schedule:
+    # Nightly, well away from the hour, when the runners are quiet.
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration
+  cancel-in-progress: false
+
+jobs:
+  systemd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Drives the service through 19 checks: enabled, started, running
+      # unprivileged, logs reaching the journal, a torrent surviving
+      # `systemctl restart`, reload reopening the log, a SIGKILLed daemon
+      # coming back, and a stopped one staying stopped.
+      - run: make systemd-test
