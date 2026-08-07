@@ -14,6 +14,7 @@ type KeyMap struct {
 	Detail, Back, Quit         string
 	Search, Command, Help      string
 	Preview                    string
+	Open                       string
 
 	// Pane focus and detail-pane tab movement.
 	FocusNext, FocusPrev   string
@@ -47,6 +48,9 @@ func DefaultKeyMap() KeyMap {
 		Command: ":",
 		Help:    "h",
 		Preview: "v",
+		// Free, next to nothing destructive, and the letter every file
+		// manager and editor already uses for "open".
+		Open: "o",
 
 		FocusNext: "tab",
 		FocusPrev: "shift+tab",
@@ -87,6 +91,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Command, "command")
 	apply(&k.Help, "help")
 	apply(&k.Preview, "preview")
+	apply(&k.Open, "open")
 	apply(&k.Detail, "detail")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")

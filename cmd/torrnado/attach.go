@@ -43,6 +43,7 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		Theme:     th,
 		ThemesDir: themesDir,
 		Player:    cfg.Player,
+		Opener:    cfg.Opener,
 	})
 	if _, err := tea.NewProgram(model, tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)

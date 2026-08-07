@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"path"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,6 +34,25 @@ func removeCmd(c *ipc.Client, ids []engine.TorrentID, deleteData bool) tea.Cmd {
 			verb = "removed (with data)"
 		}
 		return okStatus(fmt.Sprintf("%s %d torrent(s)", verb, len(ids)))
+	}
+}
+
+// openCmd shows dir in the configured program, falling back to fallback
+// when dir is not there.
+//
+// A torrent that has downloaded nothing yet, or whose data was just
+// purged, has no folder of its own -- the save path does exist, and
+// showing the place the data is going to land is more use than an error
+// about a directory the user never asked about by name.
+func openCmd(opener, dir, fallback string) tea.Cmd {
+	return func() tea.Msg {
+		if _, err := os.Stat(dir); err != nil && fallback != "" {
+			dir = fallback
+		}
+		if err := launch.Detached(opener, dir); err != nil {
+			return errStatus(err)
+		}
+		return okStatus("opened " + dir)
 	}
 }
 

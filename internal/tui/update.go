@@ -232,6 +232,9 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	case key == km.Recheck:
 		return m.recheckTargets(visible)
 
+	case key == km.Open:
+		return m.openCursorFolder()
+
 	// The detail pane is always docked, so there is no view to open --
 	// this moves focus into it instead.
 	case key == km.Detail:
@@ -325,6 +328,26 @@ func (m Model) removeTargets(visible []engine.TorrentSnapshot, deleteData bool) 
 	// selection pointing at them would apply the next action to nothing.
 	m.selected = map[engine.TorrentID]bool{}
 	return m, removeCmd(m.client, ids, deleteData)
+}
+
+// openCursorFolder shows the cursor row's folder in the configured
+// program.
+//
+// The cursor row alone, never the selection: eight marked torrents mean
+// eight windows, which is not what anyone means by "open it".
+func (m Model) openCursorFolder() (tea.Model, tea.Cmd) {
+	t, ok := m.cursorTorrent()
+	if !ok {
+		return m, nil
+	}
+	// DataDir is empty against a daemon too old to report it -- gob
+	// leaves an unknown field at its zero value -- and the save path is
+	// the right answer often enough to be a better fallback than nothing.
+	dir := t.DataDir
+	if dir == "" {
+		dir = t.SavePath
+	}
+	return m, openCmd(m.opener, dir, t.SavePath)
 }
 
 // purgeTargets deletes the data of the marked torrents and keeps them.

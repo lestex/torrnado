@@ -128,6 +128,7 @@ type Model struct {
 
 	keymap KeyMap
 	player string // command used to preview a file, from config
+	opener string // command used to show a torrent's folder, from config
 
 	// cursor indexes visibleTorrents, not torrents: it points at what is
 	// on screen, so filtering moves it with the list rather than leaving
@@ -195,6 +196,8 @@ type Options struct {
 	ThemesDir string
 	// Player is the command used to preview a file.
 	Player string
+	// Opener is the command used to show a torrent's folder.
+	Opener string
 }
 
 // New builds the initial Model. The client and its Events() channel must
@@ -208,6 +211,7 @@ func New(o Options) Model {
 		theme:     o.Theme,
 		themesDir: o.ThemesDir,
 		player:    o.Player,
+		opener:    o.Opener,
 		selected:  map[engine.TorrentID]bool{},
 	}
 }
