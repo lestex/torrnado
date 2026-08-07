@@ -47,19 +47,26 @@ commit_parsers = [
   { message = "^feat", group = "<!-- 0 -->Features" },
   { message = "^fix", group = "<!-- 1 -->Bug fixes" },
   { message = "^perf", group = "<!-- 2 -->Performance" },
-  { message = "^refactor", group = "<!-- 3 -->Refactoring" },
-  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  { message = "^deps", group = "<!-- 3 -->Dependencies" },
   # Everything below is real work that no user of a release needs to read
   # about. Kept out rather than filed under "Other", which is where a
   # changelog goes to become unreadable.
+  #
+  # docs and refactor are skipped for the same reason, though they are
+  # conventional types a reader might expect to see: what the docs say is
+  # already readable at torrnado.dev, and a refactor is by definition a
+  # change with no effect anyone outside the repo can observe. Listing
+  # them buries the entries that do change what the thing does.
+  { message = "^docs", skip = true },
+  { message = "^refactor", skip = true },
   { message = "^test", skip = true },
   { message = "^style", skip = true },
   { message = "^chore", skip = true },
   { message = "^ci", skip = true },
   { message = "^build", skip = true },
   { message = "^Merge", skip = true },
-  { body = ".*security", group = "<!-- 5 -->Security" },
-  { message = ".*", group = "<!-- 6 -->Other" },
+  { body = ".*security", group = "<!-- 4 -->Security" },
+  { message = ".*", group = "<!-- 5 -->Other" },
 ]
 
 filter_commits = false
