@@ -175,11 +175,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 
 	// Work out the paths before dropping the torrent: afterwards the file
 	// list is gone.
-	files := filesOrNil(tr.t)
-	paths := make([]string, 0, len(files))
-	for _, f := range files {
-		paths = append(paths, filepath.Join(tr.savePath, f.Path()))
-	}
+	paths := dataPaths(tr.savePath, tr.t)
 
 	tr.t.Drop()
 	if tr.ownStorage != nil {
@@ -187,9 +183,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 	}
 
 	if deleteData {
-		for _, p := range paths {
-			os.Remove(p)
-		}
+		deleteFiles(paths)
 		removeEmptyDirs(tr.savePath, paths)
 	}
 	e.log.Info("torrent removed", "id", id, "deleted_data", deleteData)
@@ -198,6 +192,41 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// dataPaths lists every place on disk a torrent's data can be: each
+// file, and the ".part" the file storage writes an unfinished one to.
+//
+// Both, because which of the two exists depends on whether every piece of
+// that file has landed and been verified -- and the whole point of
+// listing them is to delete them, where missing the .part leaves the
+// bytes behind. A half-downloaded torrent is *entirely* .part files.
+//
+// Empty before metadata arrives: there is no file list to build one from,
+// and nothing has been written either.
+func dataPaths(savePath string, t *torrent.Torrent) []string {
+	files := filesOrNil(t)
+	paths := make([]string, 0, len(files)*2)
+	for _, f := range files {
+		p := filepath.Join(savePath, f.Path())
+		paths = append(paths, p, p+partFileSuffix)
+	}
+	return paths
+}
+
+// partFileSuffix is what anacrolix/torrent's file storage appends to a
+// file it has not finished. Not exported by the library (storage's
+// fileExtra.partFilePath), so it is spelled out here; if it ever changes,
+// deletions start missing incomplete data.
+const partFileSuffix = ".part"
+
+// deleteFiles removes each path, ignoring the ones that are not there --
+// dataPaths lists both a file and its .part, and only one of the two
+// exists at a time.
+func deleteFiles(paths []string) {
+	for _, p := range paths {
+		os.Remove(p)
+	}
 }
 
 // removeEmptyDirs removes the directories a multi-file torrent left
