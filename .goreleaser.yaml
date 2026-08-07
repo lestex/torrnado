@@ -64,8 +64,16 @@ snapshot:
 # that writes CHANGELOG.md, and passed in with --release-notes. Two tools
 # generating two changelogs from the same commits is how they end up
 # disagreeing.
+#
+# Which is why this must NOT say `disable: true`, however much it looks
+# like it should. --release-notes is read *by* the changelog pipe, so
+# disabling the pipe throws the file away as well and the release body
+# silently falls back to the footer below and nothing else -- which is
+# exactly what v0.1.0 shipped with before it was edited by hand. Passing
+# --release-notes is already what stops GoReleaser writing its own notes;
+# the flag replaces the generated changelog rather than adding to it.
 changelog:
-  disable: true
+  disable: false
 
 release:
   # A -rc or -beta tag lands as a pre-release without anyone remembering
