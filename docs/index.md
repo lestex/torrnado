@@ -14,7 +14,7 @@ The engine runs as a daemon, so closing the terminal doesn't stop the download.
 </p>
 
 <div class="tn-cta" markdown>
-[$ get started](getting-started/installation.md){ .tn-btn .tn-btn--primary }
+[get started](getting-started/installation.md){ .tn-btn .tn-btn--primary }
 [view on github](https://github.com/lestex/torrnado){ .tn-btn .tn-btn--ghost }
 </div>
 
