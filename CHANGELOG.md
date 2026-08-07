@@ -4,7 +4,7 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) -- run `make changelog` rather than
 editing this file by hand.
 
-## Unreleased
+## 0.1.0 - 2026-08-07
 
 ### Features
 
@@ -132,31 +132,10 @@ editing this file by hand.
 - **tui:** Don't rely on evaluation order when setting a status
 - **tui:** A long status is shown rather than dropped
 - **engine:** Delete the .part files too when deleting a torrent's data
+- **tui:** V plays a torrent from anywhere, and says why when it cannot
+- Fix readme
 
-### Refactoring
+### Dependencies
 
-- **daemon:** Split the start line into starting and ready
-- **docker:** Run the linux stage through make
-- **tui:** Square pane borders
-- **launch:** One launcher for any external program
-
-### Documentation
-
-- Add the README
-- Add CLAUDE.md
-- Running torrnado on a server
-- Note the logging package and session persistence in CLAUDE.md
-- Docker usage
-- Systemd, and the client that starts a daemon behind its back
-- Quoting in the command palette
-- The piece-layers trap behind move
-- MIT license
-- :theme and the theme picker
-- A documentation site built with MkDocs Material
-- Trim the README to a landing page
-- Requiring a VPN
-- Note internal/vpn in the architecture map
-- How to check VPN detection against a real device
-- Purging a torrent's data
-- Opening a torrent's folder
+- Bump indirect deps off vulnerable versions
 
