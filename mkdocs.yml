@@ -11,6 +11,10 @@ docs_dir: docs
 
 theme:
   name: material
+  # The spiral, drawn once and used everywhere: the header, the favicon,
+  # and internal/branding's character-cell version for the TUI.
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   icon:
     repo: fontawesome/brands/github
   features:
