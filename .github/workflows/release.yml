@@ -53,15 +53,22 @@ jobs:
       # same command `make changelog` falls back to and the same pinned
       # version -- one fewer contract to get wrong, and the notes cannot
       # come out differently here than they do locally.
+      # Written into the work tree because that is what the container has
+      # mounted, then moved straight out of it: GoReleaser refuses to
+      # release from a dirty tree, and an untracked RELEASE_NOTES.md counts
+      # as dirty. --user matches the Makefile's invocation so the file
+      # belongs to the runner rather than root and can be moved at all.
       - name: Release notes
         run: |
-          docker run --rm -v "$PWD":/app -w /app ${{ env.CLIFF_IMAGE }} \
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD":/app -w /app ${{ env.CLIFF_IMAGE }} \
             --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
+          mv RELEASE_NOTES.md "$RUNNER_TEMP/RELEASE_NOTES.md"
+          cat "$RUNNER_TEMP/RELEASE_NOTES.md"
 
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean --release-notes RELEASE_NOTES.md
+          args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
