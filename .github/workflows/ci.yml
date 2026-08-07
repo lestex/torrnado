@@ -1,0 +1,153 @@
+# Everything that has to pass before a change is trusted.
+#
+# Each job runs a make target rather than its own go invocation, so a
+# green run here and a green `make check` on a laptop mean the same
+# thing. The Makefile finds the goenv-pinned toolchain when it is there
+# and falls back to whatever `go` is on PATH when it is not, which is
+# exactly what a runner looks like.
+name: ci
+
+on:
+  # Every branch, not just main: the work happens on branches, and a
+  # first run that only happens at merge time is a first run too late.
+  # A branch filter also means tag pushes do not match, which is what
+  # keeps this out of release.yml's way.
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref; a newer push makes an in-flight run of older code
+# pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The gate: formatting, vet, unit tests, then the shell suites driving
+  # the real binary. Both platforms, because the daemon runs on Linux and
+  # is developed on macOS, and each has hidden a bug the other did not.
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+
+      # e2e/lib.sh refuses to run without it: it identifies the test's own
+      # daemon by which process holds its socket, never by process name.
+      # Installed rather than assumed, because a runner image dropping it
+      # would look like a test failure.
+      - name: Install lsof
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y lsof
+
+      - run: make check
+      - run: make e2e
+
+  # The engine has a tick loop, a broadcast fan-out to every subscriber
+  # and per-torrent state behind one mutex. Linux only: the race detector
+  # doubles the runtime and a data race is not platform-specific.
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+      - run: make test-race
+
+  # Reports only vulnerabilities the code actually reaches, so a finding
+  # here is worth acting on rather than triaging.
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  # The release build, on every push. Cross-compiling four targets is
+  # exactly the sort of thing that breaks quietly and is discovered at tag
+  # time, when it is least welcome.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # goreleaser reads tags to work out a version
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/**/torrnado
+          retention-days: 7
+
+  # Proves the Dockerfile still works and that the image actually starts.
+  # Deliberately not `--target test`, which would run the whole suite a
+  # second time on the same Linux the check job just ran it on.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: torrnado:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A built image that cannot start is a green build and a broken
+      # release. This exercises the entrypoint (tini), the unprivileged
+      # user and the binary itself.
+      - run: docker run --rm torrnado:ci version
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+
+      - run: go test -coverprofile=coverage.out ./...
+
+      # In the run summary rather than behind a third-party service: it is
+      # a number to watch drift on, not a gate.
+      - name: Summarise
+        run: |
+          {
+            echo '### Coverage'
+            echo
+            echo '```'
+            go tool cover -func=coverage.out | tail -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7

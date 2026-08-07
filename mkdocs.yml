@@ -3,7 +3,7 @@ site_description: A terminal BitTorrent client with a vim-like TUI and a daemon 
 site_url: https://torrnado.dev
 repo_url: https://github.com/lestex/torrnado
 repo_name: lestex/torrnado
-edit_uri: edit/master/docs/
+edit_uri: edit/main/docs/
 copyright: MIT-licensed. Built with anacrolix/torrent and bubbletea.
 
 docs_dir: docs

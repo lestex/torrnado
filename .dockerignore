@@ -4,6 +4,7 @@
 .github
 torrnado
 coverage.out
+dist
 *.torrent.db
 *.torrent.bolt.db
 .claude

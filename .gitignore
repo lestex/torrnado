@@ -2,4 +2,6 @@
 /coverage.out
 .claude/
 /site/
+# goreleaser build output
+/dist/
 /.venv/

@@ -147,6 +147,32 @@ docs-serve: $(VENV) ## Serve the docs site locally with live reload
 docs-build: $(VENV) ## Build the docs site the way CI does
 	NO_MKDOCS_2_WARNING=true $(VENV)/bin/mkdocs build --strict
 
+# git-cliff generates CHANGELOG.md from the commit log, the same way the
+# release workflow generates the release notes -- one config, so the file
+# and the release page cannot disagree.
+#
+# Used from PATH when it is installed (brew install git-cliff), through
+# its container image when it is not, which keeps this runnable on a
+# machine that has never heard of it.
+# Pinned, and kept in step with .github/workflows/release.yml.
+CLIFF_IMAGE := orhunp/git-cliff:2.13.1
+
+# TAG names the release being prepared, so the pending commits are filed
+# under it instead of "Unreleased" -- run it that way just before tagging:
+#
+#	make changelog TAG=v0.1.0
+CLIFF_ARGS := --config cliff.toml $(if $(TAG),--tag $(TAG)) --output CHANGELOG.md
+
+changelog: ## Regenerate CHANGELOG.md (make changelog TAG=v0.1.0)
+	@if command -v git-cliff >/dev/null 2>&1; then \
+		git-cliff $(CLIFF_ARGS); \
+	else \
+		echo "git-cliff not on PATH; using $(CLIFF_IMAGE)"; \
+		docker run --rm --user "$$(id -u):$$(id -g)" \
+			-v "$(CURDIR)":/app -w /app $(CLIFF_IMAGE) $(CLIFF_ARGS); \
+	fi
+	@echo "wrote CHANGELOG.md"
+
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out
 	rm -rf site

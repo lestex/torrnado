@@ -7,6 +7,8 @@ over a local Unix socket — which is what makes detached operation (start
 a download, close the terminal, it keeps going) possible without a
 separate architecture.
 
+[![ci](https://github.com/lestex/torrnado/actions/workflows/ci.yml/badge.svg)](https://github.com/lestex/torrnado/actions/workflows/ci.yml)
+
 **Documentation: [torrnado.dev](https://torrnado.dev)**
 
 ```
@@ -24,12 +26,13 @@ separate architecture.
  ↓ 21.4MiB/s  ↑ 0B/s  │  3 torrents                              added 1 torrent(s)
 ```
 
-## Build
+## Install
 
-Requires Go 1.25+.
+Grab an archive for your platform from the [releases
+page](https://github.com/lestex/torrnado/releases), or build it:
 
 ```sh
-go build -o torrnado ./cmd/torrnado
+go build -o torrnado ./cmd/torrnado   # requires Go 1.25+
 ```
 
 There is no install step beyond putting the binary on your `$PATH`.

@@ -8,7 +8,7 @@ name: docs
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     # Only when the site could actually have changed. A code-only commit
     # does not need to republish it.
     paths:
