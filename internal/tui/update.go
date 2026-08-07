@@ -232,6 +232,13 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	case key == km.Recheck:
 		return m.recheckTargets(visible)
 
+	case key == km.Preview:
+		// Handled here rather than in the detail pane, which falls
+		// through to this: v means the same thing from any pane, and
+		// claiming it only in the detail pane meant it silently did
+		// nothing from the list -- where it is most natural to press.
+		return m.previewFile()
+
 	case key == km.Open:
 		return m.openCursorFolder()
 
