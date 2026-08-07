@@ -132,6 +132,25 @@
   background-color: var(--tn-canvas-subtle);
 }
 
+/* Links in the footer copyright inherit the surrounding colour, so the
+ * author link was the same muted grey as the text around it and looked
+ * like prose. Given the accent, which reads as a link and clears contrast
+ * against the footer at 6.55.
+ *
+ * The selector is this long on purpose: Material forces footer links to
+ * the muted colour with `html .md-footer-meta.md-typeset a`, deliberately
+ * specific, and a plain `.md-copyright a` loses to it and silently does
+ * nothing. */
+html .md-footer-meta.md-typeset .md-copyright a {
+  color: var(--tn-accent);
+}
+
+html .md-footer-meta.md-typeset .md-copyright a:hover,
+html .md-footer-meta.md-typeset .md-copyright a:focus {
+  color: var(--tn-accent);
+  text-decoration: underline;
+}
+
 /* Material sizes the footer's social icons at 0.8rem inside a 1.6rem hit
  * area, which leaves the GitHub mark noticeably smaller than the text it
  * sits beside. The link keeps its size so the target stays comfortable;
