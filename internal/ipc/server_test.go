@@ -11,7 +11,7 @@ import (
 // tested without a socket anywhere in sight.
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	eng, err := engine.New(engine.Config{DataDir: t.TempDir()})
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
 	if err != nil {
 		t.Fatalf("engine.New: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestDispatchAddThenList(t *testing.T) {
 
 	add := s.dispatch(&Request{
 		Method: MethodAddMagnet,
-		Source: "magnet:?xt=urn:btih:abc&dn=Example",
+		Source: "magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&dn=Example",
 	})
 	if !add.OK {
 		t.Fatalf("add failed: %q", add.Err)

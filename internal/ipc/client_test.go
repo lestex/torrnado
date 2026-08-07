@@ -16,7 +16,7 @@ import (
 func startTestDaemon(t *testing.T) *Client {
 	t.Helper()
 
-	eng, err := engine.New(engine.Config{DataDir: t.TempDir()})
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
 	if err != nil {
 		t.Fatalf("engine.New: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestClientPing(t *testing.T) {
 func TestClientAddAndList(t *testing.T) {
 	c := startTestDaemon(t)
 
-	id, err := c.AddMagnet("magnet:?xt=urn:btih:abc&dn=Example", engine.AddOpts{})
+	id, err := c.AddMagnet("magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&dn=Example", engine.AddOpts{})
 	if err != nil {
 		t.Fatalf("AddMagnet: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestClientSurfacesDaemonErrors(t *testing.T) {
 func TestClientReceivesPushedEvents(t *testing.T) {
 	c := startTestDaemon(t)
 
-	if _, err := c.AddMagnet("magnet:?xt=urn:btih:abc&dn=Example", engine.AddOpts{}); err != nil {
+	if _, err := c.AddMagnet("magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&dn=Example", engine.AddOpts{}); err != nil {
 		t.Fatalf("AddMagnet: %v", err)
 	}
 

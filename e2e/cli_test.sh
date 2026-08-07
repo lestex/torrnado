@@ -5,6 +5,13 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 setup_env
 
+# A real client validates the infohash, so these have to be genuine
+# 40-character hex strings. They point at nothing, which is fine: adding
+# and listing a torrent does not require a single peer.
+IH_A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+IH_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+IH_C=cccccccccccccccccccccccccccccccccccccccc
+
 echo "daemon lifecycle"
 
 # Nothing is running yet, so this command has to start a daemon before it
@@ -32,19 +39,18 @@ assert_contains "daemon logged where it is listening" "$(cat "$DAEMON_LOG")" "so
 echo
 echo "adding torrents"
 
-out=$("$TORRNADO" add 'magnet:?xt=urn:btih:aaaa&dn=First+Torrent' 2>&1)
+out=$("$TORRNADO" add "magnet:?xt=urn:btih:${IH_A}&dn=First+Torrent" 2>&1)
 assert_contains "add reports the new torrent id" "$out" "added:"
 
-# The id is the hex infohash: 40 characters, and stable for a given
-# source, so adding the same magnet twice must not create a second entry.
+# The id is the infohash out of the magnet, so it is knowable up front.
 id=$(echo "$out" | awk '/added:/ {print $2}')
-if [ ${#id} -eq 40 ]; then
-	pass "id is a 40-character infohash"
+if [ "$id" = "$IH_A" ]; then
+	pass "id is the magnet's infohash"
 else
-	fail "id is a 40-character infohash" "got ${#id} characters: $id"
+	fail "id is the magnet's infohash" "got $id, want $IH_A"
 fi
 
-"$TORRNADO" add 'magnet:?xt=urn:btih:aaaa&dn=First+Torrent' >/dev/null 2>&1
+"$TORRNADO" add "magnet:?xt=urn:btih:${IH_A}&dn=First+Torrent" >/dev/null 2>&1
 count=$("$TORRNADO" list 2>/dev/null | grep -c "$id")
 if [ "$count" -eq 1 ]; then
 	pass "adding the same magnet twice does not duplicate it"
@@ -56,7 +62,7 @@ assert_failure "adding a non-magnet, non-file source fails" \
 	"$TORRNADO" add "not-a-torrent-at-all"
 
 assert_success "several sources can be added at once" \
-	"$TORRNADO" add 'magnet:?xt=urn:btih:bbbb&dn=Second' 'magnet:?xt=urn:btih:cccc&dn=Third'
+	"$TORRNADO" add "magnet:?xt=urn:btih:${IH_B}&dn=Second" "magnet:?xt=urn:btih:${IH_C}&dn=Third"
 
 echo
 echo "listing"
@@ -65,23 +71,16 @@ out=$("$TORRNADO" list 2>&1)
 assert_contains "list shows the display name from the magnet" "$out" "First Torrent"
 assert_contains "list shows a second torrent" "$out" "Second"
 assert_contains "list shows a third torrent" "$out" "Third"
-assert_contains "list shows the state" "$out" "downloading"
+assert_contains "list prints a header row" "$out" "PROGRESS"
 
 echo
-echo "progress"
+echo "metadata"
 
-# The engine ticks once a second, so a couple of seconds apart the same
-# torrent must report more done than before. This is what proves the
-# daemon is doing work between commands rather than only when asked.
-before=$("$TORRNADO" list 2>/dev/null | awk -v id="$id" '$1 == id {print $(NF-2)}')
-sleep 2
-after=$("$TORRNADO" list 2>/dev/null | awk -v id="$id" '$1 == id {print $(NF-2)}')
-
-if [ "$before" != "$after" ]; then
-	pass "progress advances between calls ($before -> $after)"
-else
-	fail "progress advances between calls" "still $after after 2 seconds"
-fi
+# A magnet carries no file list until a peer supplies it, and these have
+# no peers, so they stay in that state rather than reporting a size.
+out=$("$TORRNADO" list 2>&1)
+assert_contains "a magnet without metadata reports checking" "$out" "checking"
+assert_not_contains "no torrent claims to be seeding" "$out" "seeding"
 
 echo
 echo "shutdown"

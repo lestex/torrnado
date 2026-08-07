@@ -9,12 +9,19 @@ import (
 // package creates and removes for us.
 func newTestEngine(t *testing.T) *Engine {
 	t.Helper()
-	e, err := New(Config{DataDir: t.TempDir()})
+	e, err := New(testConfig(t))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	t.Cleanup(func() { e.Close() })
 	return e
+}
+
+// testConfig keeps the tests off the network: no peer discovery, and a
+// port chosen by the OS so parallel runs cannot collide.
+func testConfig(t *testing.T) Config {
+	t.Helper()
+	return Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true}
 }
 
 func TestNewRequiresDataDir(t *testing.T) {
@@ -76,7 +83,7 @@ func TestUnsubscribeIsIdempotent(t *testing.T) {
 }
 
 func TestCloseClosesSubscribers(t *testing.T) {
-	e, err := New(Config{DataDir: t.TempDir()})
+	e, err := New(testConfig(t))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -87,52 +94,5 @@ func TestCloseClosesSubscribers(t *testing.T) {
 	}
 	if _, open := <-events; open {
 		t.Error("Close should close subscriber channels")
-	}
-}
-
-func TestAdvanceStopsWhenPausedOrDone(t *testing.T) {
-	tr := &tracked{total: 10 << 20}
-
-	tr.advance(1)
-	if tr.done == 0 {
-		t.Fatal("a running torrent should make progress")
-	}
-
-	tr.paused = true
-	at := tr.done
-	tr.advance(1)
-	if tr.done != at {
-		t.Error("a paused torrent should not make progress")
-	}
-	if tr.rate != 0 {
-		t.Error("a paused torrent should report no rate")
-	}
-
-	// Progress is capped at the total, however long we run for.
-	tr.paused = false
-	tr.advance(10000)
-	if tr.done != tr.total {
-		t.Errorf("done = %d, want it capped at total %d", tr.done, tr.total)
-	}
-}
-
-func TestSnapshotState(t *testing.T) {
-	tr := &tracked{id: "abc", total: 100}
-
-	if got := tr.snapshot().State; got != StateDownloading {
-		t.Errorf("incomplete torrent: State = %v, want downloading", got)
-	}
-
-	tr.done = tr.total
-	if got := tr.snapshot().State; got != StateSeeding {
-		t.Errorf("complete torrent: State = %v, want seeding", got)
-	}
-
-	// Paused outranks seeding for display, but Paused is the flag anything
-	// making decisions should read.
-	tr.paused = true
-	snap := tr.snapshot()
-	if snap.State != StatePaused || !snap.Paused {
-		t.Errorf("paused torrent: State = %v, Paused = %v", snap.State, snap.Paused)
 	}
 }

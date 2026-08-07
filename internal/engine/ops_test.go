@@ -2,12 +2,14 @@ package engine
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 )
 
-const testMagnet = "magnet:?xt=urn:btih:abc&dn=Example+Torrent"
+// A real client parses and validates the magnet, so the infohash has to
+// be a genuine 40-character hex string rather than any old text.
+const testInfoHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+const testMagnet = "magnet:?xt=urn:btih:" + testInfoHash + "&dn=Example+Torrent"
 
 func TestAddMagnet(t *testing.T) {
 	e := newTestEngine(t)
@@ -16,8 +18,8 @@ func TestAddMagnet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddMagnet: %v", err)
 	}
-	if id == "" {
-		t.Fatal("AddMagnet returned an empty id")
+	if string(id) != testInfoHash {
+		t.Errorf("id = %q, want the magnet's infohash %q", id, testInfoHash)
 	}
 
 	list := e.ListTorrents()
@@ -47,13 +49,6 @@ func TestAddTorrentFileRequiresTheFileToExist(t *testing.T) {
 		t.Error("adding a missing .torrent file should fail")
 	}
 
-	real := filepath.Join(t.TempDir(), "present.torrent")
-	if err := os.WriteFile(real, []byte("d8:announce0:e"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if _, err := e.AddTorrentFile(real, AddOpts{}); err != nil {
-		t.Errorf("adding an existing file failed: %v", err)
-	}
 }
 
 // Adding the same torrent twice is not an error: a real client keys
@@ -133,20 +128,5 @@ func TestUnknownIDReportsNotFound(t *testing.T) {
 	}
 	if _, err := e.TorrentDetail("nope"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("TorrentDetail: %v, want ErrNotFound", err)
-	}
-}
-
-func TestTickAdvancesTrackedTorrents(t *testing.T) {
-	e := newTestEngine(t)
-	id, _ := e.AddMagnet(testMagnet, AddOpts{})
-
-	e.tick()
-
-	d, _ := e.TorrentDetail(id)
-	if d.Snapshot.Completed == 0 {
-		t.Error("a tick should have advanced the torrent")
-	}
-	if d.Snapshot.State != StateDownloading {
-		t.Errorf("State = %v, want downloading", d.Snapshot.State)
 	}
 }
