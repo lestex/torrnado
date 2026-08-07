@@ -199,6 +199,13 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 
+	case MethodPurgeData:
+		if err := s.eng.PurgeData(engine.TorrentID(req.ID)); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
 	case MethodSetPaused:
 		if err := s.eng.SetPaused(engine.TorrentID(req.ID), req.Paused); err != nil {
 			resp.Err = err.Error()

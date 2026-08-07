@@ -200,6 +200,12 @@ func (c *Client) Remove(id engine.TorrentID, deleteData bool) error {
 	return err
 }
 
+// PurgeData deletes a torrent's data, keeping the torrent itself.
+func (c *Client) PurgeData(id engine.TorrentID) error {
+	_, err := c.call(&Request{Method: MethodPurgeData, ID: string(id)})
+	return err
+}
+
 func (c *Client) SetPaused(id engine.TorrentID, paused bool) error {
 	_, err := c.call(&Request{Method: MethodSetPaused, ID: string(id), Paused: paused})
 	return err
