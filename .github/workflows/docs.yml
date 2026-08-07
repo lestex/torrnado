@@ -1,9 +1,13 @@
 # Builds the documentation site and publishes it to GitHub Pages.
 #
-# Pages must be set to "GitHub Actions" as its source in the repository
-# settings (Settings -> Pages -> Build and deployment), and the custom
-# domain set to torrnado.dev -- docs/CNAME keeps it across deployments,
-# but the DNS records themselves live at the registrar.
+# Pages must be enabled with "GitHub Actions" as its source (Settings ->
+# Pages -> Build and deployment). Until it is, the build job passes and
+# only `deploy` fails, with a bare `HttpError: Not Found`.
+#
+# The custom domain has to be set in those same settings. docs/CNAME is
+# deployed and served, but Pages ignores it here: reading that file to
+# configure a domain only applies to branch-based Pages, not to
+# build_type: workflow. The DNS records live at the registrar.
 name: docs
 
 on:
