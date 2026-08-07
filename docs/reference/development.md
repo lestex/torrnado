@@ -66,6 +66,33 @@ one staying stopped.
 Both have caught real bugs that macOS hid -- a fixed listen port that made
 parallel test packages collide, and a signal handler installed too late.
 
+## Checking VPN detection against a real device
+
+The unit tests for `internal/vpn` classify synthetic interfaces and a fake
+sysfs tree, which tests the rules but not the kernel's description of a
+real tunnel. To exercise the whole path -- route lookup, source address,
+sysfs -- make a tunnel and route the probe destination through it:
+
+```sh
+docker run --rm -it --cap-add=NET_ADMIN --device /dev/net/tun \
+  -v "$PWD:/src" -w /src golang:1.25 bash
+apt-get update && apt-get install -y iproute2
+
+ip tuntap add mode tun dev tun0            # or: ip link add wg0 type wireguard
+ip addr add 10.99.0.2/24 dev tun0
+ip link set tun0 up
+ip route add 192.0.2.0/24 dev tun0          # the address Detect probes
+```
+
+Then call `vpn.Detect(nil)` from a throwaway test in the package. Without
+the route it reports the container's `eth0` and refuses; with it, `tun0`
+(via `tun_flags`) or `wg0` (via `DEVTYPE=wireguard`) and allows.
+
+On macOS there is nothing to fake -- connect a VPN and run the same
+throwaway test, which should name the `utun` device carrying the traffic.
+A Tailscale with no exit node should *not* satisfy it, since the default
+route stays on `en0`.
+
 ## The end-to-end suites
 
 `e2e/` drives the real binary the way a user would rather than calling Go
