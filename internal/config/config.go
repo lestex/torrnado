@@ -112,7 +112,7 @@ func validLogLevel(s string) bool {
 // has no interface at all, from pulling one in.
 var KnownActions = []string{
 	"up", "down", "top", "bottom",
-	"select", "remove", "remove_data",
+	"select", "remove", "remove_data", "purge",
 	"pause", "recheck",
 	"search", "command",
 	"detail", "back", "quit",

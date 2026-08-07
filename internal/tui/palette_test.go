@@ -31,6 +31,28 @@ func TestUnknownCommandIsReported(t *testing.T) {
 	}
 }
 
+// Every verb that acts on the marked torrents, checked against the one
+// thing it must not do: report itself as unknown. ":purge" in particular
+// reads like a typo for ":pause", and if it were missing that is exactly
+// how a user would find out.
+//
+// With no torrents to act on, each of these returns no command at all,
+// while an unrecognised word returns one that reports the error -- which
+// is the difference being asserted. They cannot simply be run: the
+// command they return talks to a daemon this model does not have.
+func TestKnownCommandsAreNotReportedAsUnknown(t *testing.T) {
+	for _, line := range []string{"purge", "pause", "resume", "recheck", "rm", "remove"} {
+		if _, cmd := testModel().execCommand(line); cmd != nil {
+			t.Errorf("%q produced a command with nothing to act on: %+v",
+				line, runCommand(t, testModel(), line))
+		}
+	}
+
+	if _, cmd := testModel().execCommand("frobnicate"); cmd == nil {
+		t.Error("an unknown command produced nothing, so the check above proves nothing")
+	}
+}
+
 // A command needing an argument has to say so rather than doing nothing.
 func TestCommandsRequiringArgumentsComplain(t *testing.T) {
 	for _, line := range []string{"add", "limit-up", "limit-down", "move"} {

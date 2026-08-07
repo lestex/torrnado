@@ -9,6 +9,7 @@ package tui
 type KeyMap struct {
 	Up, Down, Top, Bottom      string
 	Select, Remove, RemoveData string
+	Purge                      string
 	Pause, Recheck             string
 	Detail, Back, Quit         string
 	Search, Command, Help      string
@@ -31,6 +32,9 @@ func DefaultKeyMap() KeyMap {
 		Select:     " ",
 		Remove:     "x",
 		RemoveData: "D",
+		// The other half of x: x drops the torrent and keeps the files,
+		// X drops the files and keeps the torrent.
+		Purge: "X",
 
 		Pause:   "p",
 		Recheck: "r",
@@ -76,6 +80,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Select, "select")
 	apply(&k.Remove, "remove")
 	apply(&k.RemoveData, "remove_data")
+	apply(&k.Purge, "purge")
 	apply(&k.Pause, "pause")
 	apply(&k.Recheck, "recheck")
 	apply(&k.Search, "search")

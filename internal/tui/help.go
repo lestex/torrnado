@@ -42,6 +42,7 @@ func (m Model) renderHelp(width, height int) string {
 	actions := []helpEntry{
 		{km.Remove + ", dd", "remove the marked torrents, keeping the data"},
 		{km.RemoveData, "remove them and delete the data too"},
+		{km.Purge, "delete their data, keeping the torrents in the list"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
 		{km.Command, "command palette: :add, :theme, :limit-up, :move, :q"},
