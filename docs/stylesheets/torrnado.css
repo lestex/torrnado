@@ -80,6 +80,17 @@
 
   --md-typeset-a-color: var(--tn-accent);
   --md-code-bg-color: var(--tn-canvas-subtle);
+
+  /* Material's footer is dark in both schemes by default, and only the
+   * slate block below was overriding it, so the light site ended on a
+   * near-black slab. Given the same light surface as the rest of the
+   * page, with the hairline above carrying the edge: 13.22 for the text,
+   * 5.81 for the muted line and 6.04 for the links. */
+  --md-footer-bg-color: var(--tn-canvas-subtle);
+  --md-footer-bg-color--dark: var(--tn-canvas-subtle);
+  --md-footer-fg-color: var(--tn-fg);
+  --md-footer-fg-color--light: var(--tn-fg-muted);
+  --md-footer-fg-color--lighter: var(--tn-fg-muted);
 }
 
 /* Material draws the header from the primary color; GitHub's is a flat
