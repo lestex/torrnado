@@ -106,3 +106,60 @@ func TestValidateAllowsZeroPortRange(t *testing.T) {
 		t.Errorf("0/0 should be allowed: %v", err)
 	}
 }
+
+func TestLoadLoggingSettings(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `
+[log]
+level = "debug"
+library_level = "error"
+file = "/var/log/torrnado.log"
+`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Log.Level != "debug" || cfg.Log.LibraryLevel != "error" {
+		t.Errorf("levels = %+v", cfg.Log)
+	}
+	if cfg.Log.File != "/var/log/torrnado.log" {
+		t.Errorf("file = %q", cfg.Log.File)
+	}
+}
+
+// Defaults have to be usable unconfigured: stderr, and the library a level
+// quieter than us because it reports every misbehaving tracker.
+func TestLoggingDefaults(t *testing.T) {
+	cfg, err := Default()
+	if err != nil {
+		t.Fatalf("Default: %v", err)
+	}
+	if cfg.Log.Level != "info" {
+		t.Errorf("default level = %q, want info", cfg.Log.Level)
+	}
+	if cfg.Log.LibraryLevel != "warn" {
+		t.Errorf("default library level = %q, want warn", cfg.Log.LibraryLevel)
+	}
+	if cfg.Log.File != "" {
+		t.Errorf("default log file = %q, want empty (stderr)", cfg.Log.File)
+	}
+	if cfg.StateDir == "" {
+		t.Error("state_dir has no default")
+	}
+}
+
+// A misspelled level is a typo worth reporting: silently falling back
+// leaves someone convinced they enabled debug logging.
+func TestValidateRejectsUnknownLogLevel(t *testing.T) {
+	for _, body := range []string{
+		"[log]\nlevel = \"verbose\"",
+		"[log]\nlibrary_level = \"trace\"",
+	} {
+		_, err := Load(writeConfig(t, body))
+		if err == nil {
+			t.Errorf("%q should have failed", body)
+			continue
+		}
+		if !strings.Contains(err.Error(), "log.") {
+			t.Errorf("error should name the key, got: %v", err)
+		}
+	}
+}

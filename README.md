@@ -81,6 +81,8 @@ than silently ignoring it.
 ```toml
 download_dir  = "~/Downloads/torrnado"                     # default download directory
 daemon_socket = "~/.local/share/torrnado/daemon.sock"       # IPC socket path
+state_dir     = "~/.local/share/torrnado"                    # session file + saved metainfo
+                                                              # (a second daemon needs its own)
 theme         = "dracula"                                     # see Themes below
 player        = "mpv"                                          # used by preview; may carry flags
 
@@ -98,6 +100,11 @@ pex        = true
 lsd        = true    # accepted, but has no effect -- see Limitations
 encryption = true
 seed       = true     # keep uploading after a torrent completes
+
+[log]
+level         = "info"    # debug, info, warn, error
+library_level = "warn"     # the torrent library's own messages, filtered separately
+file          = ""          # empty = stderr, which is what a service manager wants
 
 [keybinds]
 # action = "key", overriding internal/tui's defaults. Values are matched
@@ -169,6 +176,124 @@ highlighted border, and it's where `j`/`k` go:
 - **Detail pane** always tracks the cursor torrent -- there is no separate
   full-screen detail view. Its three tabs are the piece completion map,
   the connected-peer table, and the file list.
+
+## Running it on a server
+
+The daemon is the whole program; the TUI and the CLI are just clients. So
+a headless box that downloads things is `torrnado daemon` running under
+whatever supervises processes there (systemd, launchd, tmux -- it makes
+no difference to torrnado), driven over SSH.
+
+**It comes back after a restart.** Every change is written to
+`<state_dir>/session.json` -- the torrent list, paused state, save paths,
+per-torrent rate limits, per-file priorities, when each was added -- next
+to a copy of each torrent's metainfo in `<state_dir>/torrents/`. On start
+the daemon re-adds them all, and logs how many came back. Data already on
+disk is not re-downloaded or re-verified: the piece-completion database
+was always persistent, and this is what tells the daemon which torrents
+to look it up for.
+
+A session file that cannot be read is logged and skipped, one bad record
+at a time. A server that refuses to boot over a malformed record is worse
+than one that comes back with fewer torrents, so it starts either way --
+`journalctl` is where you find out which happened.
+
+**Logs** go to stderr as text with timestamps and levels, which is what a
+service manager wants: journald timestamps and stores it with no further
+configuration.
+
+```
+time=2026-08-05T13:26:28.488-04:00 level=INFO msg="daemon starting" pid=83154 ...
+time=2026-08-05T13:26:28.491-04:00 level=INFO msg="session restored" torrents=2
+time=2026-08-05T13:26:28.491-04:00 level=INFO msg="daemon ready" socket=... stream=127.0.0.1:64853
+```
+
+Set `log.file` to write to a file instead. `SIGHUP` reopens it, which is
+what logrotate needs after renaming the old one away -- without that the
+daemon goes on writing to a file that no longer has a name, and the disk
+never gets the space back.
+
+The torrent library's own output is captured into the same stream at
+`log.library_level`, tagged `src=torrent`. It is much noisier than
+torrnado is -- it reports every tracker that misbehaves -- which is why
+it has its own level rather than sharing `log.level`. Panics still go
+straight to stderr through the Go runtime, whatever `log.file` says, so
+leave stderr attached to something.
+
+**Two things to know before deploying:**
+
+- **`CGO_ENABLED=0` changes the piece-completion database.** With cgo it
+  is SQLite (`.torrent.db` in the download directory); without it, bbolt
+  (`.torrent.bolt.db`). Neither reads the other's file, so a data
+  directory populated by one build re-verifies from scratch under the
+  other. Pin the choice deliberately when you build for a server, and
+  keep it pinned.
+- **Previews are loopback-only.** The stream server binds `127.0.0.1` on
+  an OS-assigned port with a per-session token, so `torrnado preview`
+  URLs from a remote daemon are only reachable through an SSH tunnel
+  (`ssh -L 8080:127.0.0.1:<port> server`). That is the intended design,
+  not an oversight: there is no authentication anywhere in torrnado
+  beyond the filesystem permissions on the socket, so nothing it serves
+  should be reachable from a network.
+
+Running a second daemon alongside the first means giving it its own
+`daemon_socket` **and** its own `state_dir`. Only the socket is guarded
+against sharing (by a lock file); two daemons pointed at one state
+directory will each restore the other's torrents and overwrite the
+other's session file.
+
+There is no remote control protocol. The socket is local by
+construction, and SSH already solves the problem properly.
+
+### systemd
+
+`contrib/torrnado.service` runs the daemon as a system service under its
+own unprivileged user, with `StateDirectory=torrnado` for the session
+file and socket. Its header carries the install steps; `make
+systemd-test` runs them and the unit against a real systemd in a
+container (`Dockerfile.systemd`), including `systemctl restart` keeping
+the torrent list, `systemctl reload` reopening the log, and a SIGKILLed
+daemon being brought back.
+
+Worth knowing on a systemd box: every client starts a daemon itself when
+nothing answers the socket. Run `torrnado list` while the service is
+stopped, or during the seconds it takes to restart, and you get a second
+daemon that systemd does not manage -- holding the lock the service is
+about to want, which makes the service fail to start with
+`another daemon already holds .../daemon.sock.lock` in the journal. Kill
+that one (`pkill -u torrnado torrnado`) and start the service again.
+
+### Docker
+
+```sh
+docker build -t torrnado .
+docker run -d --name torrnado \
+  -v torrnado-state:/var/lib/torrnado \
+  -v "$PWD/downloads:/downloads" \
+  -p 51413:51413 -p 51413:51413/udp \
+  torrnado
+
+docker exec torrnado torrnado add <magnet>
+docker exec torrnado torrnado list
+docker logs -f torrnado
+```
+
+The container runs the daemon; every other command is a `docker exec`
+into it, talking over the socket in the state volume. Both volumes have
+to persist: `/downloads` holds the data, `/var/lib/torrnado` holds the
+session file that tells the next container which torrents to resume.
+`docker restart` puts them all back.
+
+The image is built `CGO_ENABLED=0` -- deliberately, and it is the trap
+described above: a download directory filled by a cgo build (the default
+for `go build` on your machine) uses a SQLite completion database this
+image cannot read, and everything re-verifies. Keep a data directory with
+one or the other, not both.
+
+Config lives at `/home/torrnado/.config/torrnado/config.toml` in the
+image; mount your own over it to change anything. `docker build --target
+test .` runs the unit and e2e suites inside the image instead of
+building it.
 
 ## Live preview (streaming while downloading)
 

@@ -1,0 +1,67 @@
+# A real init system, for testing the unit file in contrib/.
+#
+# Separate from the main Dockerfile on purpose: that image is how you
+# would actually run torrnado in a container, where systemd has no place.
+# This one exists to answer a different question -- does the unit file
+# work on a machine that has systemd -- and it has to be a whole booted
+# system to do it.
+#
+#   make systemd-test
+#
+# or by hand:
+#
+#   docker build -f Dockerfile.systemd -t torrnado-systemd .
+#   docker run -d --name torrnado-systemd --privileged \
+#     --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw torrnado-systemd
+#   docker exec torrnado-systemd bash /opt/systemd_test.sh
+#
+# The privileges are systemd's requirement, not torrnado's: pid 1 has to
+# mount things and manage cgroups. Nothing about the service itself needs
+# them -- it runs as an unprivileged user inside.
+
+FROM golang:1.25 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /out/torrnado ./cmd/torrnado
+
+FROM debian:trixie-slim
+
+# systemd-sysv provides the /sbin/init that boots the system. dbus is
+# what systemctl talks over. procps for pkill/kill in the test script.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       systemd systemd-sysv dbus procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Units that cannot work in a container and would only fail noisily.
+RUN systemctl mask \
+    systemd-firstboot.service \
+    systemd-udevd.service \
+    systemd-udev-trigger.service \
+    systemd-networkd.service \
+    systemd-resolved.service
+
+# The same steps the unit file's header tells a real operator to run, so
+# the instructions are tested rather than merely written down.
+RUN useradd --system --create-home --home-dir /var/lib/torrnado torrnado \
+    && mkdir -p /srv/torrent \
+    && chown torrnado:torrnado /srv/torrent
+
+COPY --from=build /out/torrnado /usr/local/bin/torrnado
+COPY contrib/torrnado.service /etc/systemd/system/torrnado.service
+
+# The config the unit's header describes, at the path it describes, with
+# the matching ReadWritePaths line uncommented -- the sandbox makes
+# /srv/torrent read-only otherwise, however its permissions look.
+RUN mkdir -p /etc/torrnado \
+    && printf 'download_dir = "/srv/torrent"\n' > /etc/torrnado/config.toml \
+    && sed -i 's|^#ReadWritePaths=/srv/torrent|ReadWritePaths=/srv/torrent|' \
+       /etc/systemd/system/torrnado.service \
+    && systemctl enable torrnado.service
+
+COPY e2e/systemd_test.sh /opt/systemd_test.sh
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

@@ -221,9 +221,13 @@ echo "configuration"
 # flag has to reach the spawned daemon, not just the client.
 CFG="$E2E_TMP/custom.toml"
 CUSTOM_SOCK="$E2E_TMP/custom.sock"
+# state_dir has to be separate too: the session file is what a daemon
+# restores its torrent list from, so two daemons sharing one would each
+# come back holding the other's torrents.
 cat >"$CFG" <<EOF
 download_dir  = "$E2E_TMP/custom-downloads"
 daemon_socket = "$CUSTOM_SOCK"
+state_dir     = "$E2E_TMP/custom-state"
 EOF
 
 assert_success "a config file is accepted" "$TORRNADO" --config "$CFG" list

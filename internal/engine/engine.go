@@ -2,6 +2,8 @@ package engine
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -42,6 +44,18 @@ type Config struct {
 	DownloadRateLimit int64
 
 	Seed bool
+
+	// StateDir is where the session file and saved metainfo live, so a
+	// restart can pick the torrent list back up. Empty disables
+	// persistence entirely.
+	StateDir string
+
+	// Logger receives the engine's own messages and the torrent
+	// library's. Nil discards both.
+	Logger *slog.Logger
+	// LibraryLevel filters the library separately, since it warns about
+	// every tracker that misbehaves.
+	LibraryLevel slog.Level
 }
 
 // tickInterval is how often the engine recomputes progress and speeds and
@@ -55,6 +69,10 @@ type tracked struct {
 	addedAt  time.Time
 	paused   bool
 	savePath string
+	// magnet is the URI this was added from, if it was. Kept for the
+	// session file: a torrent whose metadata never arrived has no
+	// metainfo to be re-added from, only this.
+	magnet string
 	// ownStorage is set when this torrent was given a dedicated save
 	// path, rather than using the engine's shared default storage. It
 	// must be closed when the torrent is removed.
@@ -78,6 +96,10 @@ type tracked struct {
 	// same trick updateRates uses per torrent.
 	lastPeers   map[string]peerBytes
 	lastPeersAt time.Time
+
+	// completeLogged stops the completion message repeating on every
+	// tick once a torrent is done.
+	completeLogged bool
 
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
@@ -104,6 +126,14 @@ type peerBytes struct {
 type Engine struct {
 	cfg    Config
 	client *torrent.Client
+	log    *slog.Logger
+
+	closeOnce sync.Once
+	closeErr  error
+
+	// restoring suppresses session saves while a restore is in progress
+	// (see persist).
+	restoring bool
 
 	upLimiter   *rate.Limiter
 	downLimiter *rate.Limiter
@@ -140,6 +170,12 @@ func New(cfg Config) (*Engine, error) {
 		downLimiter.SetLimit(rate.Limit(cfg.DownloadRateLimit))
 	}
 
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	routeLibraryLogs(logger.Handler(), cfg.LibraryLevel)
+
 	tc := torrent.NewDefaultClientConfig()
 	tc.DataDir = cfg.DataDir
 	tc.NoDHT = cfg.DisableDHT
@@ -147,6 +183,9 @@ func New(cfg Config) (*Engine, error) {
 	tc.Seed = cfg.Seed
 	tc.UploadRateLimiter = upLimiter
 	tc.DownloadRateLimiter = downLimiter
+	// The library's own recommendation for capturing what the client
+	// logs. It does not catch everything -- see routeLibraryLogs.
+	tc.Slogger = slog.New(libraryHandler{h: logger.Handler(), min: cfg.LibraryLevel})
 	if cfg.DisableEncryption {
 		tc.HeaderObfuscationPolicy = torrent.HeaderObfuscationPolicy{
 			Preferred: false, RequirePreferred: false,
@@ -161,6 +200,7 @@ func New(cfg Config) (*Engine, error) {
 
 	e := &Engine{
 		cfg:         cfg,
+		log:         logger,
 		client:      client,
 		upLimiter:   upLimiter,
 		downLimiter: downLimiter,
@@ -182,7 +222,14 @@ func New(cfg Config) (*Engine, error) {
 // after a restart.
 func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Client, error) {
 	if low <= 0 {
-		return torrent.NewClient(tc) // port 0: let the OS choose
+		// Explicitly zero, not merely left alone: the library's default
+		// config carries a fixed port (42069), so leaving it untouched
+		// pins every client that asked for "any" to the same one. Two
+		// daemons on a machine, or two tests running in parallel, then
+		// fail with "address already in use" while the config said the OS
+		// would choose.
+		tc.ListenPort = 0
+		return torrent.NewClient(tc)
 	}
 	if high < low {
 		high = low
@@ -200,7 +247,19 @@ func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Cli
 }
 
 // Close stops the tick loop and closes every subscriber's channel.
+//
+// Safe to call more than once: shutdown paths overlap -- a deferred close
+// and an explicit one -- and closing the same channel twice panics.
 func (e *Engine) Close() error {
+	e.closeOnce.Do(func() { e.closeErr = e.closeNow() })
+	return e.closeErr
+}
+
+func (e *Engine) closeNow() error {
+	// Saved before anything is torn down: a clean shutdown should leave
+	// the session on disk matching what was running.
+	e.persist()
+
 	close(e.closeCh)
 	e.wg.Wait()
 
@@ -307,9 +366,29 @@ func (e *Engine) tick() {
 		tr.enforceRateLimit()
 	}
 	ev := e.eventLocked()
+	// Collected under the lock, logged outside it: the destination may be
+	// a file, and a slow write should not stall every other operation.
+	done := e.newlyCompleteLocked()
 	e.mu.Unlock()
 
+	for _, s := range done {
+		e.log.Info("torrent complete", "id", s.ID, "name", s.Name, "size", s.TotalLength)
+	}
 	e.broadcast(ev)
+}
+
+// newlyCompleteLocked returns the torrents that finished since the last
+// call, marking them so each is reported once. Callers must hold e.mu.
+func (e *Engine) newlyCompleteLocked() []TorrentSnapshot {
+	var done []TorrentSnapshot
+	for id, tr := range e.torrents {
+		if tr.completeLogged || tr.t.Info() == nil || !tr.t.Complete().Bool() {
+			continue
+		}
+		tr.completeLogged = true
+		done = append(done, e.snapshotLocked(id, tr))
+	}
+	return done
 }
 
 // snapshotAndBroadcastNow publishes current state immediately, so a

@@ -38,11 +38,28 @@ type Network struct {
 	Seed       bool `toml:"seed"`
 }
 
+// Logging configures the daemon's output.
+type Logging struct {
+	// Level is the daemon's own verbosity: debug, info, warn or error.
+	Level string `toml:"level"`
+	// LibraryLevel is the same for the torrent library, which is far
+	// noisier than we are -- it reports every tracker that misbehaves.
+	// Kept separate so its warnings can be quietened without losing ours.
+	LibraryLevel string `toml:"library_level"`
+	// File redirects the log. Empty means stderr, which is what a service
+	// manager wants: journald timestamps and stores it with no further
+	// configuration.
+	File string `toml:"file"`
+}
+
 // Config is the full contents of config.toml.
 type Config struct {
 	DownloadDir  string `toml:"download_dir"`
 	DaemonSocket string `toml:"daemon_socket"`
-	Theme        string `toml:"theme"`
+	// StateDir is where the daemon keeps what it needs to come back after
+	// a restart: the session file and a copy of each torrent's metainfo.
+	StateDir string `toml:"state_dir"`
+	Theme    string `toml:"theme"`
 	// Player is the command run to preview a file, given the stream URL
 	// as its final argument. May carry fixed flags ("mpv --no-terminal");
 	// it is split on spaces, not run through a shell.
@@ -51,7 +68,20 @@ type Config struct {
 	RateLimit RateLimits        `toml:"rate_limit"`
 	Port      PortRange         `toml:"port"`
 	Network   Network           `toml:"network"`
+	Log       Logging           `toml:"log"`
 	Keybinds  map[string]string `toml:"keybinds"`
+}
+
+// LogLevels are the accepted values for log.level and log.library_level.
+var LogLevels = []string{"debug", "info", "warn", "error"}
+
+func validLogLevel(s string) bool {
+	for _, l := range LogLevels {
+		if s == l {
+			return true
+		}
+	}
+	return false
 }
 
 // KnownActions are the TUI actions that may appear as keys in [keybinds].
@@ -81,15 +111,23 @@ func Default() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	stateDir, err := DefaultDataDir()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		DownloadDir:  downloadDir,
 		DaemonSocket: socket,
+		StateDir:     stateDir,
 		Theme:        "dracula",
 		Player:       "mpv",
 		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
 		Network:      Network{DHT: true, PEX: true, LSD: true, Encryption: true, Seed: true},
+		// The library warns about every tracker that misbehaves, which is
+		// noise unless you are chasing one, so it starts a level above us.
+		Log: Logging{Level: "info", LibraryLevel: "warn"},
 	}, nil
 }
 
@@ -144,6 +182,15 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Player) == "" {
 		return fmt.Errorf("player: must not be empty")
+	}
+	if c.StateDir == "" {
+		return fmt.Errorf("state_dir: must not be empty")
+	}
+	if !validLogLevel(c.Log.Level) {
+		return fmt.Errorf("log.level: %q is not one of %s", c.Log.Level, strings.Join(LogLevels, ", "))
+	}
+	if !validLogLevel(c.Log.LibraryLevel) {
+		return fmt.Errorf("log.library_level: %q is not one of %s", c.Log.LibraryLevel, strings.Join(LogLevels, ", "))
 	}
 
 	if c.RateLimit.Upload < 0 {

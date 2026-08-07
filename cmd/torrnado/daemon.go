@@ -10,6 +10,7 @@ import (
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/logging"
 	"github.com/lestex/torrnado/internal/stream"
 )
 
@@ -33,6 +34,28 @@ func runDaemon() error {
 		return err
 	}
 
+	lg, err := logging.New(cfg.Log.Level, cfg.Log.File)
+	if err != nil {
+		return err
+	}
+	defer lg.Close()
+
+	libLevel, err := logging.ParseLevel(cfg.Log.LibraryLevel)
+	if err != nil {
+		return err
+	}
+
+	// Registered before anything slow, not just before the wait at the
+	// bottom. Until this call every one of these signals still has its
+	// default action, which for all three is to kill the process: a
+	// SIGHUP arriving while the engine is starting or a session is being
+	// restored would take the daemon down instead of reopening its log,
+	// and a service manager's SIGTERM would be a hard kill rather than a
+	// clean shutdown. The window is small, and it is exactly the window a
+	// supervisor restarting the service aims at.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
 	eng, err := engine.New(engine.Config{
 		DataDir:           cfg.DownloadDir,
 		ListenPortLow:     cfg.Port.Low,
@@ -43,6 +66,9 @@ func runDaemon() error {
 		UploadRateLimit:   int64(cfg.RateLimit.Upload),
 		DownloadRateLimit: int64(cfg.RateLimit.Download),
 		Seed:              cfg.Network.Seed,
+		StateDir:          cfg.StateDir,
+		Logger:            lg.Logger,
+		LibraryLevel:      libLevel,
 	})
 	if err != nil {
 		return fmt.Errorf("start engine: %w", err)
@@ -51,6 +77,28 @@ func runDaemon() error {
 	// clients first, then stop the engine underneath them. Deferred calls
 	// run last-in-first-out, which gives that for free.
 	defer eng.Close()
+
+	// Logged before the restore rather than only once everything is up,
+	// so a journal reads in the order things happened. The pid is here
+	// because the README tells people to kill the daemon by it, and until
+	// now no line actually carried one.
+	lg.Info("daemon starting",
+		"pid", os.Getpid(),
+		"config", path,
+		"download_dir", cfg.DownloadDir,
+		"state_dir", cfg.StateDir,
+	)
+
+	// Restored before the socket is listening, so the first client to
+	// connect sees the full list rather than one filling in underneath
+	// it. A broken session file is logged and skipped: refusing to start
+	// over one bad record would be worse than starting with fewer
+	// torrents.
+	if n, err := eng.RestoreSession(); err != nil {
+		lg.Error("restoring the session failed", "err", err)
+	} else if n > 0 {
+		lg.Info("session restored", "torrents", n)
+	}
 
 	// The stream server carries file data for previews; it cannot ride
 	// the IPC socket (see internal/stream). Started first so its URL
@@ -67,16 +115,28 @@ func runDaemon() error {
 	}
 	defer srv.Close()
 
-	fmt.Fprintf(os.Stderr, "torrnado daemon: config %s, data dir %s, socket %s, stream %s\n",
-		path, cfg.DownloadDir, cfg.DaemonSocket, stm.Addr())
+	lg.Info("daemon ready", "socket", cfg.DaemonSocket, "stream", stm.Addr())
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
 	// send SIGTERM. Without this the function would return immediately
 	// and the deferred shutdown would tear everything down.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
-
-	fmt.Fprintln(os.Stderr, "torrnado daemon: shutting down")
+	//
+	// SIGHUP is the convention for "reopen your log file", which is how
+	// logrotate finishes a rotation: it renames the file away, and a
+	// process that keeps writing to the same handle is writing to an
+	// unlinked inode -- the log goes nowhere and the disk never gets the
+	// space back.
+	for sig := range sigCh {
+		if sig == syscall.SIGHUP {
+			if err := lg.Reopen(); err != nil {
+				lg.Error("reopening the log file failed", "err", err)
+				continue
+			}
+			lg.Info("log file reopened")
+			continue
+		}
+		lg.Info("daemon shutting down", "signal", sig.String())
+		return nil
+	}
 	return nil
 }

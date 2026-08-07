@@ -96,3 +96,20 @@ func TestCloseClosesSubscribers(t *testing.T) {
 		t.Error("Close should close subscriber channels")
 	}
 }
+
+// The config documents port 0 as "let the OS pick", but the library's
+// default config carries a fixed port -- so asking for any port has to
+// mean setting it to zero, not leaving it alone. Two engines at once is
+// the test: with the fixed default the second one cannot bind.
+func TestPortZeroLetsTheOSChoose(t *testing.T) {
+	first := newTestEngine(t)
+	second := newTestEngine(t)
+
+	p1, p2 := first.client.LocalPort(), second.client.LocalPort()
+	if p1 == 0 || p2 == 0 {
+		t.Fatalf("ports = %d and %d, want two real ports", p1, p2)
+	}
+	if p1 == p2 {
+		t.Errorf("both engines bound port %d; the OS should have picked two", p1)
+	}
+}
