@@ -122,6 +122,26 @@
   margin-left: 0.8rem;
 }
 
+/* Material puts two titles in the header and cross-fades them on scroll:
+ * the site name until you pass the first heading, the current page's
+ * title after. So "torrnado" became "Home" a few lines down, and the
+ * brand vanished from every page the moment anyone read it.
+ *
+ * The page title is already named in the tab, the breadcrumb and the
+ * heading itself, so the header keeps the site name at all times: the
+ * second topic never appears, and the first is exempted from the fade
+ * that the active state would otherwise apply to it. */
+.md-header__topic + .md-header__topic {
+  display: none;
+}
+
+.md-header__title--active .md-header__topic:first-child {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  z-index: 0;
+}
+
 /* Material gives the header's repo block a fixed 11.7rem, whatever is in
  * it. "lestex/torrnado" measures 169px, so about 112px of the block was
  * empty and the name sat that far short of the header's right edge --
