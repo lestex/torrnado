@@ -46,7 +46,7 @@ func TestDownsampleKeepsTheWorstStateInARange(t *testing.T) {
 }
 
 // Unknown is its own state, not missing. Completion is only believed once
-// the library has consulted storage, and it does that lazily -- so a
+// the library has consulted storage, and it does that lazily - so a
 // finished torrent reports most pieces unknown for a while, and folding
 // the two together would draw it as half empty.
 func TestUnknownIsNotMissing(t *testing.T) {

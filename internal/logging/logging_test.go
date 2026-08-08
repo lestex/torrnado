@@ -56,7 +56,7 @@ func TestLogsToFileWithTimestampAndLevel(t *testing.T) {
 	}
 }
 
-// Messages below the level must not reach the file at all -- a level
+// Messages below the level must not reach the file at all - a level
 // that only affects formatting is not a level.
 func TestLevelFiltersMessages(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "d.log")
@@ -118,7 +118,7 @@ func TestReopenWritesToANewFile(t *testing.T) {
 	}
 }
 
-// Reopening a stderr logger is meaningless, and must not be an error --
+// Reopening a stderr logger is meaningless, and must not be an error -
 // the daemon sends SIGHUP through the same path either way.
 func TestReopenOnStderrIsANoOp(t *testing.T) {
 	lg, err := New("info", "")

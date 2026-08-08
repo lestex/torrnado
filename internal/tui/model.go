@@ -223,8 +223,8 @@ func (m Model) Init() tea.Cmd {
 // listenForEvents waits for one event and delivers it as a message.
 //
 // A bubbletea Cmd is a function run off the main loop whose result comes
-// back as a message, which is how anything blocking -- a channel receive,
-// an RPC -- stays out of Update. It handles one event and is re-issued,
+// back as a message, which is how anything blocking - a channel receive,
+// an RPC - stays out of Update. It handles one event and is re-issued,
 // because a Cmd runs once.
 func listenForEvents(events <-chan engine.Event) tea.Cmd {
 	return func() tea.Msg {
@@ -309,8 +309,8 @@ func (m *Model) clampCursor(n int) {
 
 // syncDetail fetches detail for the torrent under the cursor.
 //
-// Events carry snapshots only -- files, peers and pieces need their own
-// call -- so this runs on every tick as well as on cursor movement, which
+// Events carry snapshots only - files, peers and pieces need their own
+// call - so this runs on every tick as well as on cursor movement, which
 // keeps the pane no staler than the list beside it.
 func (m *Model) syncDetail() tea.Cmd {
 	t, ok := m.cursorTorrent()
@@ -350,15 +350,15 @@ const (
 //
 // `return m, m.setStatus(...)` is two operands of one return statement, and
 // the spec orders the function calls among themselves but not against the
-// plain operand beside them -- so whether the returned copy carries the
+// plain operand beside them - so whether the returned copy carries the
 // message is left to the compiler.
 //
 // A status bar reporting "rechecking 1 torrent(s)" is describing
-// something that happened, not something that is still true -- and the
+// something that happened, not something that is still true - and the
 // message outlived the recheck by however long the TUI stayed open,
 // which reads as a job that never finished.
 //
-// A caller that drops the returned command gets the old behaviour: a
+// A caller that drops the returned command gets the old behavior: a
 // message that stays until something replaces it. That is deliberate for
 // a lost connection, which is a condition rather than an event.
 func (m *Model) setStatus(msg statusMsg) tea.Cmd {
@@ -375,7 +375,7 @@ func (m *Model) setStatus(msg statusMsg) tea.Cmd {
 
 // expireStatusCmd asks for a status to be cleared after a delay. Split
 // out so a test can exercise it with a delay it does not have to sit
-// through -- tea.Tick's command really does wait.
+// through - tea.Tick's command really does wait.
 func expireStatusCmd(seq int, after time.Duration) tea.Cmd {
 	return tea.Tick(after, func(time.Time) tea.Msg {
 		return statusExpiredMsg{seq: seq}

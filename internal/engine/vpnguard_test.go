@@ -132,7 +132,7 @@ func TestGuardDoesNotTouchThePauseFlagOrTheSession(t *testing.T) {
 	}
 
 	// A torrent the user really did pause stays paused when the VPN
-	// returns -- the two states do not leak into each other.
+	// returns - the two states do not leak into each other.
 	if err := e.SetPaused(id, true); err != nil {
 		t.Fatalf("SetPaused: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestAMissingCheckBlocksEverything(t *testing.T) {
 }
 
 // The rate limiter and the guard are independent reasons to stop, and
-// neither may switch the other back on -- the bug this funnel exists to
+// neither may switch the other back on - the bug this funnel exists to
 // prevent, since the tick used to allow data whenever a torrent was under
 // its cap.
 func TestRateLimitAndGuardDoNotOverrideEachOther(t *testing.T) {

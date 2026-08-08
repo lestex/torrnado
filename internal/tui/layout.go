@@ -40,8 +40,8 @@ type panes struct {
 	footerW            int
 
 	// boxW is what lipgloss's Width() is given: the pane minus its
-	// border. Padding is *inside* that number -- lipgloss wraps at
-	// width-left-right padding -- so a pane keeps its size on screen and
+	// border. Padding is *inside* that number - lipgloss wraps at
+	// width-left-right padding - so a pane keeps its size on screen and
 	// only its text area shrinks.
 	sidebarBoxW, listBoxW, detailBoxW int
 
@@ -54,7 +54,7 @@ type panes struct {
 }
 
 // layout computes pane geometry for a width x height terminal. It assumes
-// width/height are at least minWidth/minHeight -- View checks that first.
+// width/height are at least minWidth/minHeight - View checks that first.
 func layout(width, height int) panes {
 	// One row goes to the footer; the panes share the rest.
 	bodyH := height - 1

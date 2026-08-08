@@ -27,7 +27,7 @@ func TestNamedInterfacesMatchExactly(t *testing.T) {
 }
 
 // interfaceForIP is how a source address becomes a device, so it has to
-// find an address the machine really has -- and refuse one it does not.
+// find an address the machine really has - and refuse one it does not.
 func TestInterfaceForIPFindsTheOwningDevice(t *testing.T) {
 	ifaces, err := net.Interfaces()
 	if err != nil {

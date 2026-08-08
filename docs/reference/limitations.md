@@ -24,10 +24,10 @@ than left as a surprise:
   `storage.NewFile(newDir)`, and re-verifies data in the background (a
   hash check against files already on disk, not a re-download). This
   also means a move resets any custom per-file priorities back to normal
-  -- the re-added `Torrent` is a fresh instance with no priority history.
+  - the re-added `Torrent` is a fresh instance with no priority history.
   Rebuilding the spec has one trap of its own: `Torrent.Metainfo()`
   returns an allocated-but-empty piece-layers map for a v1 torrent, and a
-  non-nil map is what the library takes as "this is v2" -- the re-add
+  non-nil map is what the library takes as "this is v2" - the re-add
   then fails with `no piece root set for file` for every file spanning
   more than one piece. `MoveStorage` clears it. A move that fails after
   the files have already been moved cannot be undone, so the error is
@@ -47,7 +47,7 @@ than left as a surprise:
   "low priority, but still wanted" file (as most torrent clients offer)
   has no faithful equivalent; `priority ... low` degrades to `normal`.
 - **`Files()` and `NumPieces()` require metadata to already be
-  available**, and aren't merely slow or empty before then -- they
+  available**, and aren't merely slow or empty before then - they
   dereference a nil pointer and crash the whole process (every torrent in
   the daemon, not just the one being touched) if called first. A magnet
   add can spend an arbitrary (even unbounded, for a dead swarm) amount of
@@ -59,13 +59,13 @@ than left as a surprise:
   config file written against this spec doesn't fail validation) but do
   nothing.
 - **No live per-tracker status.** No last-announce time, last error, or
-  tracker-reported seeder/leecher counts are exposed -- the tracker list
+  tracker-reported seeder/leecher counts are exposed - the tracker list
   is the static URL/tier list from the torrent's metainfo, not a live
   announce log.
 - **Peer choke state isn't exported.** `Peer.choking` / `Peer.peerChoking`
   are unexported with no accessor; the only public path to them is
   `Client.WriteStatus`, which dumps the entire client's status as free
-  text. The peers table therefore has no Choked column -- it shows how
+  text. The peers table therefore has no Choked column - it shows how
   each peer was discovered instead, rather than scraping a debug dump or
   guessing.
 - **No instantaneous per-peer transfer rate.** `PeerStats.DownloadRate` is
@@ -80,20 +80,20 @@ than left as a surprise:
   There is no API to observe the verification backlog, and it drains
   slowly: a torrent showing 100% routinely reports under half its pieces
   as verified for minutes afterwards. The Pieces tab therefore says
-  "verified", not "complete" -- the same number under a "complete" label
+  "verified", not "complete" - the same number under a "complete" label
   would read as data loss. Separately, `PieceState.Complete` is gated on
   `storage.Completion.Ok`, so a piece whose storage state has never been
   consulted is *unknown* rather than missing; `engine.PieceRun` carries
   that as its own flag and the map dims it rather than drawing it as a
   hole.
 - **Force-recheck is quadratic on large torrents.** Verifying a piece ends
-  in `filePieceImpl.MarkComplete`, which calls `allFilePiecesComplete` --
+  in `filePieceImpl.MarkComplete`, which calls `allFilePiecesComplete` -
   and that scans *every* piece of the file through the SQLite piece
   completion database. A full recheck marks every piece, so an N-piece
   single-file torrent costs O(N²) completion lookups: a 5.9 GB ISO (24208
   pieces of 256 KiB) needs ~586 million of them and will sit in
   `checking` at ~170% CPU for hours. The hashing itself finishes quickly
-  -- the Pieces tab shows all pieces verified long before
+  - the Pieces tab shows all pieces verified long before
   `VerifyDataContext` returns. There is no fix in v1.61.0 (the newest
   release) and no way to cancel a running recheck; restarting the daemon
   is the only way out. **Avoid `r` / `torrnado recheck` on multi-GB
@@ -104,7 +104,7 @@ than left as a surprise:
   panics with "piece request order has {} and pending pieces has {...}"
   when a recheck marks pieces pending that aren't in the request order.
   The panic happens on a library-owned goroutine, so no `recover()` in
-  this codebase can catch it -- the daemon dies and takes every torrent
+  this codebase can catch it - the daemon dies and takes every torrent
   with it.
 - **No port-range binding.** `ClientConfig.ListenPort` is a single fixed
   port (0 = random); `[port] low`/`high` in config is implemented by

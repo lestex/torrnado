@@ -57,7 +57,7 @@ func TestAddingATorrentWritesTheSession(t *testing.T) {
 		t.Errorf("info hash = %q, want %q", rec.InfoHash, id)
 	}
 	// Without the magnet URI a torrent whose metadata never arrived has
-	// no way back at all -- there is no metainfo file for it either.
+	// no way back at all - there is no metainfo file for it either.
 	if rec.Magnet != testMagnet {
 		t.Errorf("magnet = %q, want %q", rec.Magnet, testMagnet)
 	}
@@ -247,7 +247,7 @@ func TestRestoringWithNoSessionFileIsNotAnError(t *testing.T) {
 }
 
 // An embedder that never sets a state directory should get the old
-// behaviour, not a scattering of files in the working directory.
+// behavior, not a scattering of files in the working directory.
 func TestNoStateDirMeansNoFiles(t *testing.T) {
 	e := newTestEngine(t)
 	if _, err := e.AddMagnet(testMagnet, AddOpts{}); err != nil {

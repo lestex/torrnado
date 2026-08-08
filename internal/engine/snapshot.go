@@ -39,7 +39,7 @@ func (tr *tracked) updateRates(elapsed float64) {
 // client-wide, with no hook to throttle a single torrent's network I/O,
 // so a torrent over its cap is forbidden from moving data until it falls
 // back under. That averages out near the limit over a second or so, but
-// it is bursty -- a real token bucket it is not.
+// it is bursty - a real token bucket it is not.
 //
 // Callers must hold e.mu.
 func (tr *tracked) applyDataFlow(blocked bool) {
@@ -58,7 +58,7 @@ func (tr *tracked) applyDataFlow(blocked bool) {
 	}
 }
 
-// dataFlow is applyDataFlow's decision, without the library calls -- which
+// dataFlow is applyDataFlow's decision, without the library calls - which
 // is the whole of the logic and the only part that can be asserted on:
 // anacrolix/torrent has no accessor for either switch, so a test can set
 // one and never read it back.
@@ -83,7 +83,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 	t := tr.t
 
 	// Name, length and progress all read through the torrent's metadata,
-	// which for a magnet link is not there at the moment it is added --
+	// which for a magnet link is not there at the moment it is added -
 	// it has to be fetched from peers first. Until then only the name is
 	// available, and it falls back to the infohash.
 	var total, completed int64
@@ -123,7 +123,7 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 	uploaded := stats.BytesWrittenData.Int64()
 
 	// A torrent that has uploaded without downloading anything has an
-	// infinite ratio -- which is a real state (a torrent you seeded from
+	// infinite ratio - which is a real state (a torrent you seeded from
 	// files already on disk), not an error.
 	var ratio float64
 	switch {

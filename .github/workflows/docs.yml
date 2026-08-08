@@ -52,7 +52,7 @@ jobs:
       # --strict turns a broken internal link into a failed build rather
       # than a 404 someone finds later. NO_MKDOCS_2_WARNING drops a
       # banner about the upstream framework's next major version, which
-      # says nothing about this build -- see the Makefile.
+      # says nothing about this build - see the Makefile.
       - run: mkdocs build --strict
         env:
           NO_MKDOCS_2_WARNING: "true"

@@ -41,7 +41,7 @@ type Network struct {
 
 // VPN gates transfers on the system being connected to a VPN.
 type VPN struct {
-	// Required holds every transfer -- download and upload -- while the
+	// Required holds every transfer - download and upload - while the
 	// system is not on a VPN. Off by default: a guard nobody asked for
 	// that stops downloads is worse than no guard at all.
 	//
@@ -54,7 +54,7 @@ type VPN struct {
 	// about them. The escape hatch for a tunnel the kernel cannot label:
 	// policy-based IPsec moves traffic over the physical interface with
 	// no tunnel device at all, and nothing can tell that apart from
-	// having no VPN. Empty is the normal case -- detection needs no
+	// having no VPN. Empty is the normal case - detection needs no
 	// configuration.
 	Interfaces []string `toml:"interfaces"`
 }
@@ -64,7 +64,7 @@ type Logging struct {
 	// Level is the daemon's own verbosity: debug, info, warn or error.
 	Level string `toml:"level"`
 	// LibraryLevel is the same for the torrent library, which is far
-	// noisier than we are -- it reports every tracker that misbehaves.
+	// noisier than we are - it reports every tracker that misbehaves.
 	// Kept separate so its warnings can be quietened without losing ours.
 	LibraryLevel string `toml:"library_level"`
 	// File redirects the log. Empty means stderr, which is what a service
@@ -87,7 +87,7 @@ type Config struct {
 	// appended when the command does not name it.
 	Player string `toml:"player"`
 	// Opener is the command run to show a torrent's folder, given the
-	// directory the same way Player is given the URL -- so
+	// directory the same way Player is given the URL - so
 	// "alacritty --working-directory %f" opens a terminal there instead
 	// of a file manager.
 	//
@@ -119,7 +119,7 @@ func validLogLevel(s string) bool {
 // KnownActions are the TUI actions that may appear as keys in [keybinds].
 //
 // Defined here rather than in the TUI package so config can validate a
-// file without importing it -- which also keeps `torrnado daemon`, which
+// file without importing it - which also keeps `torrnado daemon`, which
 // has no interface at all, from pulling one in.
 var KnownActions = []string{
 	"up", "down", "top", "bottom",
@@ -137,8 +137,8 @@ var KnownActions = []string{
 // would" command.
 //
 // xdg-open rather than a named file manager: it launches whatever this
-// user has registered -- nautilus on GNOME, dolphin on KDE, thunar on
-// XFCE -- which is a better guess than any one of them, and naming a
+// user has registered - nautilus on GNOME, dolphin on KDE, thunar on
+// XFCE - which is a better guess than any one of them, and naming a
 // specific one is what the config key is for.
 func defaultOpener() string {
 	if runtime.GOOS == "darwin" {
@@ -182,7 +182,7 @@ func Default() (Config, error) {
 }
 
 // Load reads and validates the config file at path. If the file doesn't
-// exist, it returns Default() with no error -- a missing config is not a
+// exist, it returns Default() with no error - a missing config is not a
 // failure, an invalid one is.
 func Load(path string) (Config, error) {
 	cfg, err := Default()

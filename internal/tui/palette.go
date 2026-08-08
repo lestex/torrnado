@@ -13,7 +13,7 @@ import (
 )
 
 // The command palette is vim's ex-mode: a ":" prompt for the things that
-// need an argument and so cannot be a single keystroke -- adding a
+// need an argument and so cannot be a single keystroke - adding a
 // torrent, setting a rate, moving files.
 //
 // It deliberately mirrors the CLI subcommands rather than inventing its
@@ -102,13 +102,13 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 // splitArgs splits a palette line into a command and its arguments,
 // treating quoted runs as one argument and dropping the quotes.
 //
-// The palette is not a shell -- nothing here expands anything -- but the
+// The palette is not a shell - nothing here expands anything - but the
 // habits that get people to it are shell habits. A magnet uri has to be
 // quoted in zsh, because the `?` and `&` in it are glob and job-control
 // characters, so `:add 'magnet:?xt=...'` is what a person types. Passed
 // through with its quotes still attached, that argument does not look
 // like a magnet to the batch expander, which falls through to treating it
-// as a file glob and reports matching no files -- a confusing answer to a
+// as a file glob and reports matching no files - a confusing answer to a
 // command that was very nearly right.
 //
 // Quotes also make an argument with a space in it expressible at all:

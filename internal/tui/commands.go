@@ -14,7 +14,7 @@ import (
 
 // Each of these returns a tea.Cmd: a function bubbletea runs off the main
 // loop, whose result comes back as a message. That is how an RPC that
-// might block for a moment does not freeze the interface -- Update stays
+// might block for a moment does not freeze the interface - Update stays
 // a pure, fast state transition and the waiting happens elsewhere.
 
 func removeCmd(c *ipc.Client, ids []engine.TorrentID, deleteData bool) tea.Cmd {
@@ -41,7 +41,7 @@ func removeCmd(c *ipc.Client, ids []engine.TorrentID, deleteData bool) tea.Cmd {
 // when dir is not there.
 //
 // A torrent that has downloaded nothing yet, or whose data was just
-// purged, has no folder of its own -- the save path does exist, and
+// purged, has no folder of its own - the save path does exist, and
 // showing the place the data is going to land is more use than an error
 // about a directory the user never asked about by name.
 func openCmd(opener, dir, fallback string) tea.Cmd {
@@ -142,7 +142,7 @@ func loadDetail(c *ipc.Client, id engine.TorrentID) tea.Cmd {
 
 // setPriorityCmd changes one file's priority, then refetches the detail
 // so the pane shows what the daemon actually stored rather than what was
-// asked for -- the two differ, since the library has no "low".
+// asked for - the two differ, since the library has no "low".
 func setPriorityCmd(c *ipc.Client, id engine.TorrentID, fileIndex int, prio engine.Priority) tea.Cmd {
 	return func() tea.Msg {
 		if err := c.SetFilePriority(id, fileIndex, prio); err != nil {

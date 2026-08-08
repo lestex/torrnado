@@ -19,7 +19,7 @@ to persist: `/downloads` holds the data, `/var/lib/torrnado` holds the
 session file that tells the next container which torrents to resume.
 `docker restart` puts them all back.
 
-The image is built `CGO_ENABLED=0` -- deliberately, and it is the trap
+The image is built `CGO_ENABLED=0` - deliberately, and it is the trap
 described above: a download directory filled by a cgo build (the default
 for `go build` on your machine) uses a SQLite completion database this
 image cannot read, and everything re-verifies. Keep a data directory with

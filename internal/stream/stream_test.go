@@ -48,8 +48,8 @@ func TestServerBindsLoopbackOnly(t *testing.T) {
 	}
 }
 
-// Without a token any local process -- including a web page, which can
-// reach 127.0.0.1 -- could enumerate and read torrents.
+// Without a token any local process - including a web page, which can
+// reach 127.0.0.1 - could enumerate and read torrents.
 func TestWrongTokenIsRejected(t *testing.T) {
 	srv, id := startTestServer(t)
 

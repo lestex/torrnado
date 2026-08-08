@@ -36,7 +36,7 @@ func TestSubscribeReceivesEvents(t *testing.T) {
 	defer unsubscribe()
 
 	// Drive a tick directly rather than waiting a real second for the
-	// background loop -- tests should not sleep if they can avoid it.
+	// background loop - tests should not sleep if they can avoid it.
 	e.tick()
 
 	select {
@@ -98,7 +98,7 @@ func TestCloseClosesSubscribers(t *testing.T) {
 }
 
 // The config documents port 0 as "let the OS pick", but the library's
-// default config carries a fixed port -- so asking for any port has to
+// default config carries a fixed port - so asking for any port has to
 // mean setting it to zero, not leaving it alone. Two engines at once is
 // the test: with the fixed default the second one cannot bind.
 func TestPortZeroLetsTheOSChoose(t *testing.T) {

@@ -18,8 +18,8 @@
 #
 # One thing to know about the clients: `torrnado list`, `torrnado add`
 # and the TUI all start a daemon themselves if nothing answers the
-# socket. Run one while the service is stopped -- or during the few
-# seconds it is restarting -- and you get a daemon systemd does not
+# socket. Run one while the service is stopped - or during the few
+# seconds it is restarting - and you get a daemon systemd does not
 # manage, holding the lock the service wants; the service then refuses to
 # start and says so in the journal. Stop it the way it was started
 # (`pkill -u torrnado torrnado`) and `systemctl start torrnado`.
@@ -57,7 +57,7 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 
 # Comes back from a crash, but not from a clean exit or a failing config
-# -- a service that restarts forever on a typo is a service whose logs
+# - a service that restarts forever on a typo is a service whose logs
 # nobody can read.
 Restart=on-failure
 RestartSec=5

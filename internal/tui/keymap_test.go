@@ -26,7 +26,7 @@ func TestWithOverridesOnEmptyMapChangesNothing(t *testing.T) {
 
 // config.KnownActions and WithOverrides are two hand-written lists that
 // have to agree. If they drift, config accepts a binding that the keymap
-// then ignores -- a key the user believes they rebound, silently doing
+// then ignores - a key the user believes they rebound, silently doing
 // the old thing.
 func TestEveryKnownActionIsApplied(t *testing.T) {
 	for _, action := range config.KnownActions {
@@ -57,7 +57,7 @@ func TestEveryAppliedActionIsKnownToConfig(t *testing.T) {
 }
 
 // Every action must have a key. An unset one is the empty string, which
-// silently matches nothing -- the feature is simply dead, with no build
+// silently matches nothing - the feature is simply dead, with no build
 // error and no failing test unless something looks for exactly this.
 func TestNoBindingIsEmpty(t *testing.T) {
 	km := DefaultKeyMap()

@@ -9,7 +9,7 @@ thin client that connects to it over a Unix domain socket
   nothing is listening on the socket, it spawns `torrnado daemon` as a
   detached background process first (logging to
   `$XDG_DATA_HOME/torrnado/daemon.log`), waits for it to come up, then
-  attaches. Quitting the TUI (`q`) does **not** stop the daemon -- your
+  attaches. Quitting the TUI (`q`) does **not** stop the daemon - your
   torrents keep running.
 - **`torrnado daemon`** runs the engine in the foreground until
   interrupted (Ctrl-C) or sent SIGTERM. This is what gets spawned in the
@@ -22,7 +22,7 @@ thin client that connects to it over a Unix domain socket
   palette, you can also do from a shell script.
 
 To actually stop the daemon: send it SIGTERM/SIGINT (`pkill -f "torrnado daemon"`,
-or `kill` the pid from its log line) -- there's no `torrnado stop`
+or `kill` the pid from its log line) - there's no `torrnado stop`
 subcommand, since a daemon that's still seeding is a normal, intentional
 state to leave it in.
 
@@ -30,12 +30,12 @@ state to leave it in.
 
 The daemon is the whole program; the TUI and the CLI are just clients. So
 a headless box that downloads things is `torrnado daemon` running under
-whatever supervises processes there (systemd, launchd, tmux -- it makes
+whatever supervises processes there (systemd, launchd, tmux - it makes
 no difference to torrnado), driven over SSH.
 
 **It comes back after a restart.** Every change is written to
-`<state_dir>/session.json` -- the torrent list, paused state, save paths,
-per-torrent rate limits, per-file priorities, when each was added -- next
+`<state_dir>/session.json` - the torrent list, paused state, save paths,
+per-torrent rate limits, per-file priorities, when each was added - next
 to a copy of each torrent's metainfo in `<state_dir>/torrents/`. On start
 the daemon re-adds them all, and logs how many came back. Data already on
 disk is not re-downloaded or re-verified: the piece-completion database
@@ -44,12 +44,12 @@ to look it up for.
 
 A session file that cannot be read is logged and skipped, one bad record
 at a time. A server that refuses to boot over a malformed record is worse
-than one that comes back with fewer torrents, so it starts either way --
+than one that comes back with fewer torrents, so it starts either way -
 `journalctl` is where you find out which happened.
 
 **It can require a VPN.** `vpn.required = true` holds every transfer while
 the machine is not on one, and lets them go again by itself when it comes
-back -- which is the case a box left running for weeks actually hits, when
+back - which is the case a box left running for weeks actually hits, when
 the VPN client reconnects at 4am and nobody is watching. It is off by
 default. Read what it does and does not cover in
 [Configuration](../guide/configuration.md#requiring-a-vpn) before relying
@@ -66,13 +66,13 @@ time=2026-08-05T13:26:28.491-04:00 level=INFO msg="daemon ready" socket=... stre
 ```
 
 Set `log.file` to write to a file instead. `SIGHUP` reopens it, which is
-what logrotate needs after renaming the old one away -- without that the
+what logrotate needs after renaming the old one away - without that the
 daemon goes on writing to a file that no longer has a name, and the disk
 never gets the space back.
 
 The torrent library's own output is captured into the same stream at
 `log.library_level`, tagged `src=torrent`. It is much noisier than
-torrnado is -- it reports every tracker that misbehaves -- which is why
+torrnado is - it reports every tracker that misbehaves - which is why
 it has its own level rather than sharing `log.level`. Panics still go
 straight to stderr through the Go runtime, whatever `log.file` says, so
 leave stderr attached to something.

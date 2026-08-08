@@ -85,7 +85,7 @@ func newPurgeCmd() *cobra.Command {
 		Short: "Delete a torrent's data, keeping the torrent in the list",
 		Long: "Deletes the downloaded files and keeps the torrent, paused and at\n" +
 			"zero, with its save path, rate limits and place in the list intact.\n" +
-			"For freeing space without losing the entry -- resuming downloads it\n" +
+			"For freeing space without losing the entry - resuming downloads it\n" +
 			"again.",
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -96,7 +96,7 @@ func newPurgeCmd() *cobra.Command {
 	}
 }
 
-// newOpenCmd shows a torrent's folder in the configured opener -- the
+// newOpenCmd shows a torrent's folder in the configured opener - the
 // same thing the TUI's "o" does, for the same reason `preview --play`
 // exists beside the TUI's "v": every action should be reachable from a
 // script.
@@ -104,8 +104,8 @@ func newOpenCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "open <torrent-id>...",
 		Short: "Open a torrent's folder in the configured file manager",
-		Long: "Opens the directory holding the torrent's files -- its own folder for\n" +
-			"a multi-file torrent, the save path for a single-file one -- using the\n" +
+		Long: "Opens the directory holding the torrent's files - its own folder for\n" +
+			"a multi-file torrent, the save path for a single-file one - using the\n" +
 			"`opener` command from config.toml.\n\n" +
 			"The program is detached, so it outlives this command.",
 		Args: cobra.MinimumNArgs(1),
@@ -269,8 +269,8 @@ func newPreviewCmd() *cobra.Command {
 		Use:   "preview <torrent-id> <file-index>",
 		Short: "Print a local streaming URL for a file (playable while downloading)",
 		Long: "Prints a loopback HTTP URL serving one file's data. The URL is playable\n" +
-			"immediately -- reads block until the pieces arrive, and watching drives\n" +
-			"which pieces are fetched first -- so it works long before the torrent\n" +
+			"immediately - reads block until the pieces arrive, and watching drives\n" +
+			"which pieces are fetched first - so it works long before the torrent\n" +
 			"finishes. Asking for it resumes the torrent and raises the file's\n" +
 			"priority, since a paused or unwanted file cannot stream.\n\n" +
 			"The URL carries a token and is only valid for the life of the daemon\n" +

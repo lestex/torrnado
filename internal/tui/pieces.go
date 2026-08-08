@@ -29,7 +29,7 @@ const (
 // A torrent can have tens of thousands of pieces and the pane is a few
 // hundred cells, so each cell aggregates a contiguous range and reports
 // the worst state in it. The runs are walked in place rather than
-// expanded into a per-piece slice -- run-length is the whole reason the
+// expanded into a per-piece slice - run-length is the whole reason the
 // engine sends them this way.
 func (m Model) renderPieceMap(d engine.TorrentDetail, width, height int) string {
 	if width <= 0 || height <= 0 {

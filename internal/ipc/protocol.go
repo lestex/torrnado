@@ -39,7 +39,7 @@ const (
 // Request is a kitchen-sink call envelope: only the fields relevant to
 // Method are populated. A single flat struct (rather than one type per
 // method, carried in an interface{} field) keeps the wire format simple
-// and gob-friendly -- gob can't encode interface values without every
+// and gob-friendly - gob can't encode interface values without every
 // concrete type being registered up front, and a discriminated union of
 // plain fields sidesteps that entirely.
 type Request struct {
@@ -73,7 +73,7 @@ type Response struct {
 	ID string
 	// AddBatch reports both halves of a partial success: the ids that
 	// were added, and a message per source that failed. They are not
-	// index-aligned -- a batch can half work, and both facts matter.
+	// index-aligned - a batch can half work, and both facts matter.
 	IDs  []string
 	Errs []string
 
@@ -81,7 +81,7 @@ type Response struct {
 	Detail   *engine.TorrentDetail
 
 	// URL is the loopback stream URL for PreviewURL. The bytes never
-	// cross this socket -- see internal/stream for why they cannot.
+	// cross this socket - see internal/stream for why they cannot.
 	URL string
 }
 

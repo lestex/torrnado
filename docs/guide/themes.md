@@ -6,7 +6,7 @@ truecolor hex codes, for terminals with no real color support).
 
 Truecolor-to-256/16-color degradation is handled automatically by
 lipgloss/termenv based on the terminal's detected color profile (and
-`$COLORTERM`) -- themes don't need separate variants per color depth.
+`$COLORTERM`) - themes don't need separate variants per color depth.
 
 To customize or add a theme, drop a TOML file at
 `~/.config/torrnado/themes/<name>.toml` (matching `theme = "<name>"` in
@@ -30,7 +30,7 @@ A file matching a built-in theme's name overrides that built-in.
 ## Switching themes at runtime
 
 `:theme` opens a floating picker over the panes. Moving through it
-applies each theme as you go -- the list, sidebar and detail pane
+applies each theme as you go - the list, sidebar and detail pane
 underneath recolor live, so you judge a theme on your own torrents
 rather than on a swatch. `enter` keeps it, `esc` puts back the one you
 started with. Your own themes from the themes directory are listed
@@ -41,5 +41,5 @@ reported and stepped over rather than applied.
 picker.
 
 The choice lasts for the session. torrnado will not rewrite your
-`config.toml` -- doing so would re-encode the file and lose its comments
-and ordering -- so to keep a theme, put `theme = "nord"` in it yourself.
+`config.toml` - doing so would re-encode the file and lose its comments
+and ordering - so to keep a theme, put `theme = "nord"` in it yourself.

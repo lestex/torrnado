@@ -2,8 +2,8 @@
 #
 # Separate from the main Dockerfile on purpose: that image is how you
 # would actually run torrnado in a container, where systemd has no place.
-# This one exists to answer a different question -- does the unit file
-# work on a machine that has systemd -- and it has to be a whole booted
+# This one exists to answer a different question - does the unit file
+# work on a machine that has systemd - and it has to be a whole booted
 # system to do it.
 #
 #   make systemd-test
@@ -17,7 +17,7 @@
 #
 # The privileges are systemd's requirement, not torrnado's: pid 1 has to
 # mount things and manage cgroups. Nothing about the service itself needs
-# them -- it runs as an unprivileged user inside.
+# them - it runs as an unprivileged user inside.
 
 FROM golang:1.25 AS build
 WORKDIR /src
@@ -53,7 +53,7 @@ COPY --from=build /out/torrnado /usr/local/bin/torrnado
 COPY contrib/torrnado.service /etc/systemd/system/torrnado.service
 
 # The config the unit's header describes, at the path it describes, with
-# the matching ReadWritePaths line uncommented -- the sandbox makes
+# the matching ReadWritePaths line uncommented - the sandbox makes
 # /srv/torrent read-only otherwise, however its permissions look.
 RUN mkdir -p /etc/torrnado \
     && printf 'download_dir = "/srv/torrent"\n' > /etc/torrnado/config.toml \

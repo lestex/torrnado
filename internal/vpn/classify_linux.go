@@ -16,7 +16,7 @@ import (
 var sysClassNet = "/sys/class/net"
 
 // ARPHRD values from linux/if_arp.h. A tun device and a WireGuard device
-// both report NONE -- they carry IP with no link layer underneath, which
+// both report NONE - they carry IP with no link layer underneath, which
 // is what makes them tunnels.
 const (
 	arphrdPPP     = 512
@@ -81,7 +81,7 @@ func isTunnel(iface net.Interface) (bool, string, error) {
 }
 
 // ueventValue reads one KEY=value line out of a sysfs uevent file,
-// returning "" when the key is absent -- which is normal, not an error.
+// returning "" when the key is absent - which is normal, not an error.
 func ueventValue(path, key string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {

@@ -2,7 +2,7 @@
 #
 # End-to-end tests for what survives a daemon restart.
 #
-# This is the one behaviour a server depends on and no unit test can
+# This is the one behavior a server depends on and no unit test can
 # prove: kill the process, start it again, and find the same torrents in
 # the same state. The engine's own tests restart an Engine within one
 # process; here the process really does go away.
@@ -44,7 +44,7 @@ assert_contains "session records the torrent from a file" "$session" "$SAMPLE_IH
 assert_contains "session records the torrent from a magnet" "$session" "$IH_A"
 
 # A magnet whose metadata never arrives has no metainfo to be re-added
-# from -- the URI is the only way back.
+# from - the URI is the only way back.
 assert_contains "session keeps the magnet uri" "$session" "magnet:?xt=urn:btih:${IH_A}"
 
 if [ -f "$STATE_DIR/torrents/$SAMPLE_IH.torrent" ]; then
@@ -74,7 +74,7 @@ assert_contains "a paused torrent came back paused" "$out" "paused"
 log=$(cat "$DAEMON_LOG" 2>/dev/null)
 assert_contains "the daemon logged the restore" "$log" "session restored"
 
-# Its own timestamps, not the service manager's -- these have to be
+# Its own timestamps, not the service manager's - these have to be
 # readable when the daemon is not running under one.
 assert_contains "log lines carry a timestamp" "$log" "time="
 assert_contains "log lines carry a level" "$log" "level=INFO"

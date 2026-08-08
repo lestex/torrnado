@@ -17,7 +17,7 @@ import (
 //
 // The choice lasts for the session. Writing it back to config.toml would
 // mean re-encoding the file from the parsed struct, losing the comments
-// and ordering of something the user wrote by hand -- so the status
+// and ordering of something the user wrote by hand - so the status
 // message says what to add instead.
 
 // openThemePicker starts the picker with the cursor on the current theme.
@@ -98,7 +98,7 @@ func (m Model) moveThemeCursor(key string) (tea.Model, tea.Cmd) {
 }
 
 // applyTheme swaps in a theme's styles. Cheap enough to do on every
-// keystroke -- it is a few dozen lipgloss values, built once at startup
+// keystroke - it is a few dozen lipgloss values, built once at startup
 // for exactly this reason.
 func (m Model) applyTheme(th theme.Theme) Model {
 	m.theme = th
@@ -179,6 +179,6 @@ func (m Model) renderThemePicker() (box string, x, y int) {
 	b.WriteString(m.styles.Muted.Render(truncate(hint, inner)))
 
 	box = m.styles.pane(true).Width(inner + 2*panePadX).Render(b.String())
-	x, y = centre(m.width, m.height-1, lipgloss.Width(box), lipgloss.Height(box))
+	x, y = center(m.width, m.height-1, lipgloss.Width(box), lipgloss.Height(box))
 	return box, x, y
 }

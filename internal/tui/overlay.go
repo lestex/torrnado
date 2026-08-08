@@ -12,7 +12,7 @@ import (
 // This is how a floating window is drawn at all here: lipgloss cannot
 // composite. Joining two blocks makes a taller string, and Place
 // positions a block inside a region rather than layering one over
-// another -- so the frame is rendered as usual and the box is cut into
+// another - so the frame is rendered as usual and the box is cut into
 // it, a row at a time.
 //
 // The cutting has to understand ANSI. Every line of the frame is full of
@@ -20,7 +20,7 @@ import (
 // middle: the terminal then reads the tail of a color code as text and
 // paints the rest of the screen with whatever it did manage to parse.
 // ansi.Truncate and ansi.TruncateLeft measure printable width and, more
-// to the point, re-emit the style that was active at the cut -- which is
+// to the point, re-emit the style that was active at the cut - which is
 // what TruncateLeft's prefix argument is for.
 func overlay(base, box string, x, y int) string {
 	if box == "" {
@@ -45,7 +45,7 @@ func overlay(base, box string, x, y int) string {
 
 	// The frame is rectangular, so its width is the widest row. A box
 	// running past the right edge is clipped to it rather than allowed
-	// to make those rows wider than the rest -- an over-wide row wraps,
+	// to make those rows wider than the rest - an over-wide row wraps,
 	// and one wrapped row pushes everything below it down and the
 	// bottom border off the screen.
 	frameW := 0
@@ -94,9 +94,9 @@ func overlay(base, box string, x, y int) string {
 	return strings.Join(lines, "\n")
 }
 
-// centre returns the top-left corner that centres a boxW x boxH box in a
+// center returns the top-left corner that centers a boxW x boxH box in a
 // width x height area, kept on screen when the box is the larger of the
 // two.
-func centre(width, height, boxW, boxH int) (x, y int) {
+func center(width, height, boxW, boxH int) (x, y int) {
 	return max(0, (width-boxW)/2), max(0, (height-boxH)/2)
 }

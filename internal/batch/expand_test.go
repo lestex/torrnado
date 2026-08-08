@@ -44,7 +44,7 @@ func TestExpandTorrentFile(t *testing.T) {
 	}
 }
 
-// A directory means the .torrent files directly inside it -- not a
+// A directory means the .torrent files directly inside it - not a
 // recursive walk, and not the other files that happen to be there.
 func TestExpandDirectory(t *testing.T) {
 	dir := t.TempDir()

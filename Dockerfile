@@ -10,7 +10,7 @@
 #   docker logs -f torrnado
 #
 # The daemon is the whole program, so the container runs `torrnado
-# daemon` and every other command is a `docker exec` into it -- they talk
+# daemon` and every other command is a `docker exec` into it - they talk
 # over the Unix socket in the state volume, which never leaves the
 # container.
 
@@ -51,7 +51,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Through make rather than by hand, so this stage cannot drift from what
-# the same targets do on a developer's machine -- and so the list of e2e
+# the same targets do on a developer's machine - and so the list of e2e
 # suites lives in exactly one place (the systemd one needs a booted
 # system and is excluded there).
 RUN make fmt-check vet test e2e
@@ -60,7 +60,7 @@ RUN make fmt-check vet test e2e
 FROM alpine:3.21
 
 # ca-certificates for https .torrent URLs (`torrnado add https://...`);
-# tini so the daemon gets a real init as pid 1 -- without one, SIGTERM
+# tini so the daemon gets a real init as pid 1 - without one, SIGTERM
 # from `docker stop` is delivered to a process that has no default
 # handler for it, and the session is never saved on the way out.
 RUN apk add --no-cache ca-certificates tini

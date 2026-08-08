@@ -62,7 +62,7 @@ func TestNamesAreSorted(t *testing.T) {
 }
 
 // The "plain" theme exists for terminals with no real color support, so
-// it must not use hex values -- those are what it is avoiding.
+// it must not use hex values - those are what it is avoiding.
 func TestPlainThemeAvoidsHexColors(t *testing.T) {
 	th, err := Load("plain", t.TempDir())
 	if err != nil {

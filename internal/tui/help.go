@@ -23,7 +23,7 @@ func displayKey(key string) string {
 // renderHelp draws the keybind reference.
 //
 // It is generated from the live keymap rather than written out by hand,
-// so it cannot drift from what is actually bound -- including any
+// so it cannot drift from what is actually bound - including any
 // rebinding from a config file, which a hardcoded list would misreport.
 func (m Model) renderHelp(width, height int) string {
 	km := m.keymap
@@ -53,7 +53,7 @@ func (m Model) renderHelp(width, height int) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(m.styles.Title.Render("torrnado -- keys"))
+	b.WriteString(m.styles.Title.Render("torrnado - keys"))
 	b.WriteString("\n\n")
 	writeHelpSection(&b, m, "NAVIGATION", nav, width)
 	writeHelpSection(&b, m, "ACTIONS", actions, width)
@@ -63,7 +63,7 @@ func (m Model) renderHelp(width, height int) string {
 	if height > 0 && len(lines) >= height {
 		// Overflowing would push the pane's own border off the screen.
 		lines = lines[:height-1]
-		note = "(clipped -- resize the terminal)"
+		note = "(clipped - resize the terminal)"
 	}
 	lines = append(lines, m.styles.Muted.Render(truncate(note, width)))
 	return strings.Join(lines, "\n")

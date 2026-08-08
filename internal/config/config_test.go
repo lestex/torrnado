@@ -17,7 +17,7 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
-// A missing config file is not a failure -- it is the normal case for
+// A missing config file is not a failure - it is the normal case for
 // somebody who has never written one.
 func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 	cfg, err := Load(filepath.Join(t.TempDir(), "absent.toml"))
@@ -175,7 +175,7 @@ func TestVPNGuardIsOffByDefault(t *testing.T) {
 		t.Error("vpn.required defaults to true; it must be opt-in")
 	}
 	if len(cfg.VPN.Interfaces) != 0 {
-		t.Errorf("vpn.interfaces defaults to %v, want empty -- detection needs no configuration",
+		t.Errorf("vpn.interfaces defaults to %v, want empty - detection needs no configuration",
 			cfg.VPN.Interfaces)
 	}
 }
@@ -210,7 +210,7 @@ func TestValidateRejectsAnEmptyVPNInterface(t *testing.T) {
 }
 
 // The opener has to be usable on the platform it is running on without
-// anyone configuring anything -- that is the whole point of a default --
+// anyone configuring anything - that is the whole point of a default -
 // and an override has to survive validation.
 func TestOpenerHasAWorkingDefault(t *testing.T) {
 	cfg, err := Default()

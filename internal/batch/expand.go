@@ -1,6 +1,6 @@
-// Package batch turns command-line/command-palette add arguments --
+// Package batch turns command-line/command-palette add arguments -
 // magnet URIs, .torrent files, directories of .torrent files, glob
-// patterns, and text files listing one magnet URI per line -- into a
+// patterns, and text files listing one magnet URI per line - into a
 // flat, self-describing list of sources
 // ready for ipc.Client.AddBatch: each entry is either a "magnet:" URI or
 // a local path to a .torrent file.
@@ -139,7 +139,7 @@ func expandMagnetListFile(path string) ([]string, error) {
 
 // fetchTorrentFile downloads a .torrent file from an http(s) URL to a
 // temp file and returns its local path. It doesn't validate the content
-// beyond the HTTP status -- an invalid/non-torrent response surfaces as a
+// beyond the HTTP status - an invalid/non-torrent response surfaces as a
 // clear bencode-parse error from the daemon's AddTorrentFile instead.
 func fetchTorrentFile(url string) (string, error) {
 	client := &http.Client{Timeout: httpFetchTimeout}

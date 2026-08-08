@@ -44,7 +44,7 @@ func (r Rate) MarshalText() ([]byte, error) {
 
 // ParseRate parses a human-friendly rate into bytes/sec.
 //
-// Accepts a bare byte count, a suffixed size ("500k", "2M", "1.5G" --
+// Accepts a bare byte count, a suffixed size ("500k", "2M", "1.5G" -
 // binary multiples, case-insensitive), or "unlimited"/"none"/"" for no
 // limit. Zero is the internal representation of "no limit" throughout.
 func ParseRate(s string) (int64, error) {

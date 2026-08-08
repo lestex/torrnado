@@ -11,7 +11,7 @@ daemon being brought back.
 Worth knowing on a systemd box: every client starts a daemon itself when
 nothing answers the socket. Run `torrnado list` while the service is
 stopped, or during the seconds it takes to restart, and you get a second
-daemon that systemd does not manage -- holding the lock the service is
+daemon that systemd does not manage - holding the lock the service is
 about to want, which makes the service fail to start with
 `another daemon already holds .../daemon.sock.lock` in the journal. Kill
 that one (`pkill -u torrnado torrnado`) and start the service again.

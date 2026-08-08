@@ -13,7 +13,7 @@ import (
 //
 // The downloaded bytes and the piece-completion database already survive
 // a restart on their own. What does not is the knowledge that a torrent
-// exists at all -- the engine's torrent map is built empty every start --
+// exists at all - the engine's torrent map is built empty every start -
 // along with everything the user chose about it: paused, save path, rate
 // limits, per-file priorities. Without this file a box that reboots comes
 // back idle, with the data still on disk and nothing downloading.
@@ -81,7 +81,7 @@ func (e *Engine) persist() {
 	suppressed := e.restoring
 	e.mu.Unlock()
 	// A restore adds torrents through the same operations as anything
-	// else, so without this it would rewrite the file once per torrent --
+	// else, so without this it would rewrite the file once per torrent -
 	// and a failure halfway through would leave a file listing only the
 	// ones restored so far, quietly losing the rest. Saved once at the
 	// end instead.
@@ -98,7 +98,7 @@ func (e *Engine) persist() {
 // opts out of persistence entirely.
 //
 // Called after every operation that changes something rather than on a
-// timer: those are rare -- a handful a minute at worst -- so rewriting
+// timer: those are rare - a handful a minute at worst - so rewriting
 // the whole file each time costs less than tracking which parts changed,
 // and leaves no window where the file is behind reality.
 func (e *Engine) SaveSession() error {
@@ -215,7 +215,7 @@ func (e *Engine) removeMetainfo(id TorrentID) {
 //
 // Nothing here is fatal. A session file that is missing, truncated,
 // half-written or written by a newer version leaves the daemon starting
-// with fewer torrents (or none) and a message saying so -- a server that
+// with fewer torrents (or none) and a message saying so - a server that
 // refuses to boot because one record is malformed is worse than one that
 // comes back incomplete, and the operator can see the difference in the
 // log either way.
@@ -327,7 +327,7 @@ func fileExists(path string) bool {
 //
 // A rename within one filesystem is atomic, so a reader sees either the
 // old file or the new one. Writing in place would leave a half-written
-// session behind if the machine lost power mid-write -- exactly the
+// session behind if the machine lost power mid-write - exactly the
 // moment this file has to be readable.
 func writeFileAtomic(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")

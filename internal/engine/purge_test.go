@@ -13,7 +13,7 @@ import (
 
 // completedTorrent adds a torrent whose data is already on disk and
 // verifies it, so the engine and the piece-completion database both
-// believe every piece is there -- which is the state purging has to
+// believe every piece is there - which is the state purging has to
 // undo.
 func completedTorrent(t *testing.T, e *Engine, dir string) (TorrentID, string) {
 	t.Helper()
@@ -65,7 +65,7 @@ func TestPurgeDataDeletesTheFilesAndKeepsTheTorrent(t *testing.T) {
 	// without clearing the completion database leaves a torrent that
 	// still reports 100% and cannot serve a byte of it.
 	if snap.Progress != 0 || snap.Completed != 0 {
-		t.Errorf("progress = %.2f (%d bytes) after a purge, want 0 -- the completion database was not cleared",
+		t.Errorf("progress = %.2f (%d bytes) after a purge, want 0 - the completion database was not cleared",
 			snap.Progress, snap.Completed)
 	}
 	if snap.TotalLength == 0 {
@@ -116,7 +116,7 @@ func TestPurgeDataKeepsTheTorrentsSettings(t *testing.T) {
 
 // An unfinished file is written as "<name>.part" and only renamed when
 // every one of its pieces has landed, so a deletion that only looks for
-// the finished name frees nothing at all on a half-downloaded torrent --
+// the finished name frees nothing at all on a half-downloaded torrent -
 // which is the one most worth purging.
 func TestDataPathsCoversPartFiles(t *testing.T) {
 	cfg := testConfig(t)
@@ -157,7 +157,7 @@ func TestDataPathsCoversPartFiles(t *testing.T) {
 }
 
 // Before metadata arrives there is no file list to build paths from, and
-// nothing has been written either -- a magnet must not make this panic,
+// nothing has been written either - a magnet must not make this panic,
 // the way every other call that reads Files() would.
 func TestDataPathsIsEmptyWithoutMetadata(t *testing.T) {
 	e := newTestEngine(t)
@@ -228,7 +228,7 @@ func writeMultiFileTorrent(t *testing.T, parent string) (torrentPath, payloadDir
 
 // A real distribution torrent is a directory of files, not one file, and
 // a finished one has had every file marked read-only by the library. Both
-// have to go -- and so does the directory they were in, or purging a
+// have to go - and so does the directory they were in, or purging a
 // library of them leaves a tree of empty folders behind.
 func TestPurgeDataDeletesAMultiFileTorrentsDirectory(t *testing.T) {
 	cfg := testConfig(t)

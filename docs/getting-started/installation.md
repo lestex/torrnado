@@ -19,7 +19,7 @@ Each archive carries the binary, the README, the changelog and
     Release binaries are built without cgo, which selects a pure-Go
     piece-completion database rather than the SQLite one a local `go build`
     produces. The two do not read each other's files, so the first run
-    after switching re-verifies data already on disk -- once. Nothing is
+    after switching re-verifies data already on disk - once. Nothing is
     lost; it just looks alarming.
 
 ## From source
@@ -38,7 +38,7 @@ putting it on your `$PATH`.
 
 ## What you get
 
-One binary. It is the daemon, the TUI and the CLI at once -- which of the
+One binary. It is the daemon, the TUI and the CLI at once - which of the
 three you get depends on how you invoke it:
 
 ```sh
@@ -48,5 +48,5 @@ torrnado add <magnet> # a one-shot command against a running daemon
 ```
 
 There is nothing to install beyond putting that binary on your `$PATH`,
-and nothing to configure before the first run -- a missing config file is
+and nothing to configure before the first run - a missing config file is
 not an error, only an invalid one.

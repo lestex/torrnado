@@ -134,12 +134,12 @@ func TestOverlayClipsABoxTallerThanTheFrame(t *testing.T) {
 }
 
 func TestCentre(t *testing.T) {
-	if x, y := centre(100, 40, 20, 10); x != 40 || y != 15 {
-		t.Errorf("centre = (%d,%d), want (40,15)", x, y)
+	if x, y := center(100, 40, 20, 10); x != 40 || y != 15 {
+		t.Errorf("center = (%d,%d), want (40,15)", x, y)
 	}
 	// A box bigger than the area stays on screen rather than going
 	// negative, which would put it off the top-left corner.
-	if x, y := centre(10, 5, 40, 20); x != 0 || y != 0 {
-		t.Errorf("centre = (%d,%d), want (0,0)", x, y)
+	if x, y := center(10, 5, 40, 20); x != 0 || y != 0 {
+		t.Errorf("center = (%d,%d), want (0,0)", x, y)
 	}
 }

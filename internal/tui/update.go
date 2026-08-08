@@ -16,7 +16,7 @@ const ddChordWindow = 600 * time.Millisecond
 //
 // Every change to the interface passes through here: a keystroke, a
 // terminal resize, a state push from the daemon. That is the whole point
-// of the pattern -- there is one place where the model changes.
+// of the pattern - there is one place where the model changes.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -236,13 +236,13 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		// Handled here rather than in the detail pane, which falls
 		// through to this: v means the same thing from any pane, and
 		// claiming it only in the detail pane meant it silently did
-		// nothing from the list -- where it is most natural to press.
+		// nothing from the list - where it is most natural to press.
 		return m.previewFile()
 
 	case key == km.Open:
 		return m.openCursorFolder()
 
-	// The detail pane is always docked, so there is no view to open --
+	// The detail pane is always docked, so there is no view to open -
 	// this moves focus into it instead.
 	case key == km.Detail:
 		m.focus = focusDetail
@@ -347,8 +347,8 @@ func (m Model) openCursorFolder() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	// DataDir is empty against a daemon too old to report it -- gob
-	// leaves an unknown field at its zero value -- and the save path is
+	// DataDir is empty against a daemon too old to report it - gob
+	// leaves an unknown field at its zero value - and the save path is
 	// the right answer often enough to be a better fallback than nothing.
 	dir := t.DataDir
 	if dir == "" {

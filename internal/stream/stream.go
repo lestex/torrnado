@@ -4,7 +4,7 @@
 // This exists as a second listener beside the gob IPC socket rather than
 // as another IPC method because the two carry fundamentally different
 // traffic. internal/ipc is one gob message per call, dispatched serially
-// per connection under a 30s timeout, with no framing or flow control --
+// per connection under a 30s timeout, with no framing or flow control -
 // nothing about it can carry an open-ended byte stream that a player
 // seeks around in for an hour. HTTP already solves exactly that: net/http
 // gives range requests, seeking, content-type sniffing and cancellation
@@ -35,7 +35,7 @@ const (
 	// has already read contiguously. For sequential bulk reads that ramp
 	// is sensible; for video it is the worst possible shape, since the
 	// moments needing the deepest buffer are exactly the ones with no
-	// read history -- the first seconds of playback and every seek.
+	// read history - the first seconds of playback and every seek.
 	readahead = 8 << 20 // 8 MiB
 
 	// streamPrefix is the first path segment of every stream URL, so the
@@ -54,9 +54,9 @@ type Server struct {
 // Serve starts the stream server on an OS-assigned loopback port.
 //
 // It binds 127.0.0.1 rather than any routable address, and every URL
-// carries a per-session token: without one, any local process -- which
+// carries a per-session token: without one, any local process - which
 // includes any web page the browser happens to load, since pages can
-// reach 127.0.0.1 -- could enumerate torrents and read their contents.
+// reach 127.0.0.1 - could enumerate torrents and read their contents.
 func Serve(eng *engine.Engine) (*Server, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -82,7 +82,7 @@ func Serve(eng *engine.Engine) (*Server, error) {
 func (s *Server) Addr() string { return s.ln.Addr().String() }
 
 // URL returns the stream URL for one file of one torrent. It does not
-// check that either exists -- that happens when the URL is fetched.
+// check that either exists - that happens when the URL is fetched.
 func (s *Server) URL(id engine.TorrentID, fileIndex int) string {
 	return fmt.Sprintf("http://%s/%s/%s/%s/%d",
 		s.Addr(), streamPrefix, s.token, string(id), fileIndex)

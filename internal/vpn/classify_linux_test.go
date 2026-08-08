@@ -38,8 +38,8 @@ func fakeDevice(t *testing.T, root, name, devType string, tunFlags bool, hwType 
 	}
 }
 
-// Names cannot be trusted on Linux -- wg-quick names an interface after
-// its config file, so a VPN routinely comes up as "home" -- which is why
+// Names cannot be trusted on Linux - wg-quick names an interface after
+// its config file, so a VPN routinely comes up as "home" - which is why
 // this classifies by what sysfs says the device is.
 func TestIsTunnelOnLinux(t *testing.T) {
 	root := t.TempDir()
@@ -51,7 +51,7 @@ func TestIsTunnelOnLinux(t *testing.T) {
 	// OpenVPN: no DEVTYPE, but the tun driver's flags are there.
 	fakeDevice(t, root, "tun0", "", true, "65534\n")
 	// A tap device, which is ARPHRD_ETHER and would otherwise look
-	// physical -- tun_flags is the only thing that gives it away.
+	// physical - tun_flags is the only thing that gives it away.
 	fakeDevice(t, root, "tap0", "", true, "1\n")
 	// A dial-up-style link: no DEVTYPE, no tun_flags, ARPHRD_PPP.
 	fakeDevice(t, root, "ppp0", "", false, "512\n")
@@ -88,7 +88,7 @@ func TestIsTunnelOnLinux(t *testing.T) {
 
 // An interface sysfs has nothing to say about must be an error, so Detect
 // fails closed rather than treating "cannot tell" as "not a VPN, carry
-// on" -- the two look the same to a caller reading only the bool.
+// on" - the two look the same to a caller reading only the bool.
 func TestIsTunnelErrorsOnAnUnknownDevice(t *testing.T) {
 	sysClassNet = t.TempDir()
 	t.Cleanup(func() { sysClassNet = "/sys/class/net" })

@@ -16,7 +16,7 @@ import (
 //
 // Column widths for the Peers table. Address is elastic; the rest are
 // fixed. There is no Choked column: anacrolix/torrent does not export
-// peer choke state -- see the doc comment on engine.PeerInfo.
+// peer choke state - see the doc comment on engine.PeerInfo.
 //
 // As in list.go, the "fixed" totals must count one gap per column
 // including the elastic one's, or the row overruns the pane by a cell and
@@ -32,7 +32,7 @@ const (
 	fileColSize = 9
 	fileColPrio = 8 // fits the "Priority" header, wider than any value
 	fileColPct  = 5
-	// One marker cell: a file can be under the cursor, and that is all --
+	// One marker cell: a file can be under the cursor, and that is all -
 	// unlike a torrent row, which can also be selected.
 	fileColMark  = 1
 	fileColFixed = fileColMark + 4*colGap + fileColSize + fileColPct + fileColPrio
@@ -198,8 +198,8 @@ func (m Model) filesTab(p panes, height int) []string {
 // The mediaMarker in the file list is the discoverability hint instead.
 //
 // When it cannot play anything it says so. It used to return silently,
-// which is how pressing v on a torrent in the list -- the obvious way to
-// play one -- looked like a broken feature rather than a key that had not
+// which is how pressing v on a torrent in the list - the obvious way to
+// play one - looked like a broken feature rather than a key that had not
 // been wired up.
 func (m Model) previewFile() (tea.Model, tea.Cmd) {
 	t, ok := m.cursorTorrent()
@@ -208,14 +208,14 @@ func (m Model) previewFile() (tea.Model, tea.Cmd) {
 	}
 
 	// The detail pane is fetched for whatever the cursor is on, so its
-	// file list belongs to this torrent -- unless the fetch has not
+	// file list belongs to this torrent - unless the fetch has not
 	// landed yet, which is a second or so after the cursor moves.
 	if !m.detailLoaded || m.detail.Snapshot.ID != t.ID {
 		cmd := m.setStatus(errStatus(fmt.Errorf("still reading %s", t.Name)))
 		return m, cmd
 	}
 	if len(m.detail.Files) == 0 {
-		cmd := m.setStatus(errStatus(fmt.Errorf("no files yet -- still waiting for this torrent's metadata")))
+		cmd := m.setStatus(errStatus(fmt.Errorf("no files yet - still waiting for this torrent's metadata")))
 		return m, cmd
 	}
 
@@ -223,7 +223,7 @@ func (m Model) previewFile() (tea.Model, tea.Cmd) {
 	// is on one; otherwise the biggest file in the torrent.
 	//
 	// Pressing v on a row in the list is how anyone would try to play a
-	// torrent, and it used to do nothing at all -- the key was claimed
+	// torrent, and it used to do nothing at all - the key was claimed
 	// only by the detail pane, and only on one of its three tabs. The
 	// largest file is what "play this" means: the feature is bigger than
 	// the sample, the sample bigger than the subtitles.
@@ -278,7 +278,7 @@ func (m Model) piecesTab(p panes, height int) []string {
 }
 
 // mediaExtensions are the file types worth flagging as playable in the
-// file list. This drives the marker only -- preview is never refused on
+// file list. This drives the marker only - preview is never refused on
 // the strength of an extension.
 var mediaExtensions = map[string]bool{
 	".mkv": true, ".mp4": true, ".avi": true, ".mov": true, ".m4v": true,

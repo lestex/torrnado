@@ -1,6 +1,6 @@
 // Package engine tracks torrents and reports their state behind a small
-// API plus an event channel. Everything else in torrnado -- the daemon's
-// RPC layer, the CLI, the TUI -- goes through here rather than touching
+// API plus an event channel. Everything else in torrnado - the daemon's
+// RPC layer, the CLI, the TUI - goes through here rather than touching
 // torrents directly.
 package engine
 
@@ -100,8 +100,8 @@ func (s State) String() string {
 }
 
 // TorrentID identifies a torrent by its hex-encoded v1 info hash. Using a
-// plain string keeps this package's API -- and the wire protocol built on
-// top of it -- free of any torrent library's own types.
+// plain string keeps this package's API - and the wire protocol built on
+// top of it - free of any torrent library's own types.
 type TorrentID string
 
 // TorrentSnapshot is a point-in-time view of a torrent's state, cheap to
@@ -154,14 +154,14 @@ type TorrentSnapshot struct {
 func (s TorrentSnapshot) StatusText() string {
 	// Keyed off Checking, not off the progress being above zero: a check
 	// that has just started is at 0%, and reporting that as "no progress
-	// information" left a long verify showing a bare "checking" -- the
+	// information" left a long verify showing a bare "checking" - the
 	// one moment a user most wants a number. A torrent waiting on a
 	// magnet's metadata is StateChecking with nothing being checked, and
 	// still reads as plain "checking".
 	//
 	// The second half of the condition is for a daemon older than the
-	// Checking field. The daemon outlives the client by design -- that is
-	// the point of the whole split -- so a new TUI talking to a daemon
+	// Checking field. The daemon outlives the client by design - that is
+	// the point of the whole split - so a new TUI talking to a daemon
 	// that has been up for a week is normal, and gob leaves a field it
 	// has never heard of at its zero value. Anything the daemon can still
 	// tell us is worth using.
@@ -210,13 +210,13 @@ type PeerInfo struct {
 // The library's own torrent.PieceState cannot go on the gob wire: it
 // embeds storage.Completion, which carries an `error` field, and gob
 // refuses interface values whose concrete types aren't registered. Runs
-// also keep the wire small -- a 50k-piece torrent is a handful of entries
+// also keep the wire small - a 50k-piece torrent is a handful of entries
 // rather than 50 KB pushed every second.
 type PieceRun struct {
 	Length int // number of consecutive pieces in this run
 	// Known is storage.Completion.Ok: whether the library has actually
 	// consulted storage for these pieces yet. It gates Complete, and it
-	// is false far more often than you'd expect -- a piece stays unknown
+	// is false far more often than you'd expect - a piece stays unknown
 	// until something touches it, so a torrent that has finished
 	// downloading still reports most of its pieces as unknown until peers
 	// request them back. Treating unknown as "missing" would draw a
@@ -289,7 +289,7 @@ type Event struct {
 // does not.
 //
 // Declared here rather than taken from internal/vpn so this package keeps
-// no internal dependencies -- the daemon converts one to the other. It
+// no internal dependencies - the daemon converts one to the other. It
 // also means a test can drive the guard with a closure instead of a
 // network.
 type VPNStatus struct {

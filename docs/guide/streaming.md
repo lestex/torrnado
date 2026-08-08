@@ -1,7 +1,7 @@
 # Streaming preview
 
 Press `v` on a file in the detail pane's Files tab and it opens in your player
-immediately -- no need to wait for the torrent to finish. Seeking works too:
+immediately - no need to wait for the torrent to finish. Seeking works too:
 jump to any point and the pieces you land on are fetched first.
 
 ```sh
@@ -34,7 +34,7 @@ surface. The player is detached, so it keeps playing after you quit the TUI.
 ### Switching themes
 
 `:theme` opens a floating picker over the panes. Moving through it
-applies each theme as you go -- the list, sidebar and detail pane
+applies each theme as you go - the list, sidebar and detail pane
 underneath recolor live, so you judge a theme on your own torrents
 rather than on a swatch. `enter` keeps it, `esc` puts back the one you
 started with. Your own themes from the themes directory are listed
@@ -45,5 +45,5 @@ reported and stepped over rather than applied.
 picker.
 
 The choice lasts for the session. torrnado will not rewrite your
-`config.toml` -- doing so would re-encode the file and lose its comments
-and ordering -- so to keep a theme, put `theme = "nord"` in it yourself.
+`config.toml` - doing so would re-encode the file and lose its comments
+and ordering - so to keep a theme, put `theme = "nord"` in it yourself.

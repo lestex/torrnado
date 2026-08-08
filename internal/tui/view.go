@@ -10,7 +10,7 @@ import (
 // View renders the whole interface as one string.
 //
 // bubbletea diffs this against what is already on screen, so View must be
-// a pure function of the Model -- no side effects, no I/O. Anything that
+// a pure function of the Model - no side effects, no I/O. Anything that
 // needs either belongs in Update.
 func (m Model) View() string {
 	if m.quitting {
@@ -95,7 +95,7 @@ func clampBlock(s string, height int) string {
 // land.
 //
 // Plain text, the way vim's ex line is. This used to borrow SelectedRow
-// -- the list's selection highlight -- which painted a block of
+// - the list's selection highlight - which painted a block of
 // background around the typed text and stopped dead at the end of it,
 // reading as a stray highlight rather than a prompt.
 //
@@ -118,7 +118,7 @@ func (m Model) renderPrompt(sigil, buf string, width int) string {
 // space before whatever comes next.
 //
 // Fixed, because everything to the right of these two numbers moves when
-// they do otherwise -- the separator and the torrent count slid a cell
+// they do otherwise - the separator and the torrent count slid a cell
 // left and right every second as a speed crossed 10, 100 or a unit
 // boundary, which is the sort of movement the eye follows and the mind
 // then has to dismiss.
@@ -128,7 +128,7 @@ const footerRateW = 14
 // renderFooter draws the single bottom line: transfer totals on the left,
 // any transient status message on the right.
 func (m Model) renderFooter(p panes) string {
-	// While typing, the footer is the prompt -- there is nowhere else to
+	// While typing, the footer is the prompt - there is nowhere else to
 	// put it, and the totals are less useful than seeing what you typed.
 	switch m.mode {
 	case modeSearch:
@@ -161,7 +161,7 @@ func (m Model) renderFooter(p panes) string {
 
 	// Otherwise the message takes the line. It answers something the user
 	// just did and clears itself after a few seconds, while the totals
-	// are always a keystroke away and are back the moment it expires --
+	// are always a keystroke away and are back the moment it expires -
 	// and this used to drop the message instead, so a long one (every
 	// error naming a path, say) simply never appeared.
 	//

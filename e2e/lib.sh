@@ -2,8 +2,8 @@
 #
 # Shared helpers for the end-to-end tests.
 #
-# These drive the real binary the way a user would -- start a daemon, run
-# commands, read what they print -- rather than calling Go functions. That
+# These drive the real binary the way a user would - start a daemon, run
+# commands, read what they print - rather than calling Go functions. That
 # catches things unit tests structurally cannot: a subcommand not wired
 # into the root command, a daemon that fails to detach, a socket path that
 # is wrong.
@@ -24,13 +24,13 @@ TESTS_FAILED=0
 # daemon.
 setup_env() {
 	if [ ! -x "$TORRNADO" ]; then
-		echo "no binary at $TORRNADO -- run 'make build' first" >&2
+		echo "no binary at $TORRNADO - run 'make build' first" >&2
 		exit 1
 	fi
 
 	# Check up front rather than discovering it through a failing
 	# assertion. lsof identifies the test's daemon, and its absence
-	# otherwise looks exactly like a daemon that would not start -- the
+	# otherwise looks exactly like a daemon that would not start - the
 	# error is swallowed and the pid simply comes back empty.
 	if ! command -v lsof >/dev/null 2>&1; then
 		echo "lsof is required by these tests but was not found on PATH" >&2
@@ -40,7 +40,7 @@ setup_env() {
 	# pwd -P resolves symlinks and collapses the doubled slash $TMPDIR's
 	# trailing / would otherwise leave in the path. That matters because
 	# stop_daemon looks the daemon up by socket path, and lsof compares
-	# those as strings -- a path that differs cosmetically finds nothing,
+	# those as strings - a path that differs cosmetically finds nothing,
 	# and the daemon survives the test run.
 	E2E_TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/torrnado-e2e.XXXXXX")" && pwd -P)
 	export HOME="$E2E_TMP/home"
@@ -87,7 +87,7 @@ stop_daemon() {
 # It retries for a couple of seconds because lsof reports a snapshot of
 # the kernel's open files, and a socket bound moments ago is sometimes not
 # in it yet. Asking once made this look like a daemon that had failed to
-# start -- intermittently, which is worse than failing outright.
+# start - intermittently, which is worse than failing outright.
 daemon_pid() {
 	[ -S "${SOCKET:-}" ] || return 0
 
