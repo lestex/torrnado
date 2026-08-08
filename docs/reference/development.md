@@ -125,7 +125,7 @@ git commit -am "chore: changelog for v0.1.0"
 git checkout -b release-v0.1.0 && git push -u origin release-v0.1.0
 gh pr create --base main --fill && gh pr merge --merge
 
-# Tag the commit that actually landed, not the local one you wrote --
+# Tag the commit that actually landed, not the local one you wrote -
 # otherwise the archives and `torrnado version` name a commit that is not
 # on the branch. Tags are not protected and push directly.
 git checkout main && git pull

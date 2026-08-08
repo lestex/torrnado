@@ -38,8 +38,8 @@ theme:
   palette:
     # The terminal is usually dark, so the site starts that way and can
     # be switched. Both schemes are `custom`, which tells Material to take
-    # its colours from the CSS variables docs/stylesheets/torrnado.css
-    # sets rather than from a named palette -- that file carries GitHub's
+    # its colors from the CSS variables docs/stylesheets/torrnado.css
+    # sets rather than from a named palette - that file carries GitHub's
     # Primer tokens, which no built-in palette matches.
     - media: "(prefers-color-scheme: dark)"
       scheme: slate

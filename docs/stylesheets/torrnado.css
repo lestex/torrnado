@@ -181,7 +181,7 @@
 
 /* Material gives the header's repo block a fixed 11.7rem, whatever is in
  * it. "lestex/torrnado" measures 169px, so about 112px of the block was
- * empty and the name sat that far short of the header's right edge --
+ * empty and the name sat that far short of the header's right edge -
  * left-aligned inside a box wider than its contents, which reads as the
  * whole thing being misplaced rather than merely padded.
  *
@@ -216,13 +216,13 @@
   background-color: var(--tn-canvas-subtle);
 }
 
-/* Links in the footer copyright inherit the surrounding colour, so the
- * author link was the same muted grey as the text around it and looked
+/* Links in the footer copyright inherit the surrounding color, so the
+ * author link was the same muted gray as the text around it and looked
  * like prose. Given the accent, which reads as a link and clears contrast
  * against the footer at 6.55.
  *
  * The selector is this long on purpose: Material forces footer links to
- * the muted colour with `html .md-footer-meta.md-typeset a`, deliberately
+ * the muted color with `html .md-footer-meta.md-typeset a`, deliberately
  * specific, and a plain `.md-copyright a` loses to it and silently does
  * nothing. */
 html .md-footer-meta.md-typeset .md-copyright a {
@@ -413,13 +413,13 @@ html .md-footer-meta.md-typeset .md-copyright a:focus {
 
 /* Wider than the text column it sits in. The prose stays at the measure
  * every other page uses; only the screenshot breaks out, which also buys
- * back some scale -- the capture goes from a 3.6x downscale to about
+ * back some scale - the capture goes from a 3.6x downscale to about
  * 2.8x, so the TUI text is that much less of a smudge.
  *
- * Centred by margin arithmetic rather than a half-width translate: a
+ * Centered by margin arithmetic rather than a half-width translate: a
  * transform moves where the box is painted but not where it is laid out,
  * so the layout box kept sticking out to the right and the landing page
- * scrolled sideways on a phone while looking perfectly centred. Here the
+ * scrolled sideways on a phone while looking perfectly centered. Here the
  * left margin is half the container minus half the element, which is the
  * same result with no phantom overflow.
  *
