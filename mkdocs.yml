@@ -4,13 +4,25 @@ site_url: https://torrnado.dev
 repo_url: https://github.com/lestex/torrnado
 repo_name: lestex/torrnado
 edit_uri: edit/main/docs/
-copyright: MIT-licensed. Built with anacrolix/torrent and bubbletea.
+# Year and holder match LICENSE, so the two cannot drift.
+copyright: 'MIT-licensed. Built with <a href="https://github.com/anacrolix/torrent">anacrolix/torrent</a> and <a href="https://github.com/charmbracelet/bubbletea">bubbletea</a>.<br>© 2026 <a href="https://github.com/lestex">@lestex</a>'
 
 docs_dir: docs
 
 theme:
   name: material
+  # The spiral, drawn once and used everywhere: the header, the favicon,
+  # and internal/branding's character-cell version for the TUI.
+  #
+  # The header mark goes through icon rather than logo. `logo` emits an
+  # <img>, and an SVG in an <img> has no page to inherit from, so its
+  # stroke="currentColor" resolved to black and the mark disappeared into
+  # the dark header. `icon` inlines the file instead, so currentColor
+  # picks up the header's own text color in both schemes.
+  custom_dir: overrides
+  favicon: assets/favicon.svg
   icon:
+    logo: torrnado/logo
     repo: fontawesome/brands/github
   features:
     - navigation.tabs
@@ -25,18 +37,21 @@ theme:
     - toc.follow
   palette:
     # The terminal is usually dark, so the site starts that way and can
-    # be switched.
+    # be switched. Both schemes are `custom`, which tells Material to take
+    # its colors from the CSS variables docs/stylesheets/torrnado.css
+    # sets rather than from a named palette - that file carries GitHub's
+    # Primer tokens, which no built-in palette matches.
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: deep purple
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: deep purple
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -62,7 +77,13 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
 
+extra_css:
+  - stylesheets/torrnado.css
+
 extra:
+  # Drops "Made with Material for MkDocs" from the footer. A supported
+  # switch in the theme's own copyright partial, not a CSS workaround.
+  generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/lestex/torrnado

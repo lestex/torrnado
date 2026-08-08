@@ -1,0 +1,594 @@
+/* torrnado docs theme.
+ *
+ * Two jobs: repaint Material in the TUI's own palette, and provide the
+ * landing-page components (hero, terminal frame, stat bar, feature grid).
+ *
+ * The colors are dracula, which is what `theme` defaults to in
+ * internal/config, so the site and the screenshot on it are the same
+ * scheme rather than two that merely coexist. They are copied from
+ * internal/theme/builtin.go rather than sampled off the screenshot: a
+ * capture carries the display's color profile, and every value read back
+ * a few points adrift.
+ *
+ * Changing the site's colors means editing the two blocks below and
+ * nothing else - every rule in this file derives from these tokens.
+ */
+
+/* ---------------------------------------------------------------- palette */
+
+[data-md-color-scheme="slate"] {
+  /* dracula, the TUI's default theme, taken from internal/theme/builtin.go
+   * rather than sampled off a screenshot - a capture carries the display
+   * profile with it, and every value came out a few points adrift. */
+  --tn-canvas: #282a36;        /* Background */
+  --tn-canvas-subtle: #31333f; /* between Background and Border */
+  --tn-canvas-inset: #21222c;
+  --tn-border: #44475a;        /* Border / SelectedBg */
+  --tn-border-muted: #383a4a;
+  --tn-fg: #f8f8f2;            /* Foreground */
+  /* dracula's own Muted is #6272a4, which scores 3.03 against the
+   * background: fine for short terminal labels, not for paragraphs of
+   * muted prose. Lightened until it passes at 4.72. */
+  --tn-fg-muted: #8b93b8;
+  --tn-accent: #bd93f9;        /* Accent */
+  --tn-success: #50fa7b;       /* Success */
+  --tn-warning: #f1fa8c;       /* Warning */
+  --tn-btn: #bd93f9;
+  --tn-btn-hover: #caa9fa;
+  /* The accent is light, so the button takes dark text rather than white. */
+  --tn-btn-fg: #282a36;
+
+  --md-primary-fg-color: var(--tn-canvas-subtle);
+  --md-primary-bg-color: var(--tn-fg);
+  --md-accent-fg-color: var(--tn-accent);
+
+  --md-typeset-a-color: var(--tn-accent);
+  --md-code-bg-color: var(--tn-canvas-subtle);
+  --md-code-fg-color: var(--tn-fg);
+  --md-footer-bg-color: var(--tn-canvas-inset);
+  --md-footer-bg-color--dark: var(--tn-canvas-inset);
+}
+
+[data-md-color-scheme="default"] {
+  /* dracula has no light counterpart, so this keeps its purple and puts it
+   * on a neutral ground, darkened until it carries body text on white. */
+  --tn-canvas: #ffffff;
+  --tn-canvas-subtle: #f6f6fb;
+  --tn-canvas-inset: #f6f6fb;
+  --tn-border: #dcdce7;
+  --tn-border-muted: #e6e6ef;
+  --tn-fg: #282a36;
+  --tn-fg-muted: #5a5f7a;
+  --tn-accent: #6f42c1;
+  --tn-success: #1a7f37;
+  --tn-warning: #9a6700;
+  --tn-btn: #7c3aed;
+  --tn-btn-hover: #6d28d9;
+  --tn-btn-fg: #ffffff;
+
+  --md-default-bg-color: var(--tn-canvas);
+  --md-default-fg-color: var(--tn-fg);
+  --md-default-fg-color--light: var(--tn-fg-muted);
+
+  /* Material paints the header background from --md-primary-fg-color and
+   * its text from --md-primary-bg-color. The names read backwards; get
+   * them the wrong way round in the light scheme and you get white text
+   * on a white header, which is invisible rather than merely ugly. */
+  --md-primary-fg-color: var(--tn-canvas-subtle);
+  --md-primary-bg-color: var(--tn-fg);
+  --md-accent-fg-color: var(--tn-accent);
+
+  --md-typeset-a-color: var(--tn-accent);
+  --md-code-bg-color: var(--tn-canvas-subtle);
+
+  /* Material's footer is dark in both schemes by default, and only the
+   * slate block below was overriding it, so the light site ended on a
+   * near-black slab. Given the same light surface as the rest of the
+   * page, with the hairline above carrying the edge: 13.22 for the text,
+   * 5.81 for the muted line and 6.04 for the links. */
+  --md-footer-bg-color: var(--tn-canvas-subtle);
+  --md-footer-bg-color--dark: var(--tn-canvas-subtle);
+  --md-footer-fg-color: var(--tn-fg);
+  --md-footer-fg-color--light: var(--tn-fg-muted);
+  --md-footer-fg-color--lighter: var(--tn-fg-muted);
+}
+
+/* Material draws the header from the primary color; GitHub's is a flat
+ * dark bar with a hairline rather than a saturated block. */
+.md-header {
+  background-color: var(--tn-canvas-subtle);
+  border-bottom: 1px solid var(--tn-border);
+  box-shadow: none;
+}
+
+/* The footer sits at 1.109 contrast against the page: a real difference
+ * and far too small to read as an edge, so the two ran together. A
+ * hairline in the border color separates them, and mirrors the rule under
+ * the header so the page is bounded the same way top and bottom. */
+.md-footer-meta {
+  border-top: 1px solid var(--tn-border);
+}
+
+.md-tabs {
+  background-color: var(--tn-canvas-subtle);
+  border-bottom: 1px solid var(--tn-border);
+}
+
+/* Material spaces the header generously: 1rem between the logo and the
+ * title, and 1.4rem between the search field and the repo block. With the
+ * repo block now only as wide as its contents, both read as drift rather
+ * than rhythm.
+ *
+ * The logo gap took three passes because three separate things sat in it,
+ * not one: the button's own 9.6px of right padding, the title's margin,
+ * and dead space inside the SVG. Measuring the button's box rather than
+ * the drawn ink hid two of them and reported 19px for a gap that was
+ * really 36. Trimming the SVG's viewBox fixed the first, and these two
+ * rules the rest, ending at 20px from ink to text.
+ *
+ * Every selector here carries the direction attribute because Material's
+ * own do, and a bare class loses to them: written without it, the rules
+ * applied to the right elements and changed nothing. The source margin is
+ * also set twice in Material, at two breakpoints; one rule outside any
+ * media query beats both on source order. */
+[dir="ltr"] .md-header__button.md-logo {
+  padding-right: 0.2rem;
+}
+
+[dir="ltr"] .md-header__title {
+  margin-left: 0.3rem;
+}
+
+/* The three gaps along the right of the header measured 14px from the
+ * palette toggle to the search field and 34px from the field to the
+ * GitHub mark. Both are now 19px, measured glyph to glyph rather than box
+ * to box: each control carries its own padding, so the boxes touch while
+ * the marks inside them sit far apart. */
+[dir="ltr"] .md-header__option {
+  margin-right: 0.2rem;
+}
+
+[dir="ltr"] .md-header__source {
+  margin-left: 0.2rem;
+}
+
+/* Material puts two titles in the header and cross-fades them on scroll:
+ * the site name until you pass the first heading, the current page's
+ * title after. So "torrnado" became "Home" a few lines down, and the
+ * brand vanished from every page the moment anyone read it.
+ *
+ * The page title is already named in the tab, the breadcrumb and the
+ * heading itself, so the header keeps the site name at all times: the
+ * second topic never appears, and the first is exempted from the fade
+ * that the active state would otherwise apply to it. */
+.md-header__topic + .md-header__topic {
+  display: none;
+}
+
+/* The name is set in the code face wherever it appears as a wordmark, in
+ * the header and in the hero, because the thing it names is a terminal
+ * program. Inter is left to the prose. */
+.md-header__topic:first-child .md-ellipsis {
+  font-family: var(--md-code-font-family, monospace);
+}
+
+.md-header__title--active .md-header__topic:first-child {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  z-index: 0;
+}
+
+/* Material gives the header's repo block a fixed 11.7rem, whatever is in
+ * it. "lestex/torrnado" measures 169px, so about 112px of the block was
+ * empty and the name sat that far short of the header's right edge -
+ * left-aligned inside a box wider than its contents, which reads as the
+ * whole thing being misplaced rather than merely padded.
+ *
+ * Sized to its contents instead, so it ends where the name ends and a
+ * longer or shorter repo name simply moves the left edge. max-width goes
+ * with it, or the fixed value would still cap and ellipsise the name. */
+.md-header__source {
+  width: auto;
+  max-width: none;
+}
+
+/* The name inside is capped at 100% of that block, which once the block
+ * sizes to its contents is circular: the box shrinks to the text, then
+ * clips the text to the box, and "lestex/torrnado" came out ellipsised.
+ * The block is only rendered above Material's tablet breakpoint, so there
+ * is no narrow-screen case for the cap to protect. */
+.md-source__repository {
+  max-width: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset code,
+[data-md-color-scheme="default"] .md-typeset code {
+  border: 1px solid var(--tn-border-muted);
+  border-radius: 6px;
+}
+
+.md-typeset pre > code {
+  border: 1px solid var(--tn-border);
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--tn-canvas-subtle);
+}
+
+/* Links in the footer copyright inherit the surrounding color, so the
+ * author link was the same muted gray as the text around it and looked
+ * like prose. Given the accent, which reads as a link and clears contrast
+ * against the footer at 6.55.
+ *
+ * The selector is this long on purpose: Material forces footer links to
+ * the muted color with `html .md-footer-meta.md-typeset a`, deliberately
+ * specific, and a plain `.md-copyright a` loses to it and silently does
+ * nothing. */
+html .md-footer-meta.md-typeset .md-copyright a {
+  color: var(--tn-accent);
+}
+
+/* No underline on hover: the accent already marks these as links, and an
+ * underline appearing under one of three links in a single sentence is
+ * more movement than the footer wants. Focus keeps a visible ring from
+ * the browser default, so keyboard users are not left without one. */
+html .md-footer-meta.md-typeset .md-copyright a:hover,
+html .md-footer-meta.md-typeset .md-copyright a:focus {
+  color: var(--tn-accent);
+  text-decoration: none;
+}
+
+/* Material sizes the footer's social icons at 0.8rem inside a 1.6rem hit
+ * area, which leaves the GitHub mark noticeably smaller than the text it
+ * sits beside. The link keeps its size so the target stays comfortable;
+ * only the glyph grows. */
+.md-social__link {
+  height: 1.8rem;
+  width: 1.8rem;
+}
+
+.md-social__link svg {
+  max-height: 1.1rem;
+}
+
+/* --------------------------------------------------------------- landing */
+
+/* The landing page hides both sidebars, which otherwise leave it wider
+ * than every other page and visibly off-center: hiding only the table of
+ * contents collapses the right column while the nav keeps the left,
+ * pushing the content 138px right of center and stretching it from 883px
+ * to 1174px.
+ *
+ * With both gone the content is free to fill the grid, so it is pinned
+ * back to the measure the other pages use. That figure is not a guess:
+ * Material's grid is 61rem and each sidebar 12.1rem, so an interior
+ * page's content column is exactly 61 - 12.1 - 12.1 rem. Expressed in
+ * rem it tracks the root font size, which Material scales.
+ *
+ * Selected via :has() because Material offers no per-page hook, and the
+ * hero is the thing that makes this page different. Browsers without
+ * :has() fall back to a full-width landing page, which is untidy rather
+ * than broken.
+ */
+.md-content:has(.tn-hero) {
+  max-width: 36.8rem;
+  margin: 0 auto;
+}
+
+/* The edit pencil and the one-item "Home" breadcrumb sit in a row of
+ * their own above the hero, which reads as a stray line of furniture
+ * rather than navigation. Nobody edits the landing page from a link on
+ * the landing page. */
+.md-content:has(.tn-hero) .md-content__button {
+  display: none;
+}
+
+/* The hero and everything under it stay inside Material's normal content
+ * column - the width does not change on this page, only the styling. */
+
+.tn-hero {
+  text-align: center;
+  padding: 3.2rem 0 1.6rem;
+  position: relative;
+}
+
+/* The glow behind the wordmark, in the accent. Sits behind content and
+ * never intercepts a click. */
+.tn-hero::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  /* Never wider than the hero. It used to be 130%, which on a narrow
+   * screen reached past the viewport and scrolled the landing page
+   * sideways; clipping that overflow only traded the scroll for a hard
+   * vertical edge where the gradient was cut. Sized to fit instead, so
+   * the gradient reaches transparent on its own and there is no edge to
+   * see. */
+  width: min(44rem, 100%);
+  height: 22rem;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(189, 147, 249, 0.18) 0%,
+    rgba(189, 147, 249, 0.06) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-md-color-scheme="default"] .tn-hero::before {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(111, 66, 193, 0.10) 0%,
+    transparent 70%
+  );
+}
+
+.tn-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The wordmark is the page title, so Material hangs a permalink pilcrow
+ * off it - a stray para-mark in the middle of a hero. */
+.md-typeset .tn-hero__title .headerlink {
+  display: none;
+}
+
+.md-typeset .tn-hero__title {
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 3.6rem;
+  line-height: 1.1;
+  font-weight: 700;
+  /* Monospace carries its own spacing, and the -0.04em that kept Inter
+   * from looking loose at this size pulls a mono face into a huddle.
+   * Slightly negative rather than tight, and a step smaller, because a
+   * fixed-pitch face sets wider at the same nominal size. */
+  letter-spacing: -0.02em;
+  margin: 0 0 0.6rem;
+  background: linear-gradient(180deg, var(--tn-fg) 30%, var(--tn-fg-muted) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.md-typeset .tn-hero__tagline {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--tn-fg-muted);
+  margin: 0 auto 1.6rem;
+  max-width: 34rem;
+}
+
+/* CTAs ------------------------------------------------------------------ */
+
+.tn-cta {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2.4rem;
+}
+
+.md-typeset .tn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.md-typeset .tn-btn--primary {
+  background-color: var(--tn-btn);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--tn-btn-fg);
+}
+
+.md-typeset .tn-btn--primary:hover {
+  background-color: var(--tn-btn-hover);
+  color: var(--tn-btn-fg);
+}
+
+.md-typeset .tn-btn--ghost {
+  background-color: var(--tn-canvas-subtle);
+  border-color: var(--tn-border);
+  color: var(--tn-fg);
+}
+
+.md-typeset .tn-btn--ghost:hover {
+  background-color: var(--tn-border-muted);
+  border-color: var(--tn-fg-muted);
+  color: var(--tn-fg);
+}
+
+/* Terminal frame -------------------------------------------------------- */
+
+/* Wider than the text column it sits in. The prose stays at the measure
+ * every other page uses; only the screenshot breaks out, which also buys
+ * back some scale - the capture goes from a 3.6x downscale to about
+ * 2.8x, so the TUI text is that much less of a smudge.
+ *
+ * Centered by margin arithmetic rather than a half-width translate: a
+ * transform moves where the box is painted but not where it is laid out,
+ * so the layout box kept sticking out to the right and the landing page
+ * scrolled sideways on a phone while looking perfectly centered. Here the
+ * left margin is half the container minus half the element, which is the
+ * same result with no phantom overflow.
+ *
+ * The min() keeps it inside the viewport on a narrow screen, where 44rem
+ * would be wider than the phone.
+ *
+ * No title bar: traffic lights and a title would be decoration imitating
+ * a window this screenshot was not taken in.
+ */
+.tn-terminal {
+  width: min(44rem, 92vw);
+  margin: 0 0 2.4rem calc(50% - min(22rem, 46vw));
+  border: 1px solid var(--tn-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--tn-canvas-inset);
+}
+
+/* A real screenshot of the running TUI rather than ASCII art. Box-drawing
+ * glyphs never rendered as clean rules here: the character advance works
+ * out fractional, so every column starts mid-pixel and the vertical
+ * borders rasterize unevenly row to row.
+ *
+ * width and height are also set on the element itself, so the frame
+ * reserves the right space before the image loads and nothing below it
+ * jumps. */
+.tn-terminal img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Stat bar -------------------------------------------------------------- */
+
+.tn-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.4rem;
+  padding: 0.9rem 1rem;
+  margin: 0 0 3.2rem;
+  border-top: 1px solid var(--tn-border);
+  border-bottom: 1px solid var(--tn-border);
+  font-size: 0.68rem;
+  color: var(--tn-fg-muted);
+}
+
+/* Separators are drawn rather than typed, so adding or removing an item
+ * cannot leave a dangling dot. */
+.tn-stats > span:not(:last-child)::after {
+  content: "·";
+  margin-left: 1.4rem;
+  color: var(--tn-border);
+}
+
+.tn-stats b {
+  color: var(--tn-fg);
+  font-weight: 600;
+}
+
+/* Section labels -------------------------------------------------------- */
+
+.md-typeset .tn-label {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.7rem;
+  color: var(--tn-fg-muted);
+  margin: 0 0 1.4rem;
+  font-weight: 400;
+}
+
+.md-typeset .tn-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--tn-border);
+}
+
+/* Feature grid ---------------------------------------------------------- */
+
+.tn-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--tn-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 0 3.2rem;
+}
+
+.tn-feature {
+  padding: 1.4rem 1.3rem;
+  border-right: 1px solid var(--tn-border);
+  border-bottom: 1px solid var(--tn-border);
+  transition: background-color 120ms;
+}
+
+/* Rather than nth-child arithmetic that breaks whenever a card is added,
+ * strip the trailing edges: the right border on every third card, and the
+ * bottom border on the last row. */
+.tn-feature:nth-child(3n) { border-right: 0; }
+.tn-feature:nth-last-child(-n + 3) { border-bottom: 0; }
+
+.tn-feature:hover {
+  background-color: var(--tn-canvas-subtle);
+}
+
+.md-typeset .tn-feature h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tn-fg);
+}
+
+/* Cards are not link targets, and a hovering pilcrow in the middle of a
+ * grid reads as a rendering fault rather than an affordance. */
+.md-typeset .tn-feature h3 .headerlink {
+  display: none;
+}
+
+.md-typeset .tn-feature h3::before {
+  content: ">";
+  color: var(--tn-success);
+  margin-right: 0.4rem;
+  font-family: var(--md-code-font-family, monospace);
+}
+
+.md-typeset .tn-feature p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--tn-fg-muted);
+}
+
+/* Install block --------------------------------------------------------- */
+
+.tn-install {
+  margin-bottom: 2rem;
+}
+
+.tn-install .tabbed-set > label {
+  font-size: 0.7rem;
+  color: var(--tn-fg-muted);
+}
+
+.tn-install .tabbed-set > input:checked + label {
+  color: var(--tn-fg);
+  border-color: var(--tn-success);
+}
+
+.md-typeset .tn-after-install {
+  font-size: 0.72rem;
+  color: var(--tn-fg-muted);
+}
+
+/* Responsive ------------------------------------------------------------ */
+
+@media screen and (max-width: 76.1875em) {
+  .tn-features { grid-template-columns: repeat(2, 1fr); }
+  .tn-feature:nth-child(3n) { border-right: 1px solid var(--tn-border); }
+  .tn-feature:nth-child(2n) { border-right: 0; }
+  .tn-feature:nth-last-child(-n + 3) { border-bottom: 1px solid var(--tn-border); }
+  .tn-feature:nth-last-child(-n + 2) { border-bottom: 0; }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .tn-hero__title { font-size: 2.8rem; }
+  .tn-features { grid-template-columns: 1fr; }
+  .tn-feature { border-right: 0 !important; border-bottom: 1px solid var(--tn-border) !important; }
+  .tn-feature:last-child { border-bottom: 0 !important; }
+}

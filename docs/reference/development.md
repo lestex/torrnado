@@ -120,8 +120,17 @@ The tag is the version; nothing is committed anywhere to forget to bump.
 make check && make e2e
 make changelog TAG=v0.1.0       # files the pending commits under that version
 git commit -am "chore: changelog for v0.1.0"
+
+# main is protected: the changelog commit lands through a pull request.
+git checkout -b release-v0.1.0 && git push -u origin release-v0.1.0
+gh pr create --base main --fill && gh pr merge --merge
+
+# Tag the commit that actually landed, not the local one you wrote -
+# otherwise the archives and `torrnado version` name a commit that is not
+# on the branch. Tags are not protected and push directly.
+git checkout main && git pull
 git tag -a v0.1.0 -m "v0.1.0"
-git push --follow-tags
+git push origin v0.1.0
 ```
 
 The tag triggers `.github/workflows/release.yml`: it reruns `make check`
