@@ -21,7 +21,7 @@ that runs as a background daemon.
 ## The idea
 
 The daemon keeps running after the TUI exits. Start a download, close the
-terminal, come back tomorrow — it is still going, and the interface
+terminal, come back tomorrow - it is still going, and the interface
 reattaches to it.
 
 That is the one design decision everything else follows from. The TUI and
@@ -73,7 +73,7 @@ an event the daemon notices.
 - **Survives restarts.** The torrent list, paused state, save paths, rate
   limits and per-file priorities are written to disk and restored.
 - **Streams while downloading.** Press ++v++ on a video and it opens in
-  your player at once, seeking included — the read position drives which
+  your player at once, seeking included - the read position drives which
   pieces are fetched.
 - **Scripts.** Every action is a subcommand, so `torrnado add`,
   `torrnado list` and friends work in a shell script or a cron job.
@@ -83,7 +83,7 @@ an event the daemon notices.
 ## What it does not do
 
 No remote control protocol, no web UI, no Windows. The socket is local by
-construction and SSH already solves the remote problem properly — see
+construction and SSH already solves the remote problem properly - see
 [non-goals](reference/caveats.md) for the full list and the reasoning.
 
 ## Requirements

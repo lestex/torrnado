@@ -132,7 +132,7 @@ func TestUnknownIDReportsNotFound(t *testing.T) {
 }
 
 // A magnet with no peers never gets metadata, and the library's whole
-// -torrent verify calls NumPieces without checking for it -- a nil
+// -torrent verify calls NumPieces without checking for it - a nil
 // dereference that takes the daemon down with every other torrent. It has
 // to be refused here instead.
 func TestForceRecheckWithoutMetadataIsRefused(t *testing.T) {
@@ -164,7 +164,7 @@ func TestForceRecheckUnknownID(t *testing.T) {
 
 // A snapshot has to say a check is running before the first piece
 // finishes. Deriving that from "progress above zero" meant the status
-// fell back to a bare "checking" at exactly the moment the check began --
+// fell back to a bare "checking" at exactly the moment the check began -
 // on a large torrent, the moment a user is most likely to look.
 func TestASnapshotReportsACheckBeforeItsFirstPiece(t *testing.T) {
 	e := newTestEngine(t)
@@ -193,7 +193,7 @@ func TestASnapshotReportsACheckBeforeItsFirstPiece(t *testing.T) {
 }
 
 // Waiting for a magnet's metadata is reported as checking too, but
-// nothing is being verified -- a percentage there would be a lie.
+// nothing is being verified - a percentage there would be a lie.
 func TestWaitingForMetadataIsNotAChecking(t *testing.T) {
 	e := newTestEngine(t)
 	if _, err := e.AddMagnet(testMagnet, AddOpts{}); err != nil {

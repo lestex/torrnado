@@ -13,7 +13,7 @@ IH_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 IH_C=cccccccccccccccccccccccccccccccccccccccc
 
 # A real torrent file, so at least one torrent has metadata. The magnets
-# above never will -- nothing is there to serve it -- and a torrent
+# above never will - nothing is there to serve it - and a torrent
 # without metadata cannot report a size, a file list, or anything but
 # "checking".
 SAMPLE="$REPO_ROOT/e2e/testdata/sample.torrent"
@@ -22,7 +22,7 @@ SAMPLE_IH=d134b832ac06546d2b8c85a59b0c4011a6910cdf
 echo "daemon lifecycle"
 
 # Nothing is running yet, so this command has to start a daemon before it
-# can do anything -- the behaviour that lets a user never think about the
+# can do anything - the behavior that lets a user never think about the
 # daemon at all.
 out=$("$TORRNADO" list 2>&1)
 assert_contains "list starts a daemon when none is running" "$out" "NAME"
@@ -104,7 +104,7 @@ echo "batch add"
 
 # A directory means every .torrent inside it, and a text file means one
 # magnet per line. Both are resolved by the client, against the directory
-# the user is standing in -- not the daemon's.
+# the user is standing in - not the daemon's.
 BATCH_DIR="$E2E_TMP/batch"
 mkdir -p "$BATCH_DIR"
 cp "$SAMPLE" "$BATCH_DIR/one.torrent"
@@ -134,7 +134,7 @@ echo "streaming preview"
 
 # Put the data where the torrent expects it, so the client verifies it as
 # complete and the stream has something to serve. Without this a read
-# blocks forever waiting for a peer that does not exist -- which is
+# blocks forever waiting for a peer that does not exist - which is
 # correct, but not testable.
 # The torrent was added earlier, when the file was not there, so it is
 # recorded as empty. A recheck is what makes the client look again.
@@ -244,7 +244,7 @@ out=$("$TORRNADO" --config "$CFG" list 2>&1)
 assert_not_contains "a separate config sees its own daemon only" "$out" "$SAMPLE_IH"
 
 # `config` reads the file and nothing else, so it has to work with no
-# daemon anywhere -- that is most of its value when something is wrong.
+# daemon anywhere - that is most of its value when something is wrong.
 UNUSED_SOCK="$E2E_TMP/unused.sock"
 CFG2="$E2E_TMP/inspect.toml"
 cat >"$CFG2" <<EOF

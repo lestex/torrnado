@@ -1,7 +1,7 @@
 # Changelog
 
 Every release, newest first. Generated from the commit log by
-[git-cliff](https://git-cliff.org) -- run `make changelog` rather than
+[git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
 ## 0.1.0 - 2026-08-07

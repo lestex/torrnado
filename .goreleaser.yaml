@@ -16,7 +16,7 @@ builds:
   - id: torrnado
     main: ./cmd/torrnado
     binary: torrnado
-    # CGO_ENABLED=0 is a decision, not a default worth drifting on -- the
+    # CGO_ENABLED=0 is a decision, not a default worth drifting on - the
     # same one the Dockerfile makes, for the same reasons. It is what
     # makes cross-compiling these four targets possible at all, and it
     # picks the pure-Go bbolt piece-completion database over the cgo
@@ -68,7 +68,7 @@ snapshot:
 # Which is why this must NOT say `disable: true`, however much it looks
 # like it should. --release-notes is read *by* the changelog pipe, so
 # disabling the pipe throws the file away as well and the release body
-# silently falls back to the footer below and nothing else -- which is
+# silently falls back to the footer below and nothing else - which is
 # exactly what v0.1.0 shipped with before it was edited by hand. Passing
 # --release-notes is already what stops GoReleaser writing its own notes;
 # the flag replaces the generated changelog rather than adding to it.
@@ -88,4 +88,4 @@ release:
     These binaries are built without cgo, so they keep piece-completion
     state in a pure-Go database rather than the SQLite one a local
     `go build` uses. Swapping one for the other re-verifies data already
-    on disk once -- it is not lost, just checked again.
+    on disk once - it is not lost, just checked again.

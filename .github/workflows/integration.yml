@@ -1,7 +1,7 @@
 # The systemd unit, against a real systemd.
 #
 # Kept out of ci.yml because it boots systemd as pid 1 in a privileged
-# container and takes minutes -- too slow to sit between a push and a
+# container and takes minutes - too slow to sit between a push and a
 # green tick, too valuable to run only when someone remembers. It has
 # caught real bugs: a signal handler installed after the engine started,
 # and a daemon that came back on restart only by accident.

@@ -44,7 +44,7 @@ func TestPreviewWorksFromTheList(t *testing.T) {
 	}
 }
 
-// With the Files tab open the cursor wins -- that is the whole point of
+// With the Files tab open the cursor wins - that is the whole point of
 // having a file list to move around in.
 func TestPreviewPrefersTheFileCursorOnTheFilesTab(t *testing.T) {
 	m := previewModel(t,

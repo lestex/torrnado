@@ -119,7 +119,7 @@ func TestDaemonStatsAreLabelledAndFlushLeft(t *testing.T) {
 }
 
 // The guard is why every torrent is sitting still, so the sidebar has to
-// say so -- and say nothing at all when there is no guard, since a daemon
+// say so - and say nothing at all when there is no guard, since a daemon
 // that was never asked to check has nothing to report.
 func TestTheSidebarReportsTheVPNGuard(t *testing.T) {
 	m := testModel("a")
@@ -141,7 +141,7 @@ func TestTheSidebarReportsTheVPNGuard(t *testing.T) {
 }
 
 // The dot is the only part of the block that can tell the truth about a
-// dead daemon -- the port and the free space keep their last value -- so
+// dead daemon - the port and the free space keep their last value - so
 // it has to change when the stream ends.
 func TestTheDaemonDotReportsALostConnection(t *testing.T) {
 	m := testModel("a")
@@ -155,7 +155,7 @@ func TestTheDaemonDotReportsALostConnection(t *testing.T) {
 		t.Error("the daemon heading carries no status dot")
 	}
 
-	// The color, not the character, is what the dot says -- and it has
+	// The color, not the character, is what the dot says - and it has
 	// to come from the theme, so a picked theme recolors it too.
 	if got := m.daemonDotStyle().GetForeground(); got != th.Success {
 		t.Errorf("a live daemon's dot is %v, want the theme's success color %v", got, th.Success)

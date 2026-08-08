@@ -44,7 +44,7 @@ func TestOpeningThePickerStartsOnTheCurrentTheme(t *testing.T) {
 	}
 }
 
-// Moving the cursor applies the theme immediately -- that is the reason
+// Moving the cursor applies the theme immediately - that is the reason
 // the picker floats over the panes instead of replacing them.
 func TestMovingThePickerCursorAppliesTheTheme(t *testing.T) {
 	m := pickerModel(t, t.TempDir())

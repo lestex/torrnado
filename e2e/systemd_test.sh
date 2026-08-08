@@ -3,7 +3,7 @@
 # Tests contrib/torrnado.service against a real systemd.
 #
 # Run inside the container built from Dockerfile.systemd (`make
-# systemd-test`), never on your own machine -- it starts, stops, kills and
+# systemd-test`), never on your own machine - it starts, stops, kills and
 # restarts the torrnado service, and would do all of that to yours.
 #
 # What is being tested is the unit file, not the daemon: that the service
@@ -17,7 +17,7 @@ set -uo pipefail
 # it on a machine that has one would do all of that to yours. Only ever
 # runs inside the throwaway container built from Dockerfile.systemd.
 if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
-	echo "systemd_test.sh only runs inside the Dockerfile.systemd container -- use 'make systemd-test'" >&2
+	echo "systemd_test.sh only runs inside the Dockerfile.systemd container - use 'make systemd-test'" >&2
 	exit 1
 fi
 
@@ -70,7 +70,7 @@ wait_active() {
 # to open its socket.
 #
 # Asked of the journal rather than by running a client, because a client
-# that finds nothing listening starts a daemon of its own -- during a
+# that finds nothing listening starts a daemon of its own - during a
 # restart that daemon takes the lock the service is about to want, and
 # the service then fails to start. Probing must not change what it is
 # probing.
@@ -136,7 +136,7 @@ echo "journal"
 log=$(journalctl -u torrnado --no-pager 2>&1)
 assert_contains "the daemon's start line reached the journal" "$log" "daemon starting"
 assert_contains "the daemon reported itself ready" "$log" "daemon ready"
-# Its own timestamps and levels, not just the journal's -- the format has
+# Its own timestamps and levels, not just the journal's - the format has
 # to be readable when the logs are read any other way.
 assert_contains "log lines carry a level" "$log" "level=INFO"
 

@@ -40,9 +40,9 @@ type Config struct {
 	// user's own pause flags are left exactly as they were, and transfers
 	// resume by themselves when the VPN comes back.
 	//
-	// It stops piece data. Tracker announces and DHT traffic carry on --
+	// It stops piece data. Tracker announces and DHT traffic carry on -
 	// they are client-wide and can only be turned off when the client is
-	// built -- so a blocked daemon is still visible to the swarm.
+	// built - so a blocked daemon is still visible to the swarm.
 	RequireVPN bool
 	// VPNCheck reports whether the system is on a VPN. Called once at
 	// startup and again on every tick, so it must be cheap and must not
@@ -55,7 +55,7 @@ type Config struct {
 
 	// UploadRateLimit/DownloadRateLimit are global, client-wide caps in
 	// bytes/sec (0 = unlimited). The library supports a single pair of
-	// limiters at the Client level and nothing per torrent -- see
+	// limiters at the Client level and nothing per torrent - see
 	// SetTorrentRateLimit for how per-torrent caps are approximated on
 	// top of that.
 	UploadRateLimit   int64
@@ -120,7 +120,7 @@ type tracked struct {
 	completeLogged bool
 
 	// holdData stops data moving for the duration of an operation that is
-	// rearranging the torrent underneath it -- a storage move. Without it
+	// rearranging the torrent underneath it - a storage move. Without it
 	// the next tick would happily allow transfers again halfway through,
 	// since nothing else about the torrent says it is busy.
 	holdData bool
@@ -135,7 +135,7 @@ type tracked struct {
 }
 
 // peerBytes is one peer's counters from the previous detail call, plus
-// the rates derived then -- reused when two calls land close enough
+// the rates derived then - reused when two calls land close enough
 // together that a delta would be meaningless.
 type peerBytes struct {
 	down, up       int64
@@ -217,7 +217,7 @@ func New(cfg Config) (*Engine, error) {
 	tc.UploadRateLimiter = upLimiter
 	tc.DownloadRateLimiter = downLimiter
 	// The library's own recommendation for capturing what the client
-	// logs. It does not catch everything -- see routeLibraryLogs.
+	// logs. It does not catch everything - see routeLibraryLogs.
 	tc.Slogger = slog.New(libraryHandler{h: logger.Handler(), min: cfg.LibraryLevel})
 	if cfg.DisableEncryption {
 		tc.HeaderObfuscationPolicy = torrent.HeaderObfuscationPolicy{
@@ -253,7 +253,7 @@ func New(cfg Config) (*Engine, error) {
 }
 
 // refreshVPN re-runs the VPN check and records what it means, logging the
-// transitions and nothing else -- the check runs every second, and a line
+// transitions and nothing else - the check runs every second, and a line
 // per second saying the same thing is not a log, it is a wall.
 func (e *Engine) refreshVPN() {
 	if !e.cfg.RequireVPN {
@@ -277,7 +277,7 @@ func (e *Engine) refreshVPN() {
 	e.mu.Unlock()
 
 	// The switches themselves are turned in tick, which calls this first
-	// and then applies the verdict to every torrent -- so a change takes
+	// and then applies the verdict to every torrent - so a change takes
 	// effect on the same tick that noticed it.
 	if !changed {
 		return
@@ -323,8 +323,8 @@ func newClientOnPortRange(tc *torrent.ClientConfig, low, high int) (*torrent.Cli
 
 // Close stops the tick loop and closes every subscriber's channel.
 //
-// Safe to call more than once: shutdown paths overlap -- a deferred close
-// and an explicit one -- and closing the same channel twice panics.
+// Safe to call more than once: shutdown paths overlap - a deferred close
+// and an explicit one - and closing the same channel twice panics.
 func (e *Engine) Close() error {
 	e.closeOnce.Do(func() { e.closeErr = e.closeNow() })
 	return e.closeErr
@@ -381,7 +381,7 @@ func (e *Engine) Subscribe() (events <-chan Event, unsubscribe func()) {
 // broadcast sends ev to every subscriber without ever blocking.
 //
 // A UI that stalls for a second must not stall the engine with it, and a
-// stale snapshot is worthless anyway -- so a full channel has its
+// stale snapshot is worthless anyway - so a full channel has its
 // pending event replaced rather than waited on.
 func (e *Engine) broadcast(ev Event) {
 	e.mu.Lock()

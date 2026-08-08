@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// logCapture is a writer the engine can log into from any goroutine --
+// logCapture is a writer the engine can log into from any goroutine -
 // the completion message is emitted from the tick loop, not the caller's.
 type logCapture struct {
 	mu  sync.Mutex
@@ -99,8 +99,8 @@ func TestCompletionIsReportedOnce(t *testing.T) {
 	}
 }
 
-// Nil is the normal case for every caller that is not the daemon -- the
-// tests above, and any embedder that does not want output -- so it has to
+// Nil is the normal case for every caller that is not the daemon - the
+// tests above, and any embedder that does not want output - so it has to
 // discard rather than panic on the first log call.
 func TestANilLoggerDiscards(t *testing.T) {
 	e := newTestEngine(t)

@@ -26,13 +26,13 @@ highlighted border, and it's where `j`/`k` go:
   rather than replacing it.
 - **List** shows one torrent per two lines: the data columns, and a thin
   progress underline beneath the name (absent once complete).
-- **Detail pane** always tracks the cursor torrent -- there is no separate
+- **Detail pane** always tracks the cursor torrent - there is no separate
   full-screen detail view. Its three tabs are the piece completion map,
   the connected-peer table, and the file list.
 
 ## Keys
 
-Vim-like navigation, not vim's editing model -- there's no insert/visual
+Vim-like navigation, not vim's editing model - there's no insert/visual
 mode, just the movement/action idioms.
 
 | Key                | Action                                            |
@@ -88,7 +88,7 @@ always apply to the list's selection or cursor row.
 - an `http://` or `https://` URL to a `.torrent` file (downloaded to a
   temp file and added from there)
 - a directory (every `.torrent` file directly inside it, non-recursive)
-- a glob pattern (`~/torrents/*.torrent`) -- handled by torrnado itself
+- a glob pattern (`~/torrents/*.torrent`) - handled by torrnado itself
   as well as by your shell, so it also works quoted or on shells that
   don't glob
 - a text file listing one magnet URI per line (blank lines and `#`
@@ -122,12 +122,12 @@ torrnado add magnets.txt             # one magnet uri per line
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
 containing a space possible (`:move '/media/big disk'`). Quoting a magnet
-is unnecessary here -- the palette is not a shell, so nothing expands --
+is unnecessary here - the palette is not a shell, so nothing expands -
 but harmless, which matters because quoting one *is* necessary in zsh and
 the habit follows you into the palette.
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
 containing a space possible (`:move '/media/big disk'`). Quoting a magnet
-is unnecessary here -- the palette is not a shell, so nothing expands --
+is unnecessary here - the palette is not a shell, so nothing expands -
 but harmless, which matters because quoting one *is* necessary in zsh and
 the habit follows you into the palette.

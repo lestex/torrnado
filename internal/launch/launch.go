@@ -49,7 +49,7 @@ func Detached(command, path string) error {
 // parse splits a configured command into its program and any fixed
 // arguments, so a config value can carry flags ("mpv --no-terminal")
 // rather than only a bare binary name. Splitting on spaces is enough for
-// that and avoids pulling in a shell -- passing the value to `sh -c`
+// that and avoids pulling in a shell - passing the value to `sh -c`
 // would make the path a shell-injection surface.
 func parse(command string) (name string, args []string) {
 	fields := strings.Fields(command)
@@ -63,7 +63,7 @@ func parse(command string) (name string, args []string) {
 //
 // The substitution happens here, after the split, and never before: a
 // path is chosen by the user's filesystem, not by us, and one containing
-// a space would otherwise be split into two arguments -- which is how
+// a space would otherwise be split into two arguments - which is how
 // "~/Downloads/Some Show/" reaches a file manager as two directories
 // neither of which exists. Replacing inside an already-split field also
 // makes "--working-directory=%f" work as well as "--working-directory %f".

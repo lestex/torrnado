@@ -16,7 +16,7 @@ type Client struct {
 	conn net.Conn
 	enc  *gob.Encoder
 
-	// writeMu serialises calls, for the same reason the server needs one:
+	// writeMu serializes calls, for the same reason the server needs one:
 	// a gob stream cannot be written by two goroutines at once.
 	writeMu sync.Mutex
 
@@ -96,7 +96,7 @@ func (c *Client) readLoop() {
 }
 
 // pushEvent delivers an event without blocking, dropping the previous one
-// if the consumer has not kept up -- the same rule the engine applies to
+// if the consumer has not kept up - the same rule the engine applies to
 // its own subscribers, for the same reason.
 func (c *Client) pushEvent(ev engine.Event) {
 	select {

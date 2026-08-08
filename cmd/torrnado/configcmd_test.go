@@ -52,7 +52,7 @@ func TestReportPrintsEveryPath(t *testing.T) {
 	}
 }
 
-// A missing file is not an error -- torrnado runs on defaults -- but it
+// A missing file is not an error - torrnado runs on defaults - but it
 // is the first thing to know when a setting is not taking effect.
 func TestReportSaysWhenThereIsNoConfigFile(t *testing.T) {
 	out := report(t, testConfig(t), "/nonexistent/torrnado/config.toml")

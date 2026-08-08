@@ -131,7 +131,7 @@ func runDaemon() error {
 	// SIGHUP is the convention for "reopen your log file", which is how
 	// logrotate finishes a rotation: it renames the file away, and a
 	// process that keeps writing to the same handle is writing to an
-	// unlinked inode -- the log goes nowhere and the disk never gets the
+	// unlinked inode - the log goes nowhere and the disk never gets the
 	// space back.
 	for sig := range sigCh {
 		if sig == syscall.SIGHUP {
@@ -150,8 +150,8 @@ func runDaemon() error {
 
 // vpnChecker adapts internal/vpn to the closure the engine takes.
 //
-// The engine holds no dependency on the vpn package -- it is handed a
-// function and knows nothing about interfaces or routes -- so the
+// The engine holds no dependency on the vpn package - it is handed a
+// function and knows nothing about interfaces or routes - so the
 // conversion between the two Status types lives here, at the one place
 // that knows about both.
 //

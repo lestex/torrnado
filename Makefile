@@ -5,7 +5,7 @@ BINARY := torrnado
 PKG    := ./cmd/torrnado
 
 # Go is pinned by .go-version and installed by goenv, which is not on the
-# PATH a non-interactive shell gets -- an editor task or a CI step never
+# PATH a non-interactive shell gets - an editor task or a CI step never
 # sources a login shell, so `go` is simply missing there.
 #
 # So find the toolchain by absolute path when it is there, and fall back
@@ -17,7 +17,7 @@ PKG    := ./cmd/torrnado
 #     itself on PATH and fails confusingly when that is missing.
 #   - The recipes call $(GO), not `go`. make runs a simple recipe line
 #     directly instead of through a shell, and resolves the program using
-#     the PATH make started with -- so exporting PATH below is not enough
+#     the PATH make started with - so exporting PATH below is not enough
 #     on its own.
 GO_VERSION := $(shell cat .go-version 2>/dev/null)
 GOENV_BIN  := $(HOME)/.goenv/versions/$(GO_VERSION)/bin
@@ -28,7 +28,7 @@ GOFMT      := $(if $(wildcard $(GOENV_BIN)/gofmt),$(GOENV_BIN)/gofmt,gofmt)
 export PATH := $(GOENV_BIN):$(PATH)
 
 # A GOROOT inherited from the shell can point at a different version than
-# the go binary chosen above -- goenv sets it, and it goes stale as soon
+# the go binary chosen above - goenv sets it, and it goes stale as soon
 # as another version is selected. go then runs one version's driver
 # against another's compiler and fails with "does not match go tool
 # version". Unset, go works its own GOROOT out from where it lives, which
@@ -44,7 +44,7 @@ IMAGE := torrnado
 # before there is a release to build. The release build passes the same
 # three variables; see .goreleaser.yaml.
 #
-# A tag when the commit has one, else a short sha -- and the toolchain
+# A tag when the commit has one, else a short sha - and the toolchain
 # fills these in by itself when they are empty, so a plain `go build`
 # still reports its revision.
 VERSION   := $(shell git describe --tags --always --dirty 2>/dev/null)
@@ -112,7 +112,7 @@ docker-test: ## Run the whole suite on linux, in a container
 	docker build --target test --progress plain .
 
 # systemd needs a booted system to test against, which a build stage
-# cannot give it -- pid 1 there is the build command. So this one builds
+# cannot give it - pid 1 there is the build command. So this one builds
 # an image and runs it, with the privileges systemd requires (not
 # torrnado: the service inside runs unprivileged).
 systemd-test: ## Test the systemd unit against a real systemd, in a container
@@ -148,7 +148,7 @@ docs-build: $(VENV) ## Build the docs site the way CI does
 	NO_MKDOCS_2_WARNING=true $(VENV)/bin/mkdocs build --strict
 
 # git-cliff generates CHANGELOG.md from the commit log, the same way the
-# release workflow generates the release notes -- one config, so the file
+# release workflow generates the release notes - one config, so the file
 # and the release page cannot disagree.
 #
 # Used from PATH when it is installed (brew install git-cliff), through
@@ -158,7 +158,7 @@ docs-build: $(VENV) ## Build the docs site the way CI does
 CLIFF_IMAGE := orhunp/git-cliff:2.13.1
 
 # TAG names the release being prepared, so the pending commits are filed
-# under it instead of "Unreleased" -- run it that way just before tagging:
+# under it instead of "Unreleased" - run it that way just before tagging:
 #
 #	make changelog TAG=v0.1.0
 CLIFF_ARGS := --config cliff.toml $(if $(TAG),--tag $(TAG)) --output CHANGELOG.md

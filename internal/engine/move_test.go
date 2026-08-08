@@ -16,7 +16,7 @@ import (
 //
 // The file spans several pieces on purpose. A single-piece file is the
 // one shape that hides bugs in the piece-layer handling, because the
-// library skips those files when it checks for v2 piece roots -- which is
+// library skips those files when it checks for v2 piece roots - which is
 // exactly how a move that failed for every real torrent went unnoticed.
 func writeTestTorrent(t *testing.T, dir string, size int64) string {
 	t.Helper()
@@ -61,7 +61,7 @@ func writeTestTorrent(t *testing.T, dir string, size int64) string {
 // metainfo, and that metainfo carries an allocated-but-empty piece-layers
 // map for a v1 torrent. A non-nil map is what the library reads as "this
 // is v2", so the re-add demanded a piece root every file spanning more
-// than one piece cannot have, and move failed with "no piece root set" --
+// than one piece cannot have, and move failed with "no piece root set" -
 // on every real torrent.
 func TestMoveStorageWorksOnAMultiPieceTorrent(t *testing.T) {
 	cfg := testConfig(t)
@@ -72,7 +72,7 @@ func TestMoveStorageWorksOnAMultiPieceTorrent(t *testing.T) {
 	t.Cleanup(func() { e.Close() })
 
 	// Built inside the engine's own data directory, so the torrent is
-	// added with its data already there -- there has to be something to
+	// added with its data already there - there has to be something to
 	// move. 4MiB at a 16KiB piece length is 256 pieces in one file: more
 	// than one piece is the point of the test, and enough of them that
 	// the verification below lasts long enough to be seen.

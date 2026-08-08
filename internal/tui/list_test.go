@@ -51,7 +51,7 @@ func TestProgressCellDrawsTheFraction(t *testing.T) {
 }
 
 // Percentages floor rather than round, so a bar with a gap in it is never
-// labelled 100%.
+// labeled 100%.
 func TestProgressCellDoesNotRoundUpToComplete(t *testing.T) {
 	got := progressCell(0.996, minBarWidth)
 	if strings.Contains(got, "100%") {
@@ -135,7 +135,7 @@ func TestHeaderAndRowsShareTheirColumns(t *testing.T) {
 
 // Everything except Name and Progress goes on a narrow terminal: how far
 // along a torrent is beats how fast it is going. At that width progress
-// is the percentage alone -- there is no room for a bar.
+// is the percentage alone - there is no room for a bar.
 func TestNarrowPanesKeepNameAndProgress(t *testing.T) {
 	m := testModel("a")
 	p := layout(minWidth, 40)
@@ -200,7 +200,7 @@ func TestPromptDoesNotWearTheSelectionHighlight(t *testing.T) {
 }
 
 // A long paste has to scroll rather than overflow the line the layout
-// allocated -- and the trim must not cut through the styling's escape
+// allocated - and the trim must not cut through the styling's escape
 // sequences.
 func TestPromptFitsTheFooter(t *testing.T) {
 	m := testModel("a")
@@ -336,7 +336,7 @@ func TestTheBarNeverCostsTheOtherColumns(t *testing.T) {
 }
 
 // Names come first. A pane that cannot afford both shows the percentage
-// alone and spends the room on the name instead -- a name truncated
+// alone and spends the room on the name instead - a name truncated
 // beside a stub of a bar serves nobody.
 func TestATightPaneSpendsTheRoomOnTheName(t *testing.T) {
 	// Wide enough for the full column set, not wide enough for a bar.
@@ -368,7 +368,7 @@ func TestATightPaneSpendsTheRoomOnTheName(t *testing.T) {
 }
 
 // The cursor and the selection are independent, and one marker cell
-// could only ever show one of them -- so a selected row under the cursor
+// could only ever show one of them - so a selected row under the cursor
 // looked unselected, and there was no telling which of several selected
 // rows the cursor was on.
 func TestCursorAndSelectionAreBothVisible(t *testing.T) {

@@ -23,7 +23,7 @@ var ErrNotFound = fmt.Errorf("torrent not found")
 //
 // This guard is not optional. (*torrent.Torrent).Files() requires Info()
 // first, and calling it earlier does not return an error or an empty
-// slice -- it dereferences a nil pointer and takes down the whole
+// slice - it dereferences a nil pointer and takes down the whole
 // process, every torrent in the daemon along with it. A magnet can sit
 // without metadata for an unbounded time, so every call site goes
 // through here.
@@ -63,7 +63,7 @@ func (e *Engine) AddTorrentFile(path string, opts AddOpts) (TorrentID, error) {
 func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI string) (TorrentID, error) {
 	// The client has a single default storage for everything, so a
 	// torrent that wants its own download directory gets its own storage
-	// instance -- which then has to be closed when it is removed.
+	// instance - which then has to be closed when it is removed.
 	var ownStorage storage.ClientImplCloser
 	savePath := e.cfg.DataDir
 	if opts.SavePath != "" {
@@ -108,7 +108,7 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	e.torrents[id].applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
-	// A magnet carries no file list -- that metadata has to be fetched
+	// A magnet carries no file list - that metadata has to be fetched
 	// from a peer first, and for a torrent with no peers it may never
 	// arrive. So wait for it in the background rather than making the
 	// caller wait an unbounded time.
@@ -199,7 +199,7 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 // file, and the ".part" the file storage writes an unfinished one to.
 //
 // Both, because which of the two exists depends on whether every piece of
-// that file has landed and been verified -- and the whole point of
+// that file has landed and been verified - and the whole point of
 // listing them is to delete them, where missing the .part leaves the
 // bytes behind. A half-downloaded torrent is *entirely* .part files.
 //
@@ -215,14 +215,14 @@ func dataPaths(savePath string, t *torrent.Torrent) []string {
 	return paths
 }
 
-// dataDir is the directory holding a torrent's files -- what to open in
+// dataDir is the directory holding a torrent's files - what to open in
 // a file manager when someone asks to see it on disk.
 //
 // Two shapes: a multi-file torrent puts its files in a directory of its
 // own name under the save path, a single-file one writes straight into
 // the save path. The difference is visible in the file list, where a
 // multi-file torrent's paths carry that directory as their first element,
-// so the answer is read from there rather than from the torrent's name --
+// so the answer is read from there rather than from the torrent's name -
 // which is not always what the directory ended up being called.
 //
 // The save path before metadata arrives, which is where the data will go
@@ -249,7 +249,7 @@ func dataDir(savePath string, t *torrent.Torrent) string {
 // deletions start missing incomplete data.
 const partFileSuffix = ".part"
 
-// deleteFiles removes each path, ignoring the ones that are not there --
+// deleteFiles removes each path, ignoring the ones that are not there -
 // dataPaths lists both a file and its .part, and only one of the two
 // exists at a time.
 func deleteFiles(paths []string) {
@@ -259,7 +259,7 @@ func deleteFiles(paths []string) {
 }
 
 // removeEmptyDirs removes the directories a multi-file torrent left
-// behind, stopping at savePath itself -- that is usually a shared
+// behind, stopping at savePath itself - that is usually a shared
 // downloads directory and is not ours to delete.
 func removeEmptyDirs(savePath string, filePaths []string) {
 	seen := map[string]bool{}
@@ -349,8 +349,8 @@ func (e *Engine) SetFilePriority(id TorrentID, fileIndex int, prio Priority) err
 // None < Normal < High < Readahead < Next < Now.
 //
 // There is nothing between "not wanted" and "wanted normally", so
-// PriorityLow -- which in most clients means "wanted, but after
-// everything else" -- has no faithful equivalent and becomes Normal
+// PriorityLow - which in most clients means "wanted, but after
+// everything else" - has no faithful equivalent and becomes Normal
 // rather than being silently dropped to None.
 func toLibPriority(p Priority) torrent.PiecePriority {
 	switch p {
@@ -413,13 +413,13 @@ func (e *Engine) lookupFile(id TorrentID, fileIndex int) (*tracked, *torrent.Fil
 // is present, and that file is sparse and filled out of order, so a
 // reader of it sees zeros where pieces haven't landed. This reader blocks
 // instead, and the act of reading is what tells the client which pieces
-// to fetch first -- the piece at the read head is raised to "now" and the
+// to fetch first - the piece at the read head is raised to "now" and the
 // readahead window behind it to "readahead" priority.
 //
 // The reader is not safe for concurrent use and holds a single read head:
 // callers wanting to serve overlapping ranges must open one each. Callers
 // must Close it, and should SetContext so a blocked read can be
-// cancelled.
+// canceled.
 func (e *Engine) OpenFile(id TorrentID, fileIndex int) (torrent.Reader, FileInfo, error) {
 	_, f, err := e.lookupFile(id, fileIndex)
 	if err != nil {
@@ -439,7 +439,7 @@ func (e *Engine) OpenFile(id TorrentID, fileIndex int) (torrent.Reader, FileInfo
 // paused and raises the file's priority if it is below normal.
 //
 // Both are required rather than courtesies. A read on a paused torrent
-// does not block waiting for a resume -- it fails immediately, because
+// does not block waiting for a resume - it fails immediately, because
 // pausing sets DisallowDataDownload and the library treats that as "this
 // data is never coming". A file left at priority none is likewise never
 // requested from peers.
@@ -492,8 +492,8 @@ func (e *Engine) SetGlobalDownloadLimit(bps int64) {
 // resend, the other.
 //
 // Unlike the global limits this is not enforced by the library, which has
-// no per-torrent throttle at all. It is approximated a tick at a time --
-// see enforceRateLimit -- so it averages out near the cap but is bursty.
+// no per-torrent throttle at all. It is approximated a tick at a time -
+// see enforceRateLimit - so it averages out near the cap but is bursty.
 func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64) error {
 	tr, err := e.lookup(id)
 	if err != nil {
@@ -523,7 +523,7 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 // happening.
 //
 // The caller sets tr.checking and tr.checkTotal before starting, and
-// clears them afterwards -- this only moves tr.checkDone.
+// clears them afterwards - this only moves tr.checkDone.
 func (e *Engine) verifyPieces(tr *tracked, total int) error {
 	for i := 0; i < total; i++ {
 		if err := tr.t.Piece(i).VerifyDataContext(context.Background()); err != nil {
@@ -541,7 +541,7 @@ func (e *Engine) verifyPieces(tr *tracked, total int) error {
 //
 // Refused before metadata arrives. The library's own VerifyData calls
 // NumPieces without checking, and NumPieces reads through metadata that
-// may not be there -- so a recheck on a magnet that has not found a peer
+// may not be there - so a recheck on a magnet that has not found a peer
 // yet is a nil dereference that takes the whole daemon down, every other
 // torrent with it.
 func (e *Engine) ForceRecheck(id TorrentID) error {
@@ -585,7 +585,7 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 }
 
 // PurgeData deletes a torrent's data and keeps the torrent, paused, at
-// zero -- for freeing space without losing the entry, its save path, its
+// zero - for freeing space without losing the entry, its save path, its
 // limits or its place in the list. Resuming it downloads the data again.
 //
 // Deleting the files is not enough on its own: a running torrent holds
@@ -603,7 +603,7 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 // fixes it.
 //
 // Re-adding does invalidate any open reader, so a stream of this torrent
-// stops -- the same caveat MoveStorage carries, for the same reason.
+// stops - the same caveat MoveStorage carries, for the same reason.
 func (e *Engine) PurgeData(id TorrentID) error {
 	tr, err := e.lookup(id)
 	if err != nil {
@@ -713,7 +713,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	wasPaused := tr.paused
 	// Held rather than switched off directly: the tick applies its own
 	// verdict every second, and would allow transfers again in the middle
-	// of the move -- nothing else about the torrent says it is busy.
+	// of the move - nothing else about the torrent says it is busy.
 	tr.holdData = true
 	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
@@ -742,7 +742,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	spec.InfoHash = ih
 	spec.Storage = newStorage
 	// A v1 torrent has no piece layers, but Metainfo() still hands back a
-	// map for them -- allocated, then left empty because no file has a v2
+	// map for them - allocated, then left empty because no file has a v2
 	// piece root. A non-nil map is what the library takes as "this is a
 	// v2 torrent", so on re-add it walks every file demanding a root that
 	// cannot be there and fails with "no piece root set for file".
@@ -776,7 +776,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	}
 	// The re-added Torrent is a fresh instance with every file back at
 	// unset priority, so it needs the same downloadAllFiles() call
-	// addSpec relies on -- which means a move also resets any custom
+	// addSpec relies on - which means a move also resets any custom
 	// per-file priorities that had been set before it back to "wanted at
 	// normal priority" rather than preserving them.
 	if !wasPaused {
@@ -866,7 +866,7 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 	e.mu.Unlock()
 
 	// Everything below reads through the client's own locks, so the
-	// engine lock is released first -- holding both invites a deadlock
+	// engine lock is released first - holding both invites a deadlock
 	// and would block every other caller meanwhile.
 
 	var files []FileInfo
@@ -903,7 +903,7 @@ func (e *Engine) TorrentDetail(id TorrentID) (TorrentDetail, error) {
 	peers := e.peerInfo(tr, numPieces)
 
 	// Only the static list from the torrent's own metadata. The library
-	// exposes no live announce status -- no last announce time, no error,
+	// exposes no live announce status - no last announce time, no error,
 	// no seeder counts from the tracker's reply.
 	var trackers []TrackerInfo
 	mi := tr.t.Metainfo()

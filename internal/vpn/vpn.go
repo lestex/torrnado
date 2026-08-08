@@ -1,16 +1,16 @@
 // Package vpn reports whether the system's traffic leaves through a VPN.
 //
-// It asks the kernel two questions -- which interface would carry a packet
-// to the internet, and what kind of device is that -- rather than knowing
+// It asks the kernel two questions - which interface would carry a packet
+// to the internet, and what kind of device is that - rather than knowing
 // anything about any particular VPN client. WireGuard, OpenVPN, IKEv2,
 // IPsec, PPP and macOS's NetworkExtension clients all end up as a tunnel
 // device carrying the default route, so all of them are detected the same
 // way, and a client this package has never heard of works too.
 //
 // It deliberately does not look at whether a tunnel device merely exists.
-// A Mac typically has several utun interfaces up at all times -- iCloud
+// A Mac typically has several utun interfaces up at all times - iCloud
 // Private Relay, Handoff, a Tailscale that is connected but has no exit
-// node -- none of which carry general traffic. Only the interface that
+// node - none of which carry general traffic. Only the interface that
 // would actually carry the packet counts.
 package vpn
 

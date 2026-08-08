@@ -58,7 +58,7 @@ func (l *Logger) Handler() slog.Handler { return l.Logger.Handler() }
 // Reopen closes the log file and opens it again at the same path.
 //
 // This is what makes logrotate work. A rotated file is renamed out from
-// under the process, which keeps writing to the same inode -- now
+// under the process, which keeps writing to the same inode - now
 // unlinked, so the log silently goes nowhere and the disk never frees the
 // space. Reopening on SIGHUP is the convention for saying "look again".
 //
@@ -110,7 +110,7 @@ func ParseLevel(s string) (slog.Level, error) {
 }
 
 // swappableWriter lets the destination change while the handler holding
-// it stays the same. Writes are serialised because the file can be
+// it stays the same. Writes are serialized because the file can be
 // replaced from a signal handler while another goroutine is mid-write.
 type swappableWriter struct {
 	mu sync.Mutex

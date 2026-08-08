@@ -2,7 +2,7 @@
 // with: a set of built-in themes plus user-supplied TOML overrides.
 //
 // Palettes are stored as lipgloss.Color hex strings. Graceful degradation
-// for terminals without truecolor is handled by lipgloss/termenv itself --
+// for terminals without truecolor is handled by lipgloss/termenv itself -
 // lipgloss.Color downsamples a hex value to the nearest ANSI256 or ANSI16
 // color automatically based on the terminal's detected profile, so themes
 // don't need separate truecolor/256-color variants. The "plain" theme
@@ -85,7 +85,7 @@ func Names() []string {
 // any <name>.toml in themesDir.
 //
 // A user file shadowing a built-in is listed once, because Load already
-// prefers the file -- two entries would offer a choice that does not
+// prefers the file - two entries would offer a choice that does not
 // exist. A missing or unreadable directory yields the built-ins rather
 // than an error: having no themes directory is the ordinary case, not a
 // failure.
@@ -159,8 +159,8 @@ func Load(name, themesDir string) (Theme, error) {
 }
 
 // TruecolorSupported reports whether the terminal (per COLORTERM and
-// termenv's own detection) supports 24-bit color. It's informational --
-// lipgloss degrades colors on its own -- but is surfaced so the TUI/config
+// termenv's own detection) supports 24-bit color. It's informational -
+// lipgloss degrades colors on its own - but is surfaced so the TUI/config
 // can suggest the "plain" theme when it's false.
 func TruecolorSupported() bool {
 	if v := os.Getenv("COLORTERM"); v == "truecolor" || v == "24bit" {

@@ -33,7 +33,7 @@ func TestParseSplitsCommandAndFlags(t *testing.T) {
 }
 
 // Where the path lands is the whole of what a configured command can say,
-// so each shape it can take is worth pinning down -- especially the one
+// so each shape it can take is worth pinning down - especially the one
 // with a space in it, which is what a real download directory looks like
 // and what splitting after substitution would have quietly broken in two.
 func TestWithPathPutsThePathWhereTheCommandAsked(t *testing.T) {

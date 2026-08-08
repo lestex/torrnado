@@ -37,7 +37,7 @@ func TestUnknownCommandIsReported(t *testing.T) {
 // how a user would find out.
 //
 // With no torrents to act on, each of these returns no command at all,
-// while an unrecognised word returns one that reports the error -- which
+// while an unrecognised word returns one that reports the error - which
 // is the difference being asserted. They cannot simply be run: the
 // command they return talks to a daemon this model does not have.
 func TestKnownCommandsAreNotReportedAsUnknown(t *testing.T) {

@@ -10,7 +10,7 @@ internal/engine        anacrolix/torrent client wrapper: Go API + an
                        event channel of state snapshots. No IPC or UI
                        code in here.
 internal/ipc            gob-over-Unix-socket RPC: call/reply for commands,
-                       server-pushed events for state -- what lets the
+                       server-pushed events for state - what lets the
                        daemon run detached from any UI.
 internal/tui            bubbletea model: a three-pane layout (status
                        sidebar, torrent list, docked Pieces/Peers/Files
@@ -30,7 +30,7 @@ Dependency order is strict and one-directional: `format` and `engine` have
 no internal dependencies; `ipc` depends only on `engine`; `config` depends
 on `format`; `tui` depends on `engine`, `ipc`, `config`, `theme` and
 `batch`; `cmd` depends on everything. Nothing in `engine` or `ipc` imports
-`tui` or `cmd` -- if you find yourself wanting to, the abstraction has
+`tui` or `cmd` - if you find yourself wanting to, the abstraction has
 leaked.
 
 ## Tasks
@@ -40,7 +40,7 @@ make            # list every target
 make build      # build ./torrnado
 make test       # go test ./...
 make test-race  # the same with the race detector
-make check      # gofmt -l, go vet, go test -- the gate before a commit
+make check      # gofmt -l, go vet, go test - the gate before a commit
 make e2e        # drive the built binary through the shell suites
 ```
 
@@ -63,15 +63,15 @@ logs reaching the journal, a torrent surviving `systemctl restart`,
 reload reopening the log, a `SIGKILL`ed daemon coming back, and a stopped
 one staying stopped.
 
-Both have caught real bugs that macOS hid -- a fixed listen port that made
+Both have caught real bugs that macOS hid - a fixed listen port that made
 parallel test packages collide, and a signal handler installed too late.
 
 ## Checking VPN detection against a real device
 
 The unit tests for `internal/vpn` classify synthetic interfaces and a fake
 sysfs tree, which tests the rules but not the kernel's description of a
-real tunnel. To exercise the whole path -- route lookup, source address,
-sysfs -- make a tunnel and route the probe destination through it:
+real tunnel. To exercise the whole path - route lookup, source address,
+sysfs - make a tunnel and route the probe destination through it:
 
 ```sh
 docker run --rm -it --cap-add=NET_ADMIN --device /dev/net/tun \
@@ -88,7 +88,7 @@ Then call `vpn.Detect(nil)` from a throwaway test in the package. Without
 the route it reports the container's `eth0` and refuses; with it, `tun0`
 (via `tun_flags`) or `wg0` (via `DEVTYPE=wireguard`) and allows.
 
-On macOS there is nothing to fake -- connect a VPN and run the same
+On macOS there is nothing to fake - connect a VPN and run the same
 throwaway test, which should name the `utun` device carrying the traffic.
 A Tailscale with no exit node should *not* satisfy it, since the default
 route stays on `en0`.
@@ -103,13 +103,13 @@ a green `make check` here mean the same thing:
 |---|---|
 | `check` | `make check` and `make e2e`, on Linux **and** macOS |
 | `race` | `make test-race` |
-| `vuln` | `govulncheck ./...` -- only vulnerabilities the code reaches |
+| `vuln` | `govulncheck ./...` - only vulnerabilities the code reaches |
 | `build` | `goreleaser build --snapshot`, the release build on every push |
 | `docker` | builds the image and runs `torrnado version` inside it |
 | `coverage` | a profile, with the totals in the run summary |
 
 `.github/workflows/integration.yml` runs `make systemd-test` nightly and on
-demand -- it needs a privileged container and takes minutes, which is too
+demand - it needs a privileged container and takes minutes, which is too
 slow for every push and too valuable to run only when someone remembers.
 
 ## Cutting a release
@@ -125,7 +125,7 @@ git push --follow-tags
 ```
 
 The tag triggers `.github/workflows/release.yml`: it reruns `make check`
-against that exact commit -- a tag can be pushed at a commit CI never saw --
+against that exact commit - a tag can be pushed at a commit CI never saw -
 then builds four archives with GoReleaser and creates the release, with
 notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`.
 
@@ -148,7 +148,7 @@ not wired into the root command, a daemon that fails to detach, a socket
 path that is wrong.
 
 Each suite gives itself its own `HOME` and `XDG_DATA_HOME`, and finds its
-daemon by asking which process holds *its* socket -- never by pattern
+daemon by asking which process holds *its* socket - never by pattern
 matching on the process name, which would kill the daemon you are
 actually using.
 

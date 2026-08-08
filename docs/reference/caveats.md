@@ -28,7 +28,7 @@ you. Re-encoding it from the parsed struct would lose the comments and
 ordering of something you wrote by hand.
 
 **No kill switch.** `vpn.required` holds transfers while the system is
-off-VPN, but tracker announces and DHT traffic keep going -- both are
+off-VPN, but tracker announces and DHT traffic keep going - both are
 client-wide settings the library only reads when the client is built, so
 changing them means tearing the client down and re-adding every torrent
 every time the VPN moves. Blocking traffic outright is the firewall's job,
@@ -56,8 +56,8 @@ config written against the documented schema does not fail, and so the
 gap is discoverable rather than silent.
 
 **Rechecking is expensive.** Forcing a recheck is O(N²) in the piece
-count against the completion database — hours on a large single-file
-torrent — and can hit an assertion inside the library that kills the
+count against the completion database - hours on a large single-file
+torrent - and can hit an assertion inside the library that kills the
 daemon from a goroutine nothing here can recover from. Do not reach for
 it as a diagnostic. See [library
 limitations](limitations.md).

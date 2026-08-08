@@ -12,14 +12,14 @@ import (
 // acquireDaemonLock takes an exclusive, non-blocking flock on
 // socketPath + ".lock", proving this process is the only daemon for that
 // socket. The returned file must be kept open for the lifetime of the
-// daemon -- the lock is released when it is closed (or when the process
+// daemon - the lock is released when it is closed (or when the process
 // dies, including on a panic or SIGKILL, which is the whole point).
 //
 // This exists because probing the socket is not a sound exclusion test.
 // Dialing answers "is someone accepting right now", not "does a daemon
 // own this socket": a daemon busy hash-checking a large torrent can fail
 // to accept inside any timeout you pick, and the probe-then-unlink
-// sequence is a TOCTOU race besides. Losing that gamble is expensive --
+// sequence is a TOCTOU race besides. Losing that gamble is expensive -
 // the loser unlinks the live daemon's socket and binds its own, leaving
 // two engines running against the same data directory and the same
 // SQLite piece-completion database, corrupting each other's view of

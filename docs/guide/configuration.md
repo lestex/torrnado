@@ -1,9 +1,9 @@
 # Configuration
 
 TOML at `$XDG_CONFIG_HOME/torrnado/config.toml` (`~/.config/torrnado/config.toml`
-if `$XDG_CONFIG_HOME` is unset -- honored on every platform this runs on,
+if `$XDG_CONFIG_HOME` is unset - honored on every platform this runs on,
 not just Linux). Every key is optional; a missing file is not an error,
-an invalid one is -- validation fails with the specific bad key rather
+an invalid one is - validation fails with the specific bad key rather
 than silently ignoring it.
 
 ```toml
@@ -26,13 +26,13 @@ high = 51433    # a range is tried in order until one binds
 [network]
 dht        = true
 pex        = true
-lsd        = true    # accepted, but has no effect -- see Limitations
+lsd        = true    # accepted, but has no effect - see Limitations
 encryption = true
 seed       = true     # keep uploading after a torrent completes
 
 [vpn]
 required   = false   # hold every transfer while the system is not on a VPN
-interfaces = []       # extra interfaces to count as a VPN -- see below
+interfaces = []       # extra interfaces to count as a VPN - see below
 
 [log]
 level         = "info"    # debug, info, warn, error
@@ -44,13 +44,13 @@ file          = ""          # empty = stderr, which is what a service manager wa
 
 ## Seeing what is in effect
 
-`torrnado config` prints the file it would read -- saying so when there
-is none -- every path derived from it, and the settings actually in
+`torrnado config` prints the file it would read - saying so when there
+is none - every path derived from it, and the settings actually in
 effect, defaults and overrides together:
 
 ```
 Paths
-  config          ~/.config/torrnado/config.toml  (not found -- built-in defaults in use)
+  config          ~/.config/torrnado/config.toml  (not found - built-in defaults in use)
   themes          ~/.config/torrnado/themes
   download_dir    ~/Downloads/torrnado
   state_dir       ~/.local/share/torrnado
@@ -69,13 +69,13 @@ Settings
 
 It is the one command that never contacts the daemon, which is deliberate:
 its value is highest when something is wrong and nothing is running. The
-flip side is that it prints what a daemon started *now* would use -- one
+flip side is that it prints what a daemon started *now* would use - one
 already running may have been started with something else.
 
 ## Opening a torrent's folder
 
 `o` in the TUI, or `torrnado open <id>`, shows the directory holding a
-torrent's files -- its own folder for a multi-file torrent, the save path
+torrent's files - its own folder for a multi-file torrent, the save path
 for a single-file one. The program it runs is yours to choose:
 
 ```toml
@@ -90,7 +90,7 @@ the directory appended, which is why the bare `open` and `xdg-open` above
 work. The same is true of `player`, so `mpv --title %f` places the stream
 URL rather than appending it.
 
-The command is split on spaces and run directly -- there is no shell, so
+The command is split on spaces and run directly - there is no shell, so
 nothing in a path is interpreted, and the substitution happens after the
 split, which keeps a directory with a space in its name a single argument.
 
@@ -104,7 +104,7 @@ opened.
 required = true
 ```
 
-With this set, no torrent moves piece data -- in either direction -- while
+With this set, no torrent moves piece data - in either direction - while
 the system is not on a VPN. Nothing is paused: the daemon holds the
 transfers, keeps everything exactly as you left it, and lets them go again
 by themselves when the VPN comes back. A held torrent reads `blocked` in
@@ -118,7 +118,7 @@ It is off by default, and while it is off the check is never run.
 It stops piece data. It does **not** stop tracker announces or DHT
 traffic: those are client-wide and can only be turned off when the torrent
 client is built, so a blocked daemon still announces the torrents it is
-holding, from your real address. Peers will also still connect to it --
+holding, from your real address. Peers will also still connect to it -
 they just get nothing.
 
 So this is "nothing transfers off-VPN", not a network kill switch. If what
@@ -129,7 +129,7 @@ its own.
 ### How it decides
 
 It asks the kernel which interface a packet to the internet would leave
-by, then what kind of device that is -- a WireGuard, tun/tap, ppp or
+by, then what kind of device that is - a WireGuard, tun/tap, ppp or
 IPsec device counts; Ethernet and Wi-Fi do not. There is nothing to
 configure per VPN client: WireGuard, OpenVPN, IKEv2, IPsec and every
 macOS NetworkExtension client are all detected the same way, including
@@ -137,15 +137,15 @@ ones this was never tested against.
 
 Two consequences worth knowing:
 
-- **Having a tunnel up is not enough** -- it has to be the one carrying
+- **Having a tunnel up is not enough** - it has to be the one carrying
   your traffic. A Mac usually has several `utun` devices up at all times,
   and a Tailscale with no exit node is one of them; none of those carry
   general traffic, so none of them satisfy the guard.
 - **A split tunnel that does not carry the default route reads as no
   VPN**, because for anything not in its routes, it is.
 
-Anything that cannot be answered -- no route at all, an interface the
-kernel will not describe -- counts as *not* on a VPN. A guard that fails
+Anything that cannot be answered - no route at all, an interface the
+kernel will not describe - counts as *not* on a VPN. A guard that fails
 open on a lookup it could not finish is not a guard.
 
 ### When detection cannot see it
@@ -162,5 +162,5 @@ interfaces = ["utun4"]
 
 Anything listed there counts as a VPN whatever the kernel says about it.
 Exact names, not prefixes. Note that macOS renumbers `utun` devices
-between connections, so a pinned name can go stale -- prefer letting
+between connections, so a pinned name can go stale - prefer letting
 detection do its job unless it cannot.

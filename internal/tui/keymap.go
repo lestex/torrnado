@@ -3,7 +3,7 @@ package tui
 // KeyMap holds the single key bound to each action.
 //
 // Values are compared against tea.KeyMsg.String(), so anything bubbletea
-// recognises works: "j", "ctrl+c", "enter", "esc". Keeping the schema to
+// recognizes works: "j", "ctrl+c", "enter", "esc". Keeping the schema to
 // one key per action is what lets it be overridden from a config file
 // without inventing a syntax for chords.
 type KeyMap struct {

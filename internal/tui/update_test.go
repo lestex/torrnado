@@ -97,7 +97,7 @@ func TestSelectMarksAndAdvances(t *testing.T) {
 }
 
 // Torrents disappear while being looked at, so the cursor has to be
-// corrected when the list shrinks -- otherwise it points past the end and
+// corrected when the list shrinks - otherwise it points past the end and
 // every action reads the wrong row, or none.
 func TestCursorIsClampedWhenTorrentsVanish(t *testing.T) {
 	m := testModel("a", "b", "c")
@@ -211,7 +211,7 @@ func TestSearchIgnoresCase(t *testing.T) {
 	}
 }
 
-// The search and the sidebar filter both apply -- they intersect rather
+// The search and the sidebar filter both apply - they intersect rather
 // than one replacing the other.
 func TestSearchAndFilterIntersect(t *testing.T) {
 	m := testModel("ubuntu.iso", "ubuntu-server.iso")
@@ -401,7 +401,7 @@ func TestAStatusMessageExpires(t *testing.T) {
 }
 
 // The timer for a message that has already been replaced must not wipe
-// the one now on screen -- two commands in quick succession is the
+// the one now on screen - two commands in quick succession is the
 // ordinary case, not a rare one.
 func TestAStaleExpiryLeavesTheCurrentMessage(t *testing.T) {
 	m := testModel()
@@ -436,7 +436,7 @@ func TestExpireStatusCmdCarriesItsSequence(t *testing.T) {
 }
 
 // An error is the answer to "why did nothing happen", so it is worth
-// reading twice -- but it still goes away.
+// reading twice - but it still goes away.
 func TestAnErrorStaysLongerThanAConfirmation(t *testing.T) {
 	m := testModel()
 
@@ -512,7 +512,7 @@ func TestOpenActsOnTheCursorRow(t *testing.T) {
 }
 
 // A torrent that has downloaded nothing, or whose data was just purged,
-// has no folder of its own -- the save path does exist, and showing where
+// has no folder of its own - the save path does exist, and showing where
 // the data is going to land beats an error about a directory the user
 // never named.
 func TestOpenFallsBackToTheSavePath(t *testing.T) {

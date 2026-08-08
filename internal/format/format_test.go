@@ -9,7 +9,7 @@ import (
 // Go's testing convention: a file named x_test.go next to x.go, functions
 // named TestSomething(t *testing.T), run with `go test ./...`.
 //
-// These are "table-driven" tests -- the cases live in a slice and one
+// These are "table-driven" tests - the cases live in a slice and one
 // loop checks them all. It is the standard Go style because adding a case
 // means adding a line, not another copy of the assertion.
 

@@ -14,7 +14,7 @@ import (
 const (
 	// Two marker cells, because the two states are independent: a row can
 	// be under the cursor, selected, or both. One cell can only show one
-	// of them, and the cursor won -- so a selected row under the cursor
+	// of them, and the cursor won - so a selected row under the cursor
 	// looked unselected, and there was no way to see which of several
 	// selected rows the cursor was on.
 	colMark   = 2
@@ -31,7 +31,7 @@ const (
 
 	// The bar is optional and elastic. Below minBarWidth it is too short
 	// to read as a bar at all, so the column drops to the percentage
-	// alone and Name gets the room instead -- a truncated name beside a
+	// alone and Name gets the room instead - a truncated name beside a
 	// stub of a bar serves nobody. Above maxBarWidth it would be
 	// measuring nothing anyone needs measured that finely.
 	minBarWidth = 10
@@ -44,8 +44,8 @@ const (
 	nameTarget = 48
 
 	// colGap is the single space between columns. Every column except the
-	// marker is preceded by one, so the fixed columns -- everything Name
-	// does NOT get -- count seven of them: one per fixed column plus
+	// marker is preceded by one, so the fixed columns - everything Name
+	// does NOT get - count seven of them: one per fixed column plus
 	// Name's own. Getting this off by one lets a row exceed the pane
 	// width, and lipgloss then wraps it onto a second line.
 	colGap = 1
@@ -81,7 +81,7 @@ func barWidth(contentW int) int {
 }
 
 // progressWidthWith is the progress column for a given bar width: the
-// bar, a space and the percentage -- or just the percentage when there
+// bar, a space and the percentage - or just the percentage when there
 // is no bar.
 func progressWidthWith(bar int) int {
 	if bar <= 0 {
@@ -115,7 +115,7 @@ func fixedColumnsWith(bar int) int {
 // nameWidth returns the elastic Name column width for a pane of the given
 // content width, and whether the full column set fits at all.
 //
-// When it doesn't, everything is dropped except Name and Progress --
+// When it doesn't, everything is dropped except Name and Progress -
 // which of a torrent's numbers survives a narrow terminal is a choice,
 // and how far along it is beats how fast it is going.
 func nameWidth(contentW int) (int, bool) {
@@ -147,7 +147,7 @@ func (m Model) renderListHeader(p panes) string {
 func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH int) string {
 	height := paneH - 1 // the header owns one row
 	if len(m.torrents) == 0 {
-		return m.styles.Muted.Render(" no torrents yet -- add one with `torrnado add`")
+		return m.styles.Muted.Render(" no torrents yet - add one with `torrnado add`")
 	}
 	if len(visible) == 0 {
 		return m.styles.Muted.Render(" nothing matches status " + filterNames[m.filter])
@@ -233,7 +233,7 @@ func (m Model) renderRow(p panes, t engine.TorrentSnapshot, isCursor bool) []str
 // replaced. A row is rendered with a single style so that a cursor or
 // selection highlight runs the whole way across it; styling the bar's
 // halves separately would end that style mid-row and leave a hole in the
-// highlight. The glyphs carry the bar on their own -- "━" is filled, "─"
+// highlight. The glyphs carry the bar on their own - "━" is filled, "─"
 // is track.
 func progressCell(frac float64, barW int) string {
 	// Clamped once, so the bar and the number cannot disagree: a

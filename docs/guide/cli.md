@@ -27,8 +27,8 @@ torrnado config                       where the config lives, and what is in eff
 
 `torrnado config` is the one command that never touches the daemon: it
 prints the config file it would read (saying so when there isn't one),
-every path derived from it -- downloads, state, socket, session file,
-saved metainfo -- and the settings actually in effect, defaults and
+every path derived from it - downloads, state, socket, session file,
+saved metainfo - and the settings actually in effect, defaults and
 overrides together. Useful when a setting seems to be ignored, since the
 first answer is usually that the file is somewhere other than where it
 was written. What it prints is what a daemon started *now* would use; one
@@ -52,7 +52,7 @@ the XDG default. Torrent ids are hex-encoded info hashes, as printed by
 - an `http://` or `https://` URL to a `.torrent` file (downloaded to a
   temp file and added from there)
 - a directory (every `.torrent` file directly inside it, non-recursive)
-- a glob pattern (`~/torrents/*.torrent`) -- handled by torrnado itself
+- a glob pattern (`~/torrents/*.torrent`) - handled by torrnado itself
   as well as by your shell, so it also works quoted or on shells that
   don't glob
 - a text file listing one magnet URI per line (blank lines and `#`

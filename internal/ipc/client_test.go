@@ -43,7 +43,7 @@ func startTestDaemon(t *testing.T) *Client {
 // t.TempDir() would be the obvious choice, but it builds the path out of
 // the test's own name, and a Unix socket address is limited to about 100
 // bytes on most systems. A long test name silently pushes the socket over
-// that limit and bind fails with "invalid argument" -- which looks like a
+// that limit and bind fails with "invalid argument" - which looks like a
 // flaky test rather than the length problem it is.
 func shortTempDir(t *testing.T) string {
 	t.Helper()

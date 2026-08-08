@@ -16,7 +16,7 @@ torrnado add 'magnet:?xt=urn:btih:...'
     sees it. In the TUI's `:add` the quotes are harmless but unnecessary.
 
 There was no daemon running, so that command started one and left it
-running. It is still there after the command exits — that is the whole
+running. It is still there after the command exits - that is the whole
 point of the design.
 
 `add` takes more than magnets: a `.torrent` file, an `http(s)` URL to one,
@@ -43,9 +43,9 @@ torrnado
 | ++j++ / ++k++ | move down / up |
 | ++space++ | mark a torrent (actions apply to marks, else the cursor row) |
 | ++p++ | pause or resume |
-| ++colon++ | the command palette — `:add`, `:theme`, `:limit-down 2M` |
+| ++colon++ | the command palette - `:add`, `:theme`, `:limit-down 2M` |
 | ++h++ | every other key, generated from your live keymap |
-| ++q++ | quit — **the daemon keeps running** |
+| ++q++ | quit - **the daemon keeps running** |
 
 ## Try a theme
 
@@ -77,8 +77,8 @@ daemon is running.
 
 ## Next
 
-- [The TUI](../guide/tui.md) — the three panes and every key
-- [Configuration](../guide/configuration.md) — download directory, rate
+- [The TUI](../guide/tui.md) - the three panes and every key
+- [Configuration](../guide/configuration.md) - download directory, rate
   limits, ports, keybinds
-- [Running a server](../server/daemon.md) — leave it on a box that is
+- [Running a server](../server/daemon.md) - leave it on a box that is
   always on

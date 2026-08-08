@@ -33,7 +33,7 @@ type Server struct {
 // socket, it returns an error rather than displacing it.
 //
 // Ownership is decided by an exclusive lock file, not by dialing the
-// socket -- see acquireDaemonLock for why probing is not sound.
+// socket - see acquireDaemonLock for why probing is not sound.
 // previewURL may be nil, which disables MethodPreviewURL.
 func Serve(socketPath string, eng *engine.Engine,
 	previewURL func(engine.TorrentID, int) string,
@@ -142,7 +142,7 @@ func (s *Server) handleConn(conn net.Conn) {
 //
 // This switch is the only place the two halves of the program meet: on
 // one side a request that arrived over a socket, on the other the engine
-// API. Every case does the same three things -- call the engine, put any
+// API. Every case does the same three things - call the engine, put any
 // error into the response as a string, mark it OK.
 //
 // Errors cross the wire as text rather than as Go error values, because

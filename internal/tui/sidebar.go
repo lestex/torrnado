@@ -10,7 +10,7 @@ import (
 )
 
 // statusFilter narrows the torrent list to one lifecycle category. It is
-// orthogonal to the search query -- both apply at once.
+// orthogonal to the search query - both apply at once.
 type statusFilter int
 
 const (
@@ -46,7 +46,7 @@ func (f statusFilter) matches(t engine.TorrentSnapshot) bool {
 	case filterStopped:
 		// Paused rather than State == StatePaused: a paused torrent that
 		// is being rechecked reports State as "checking", and it is still
-		// stopped. Blocked belongs here too -- a torrent held by the VPN
+		// stopped. Blocked belongs here too - a torrent held by the VPN
 		// guard is not running, and this is the filter someone reaches for
 		// to find out what is not.
 		return t.Paused || t.State == engine.StateError || t.State == engine.StateBlocked
@@ -119,7 +119,7 @@ func (m Model) renderSidebar(p panes) string {
 //
 // Drawn only when the guard is switched on. A "vpn: none" on every daemon
 // would read as a warning to the many people who never asked for one, and
-// the daemon does not even run the check unless it was asked to -- so
+// the daemon does not even run the check unless it was asked to - so
 // there would be nothing behind the word.
 func (m Model) vpnLine(w int) (string, bool) {
 	if !m.global.VPNRequired {
@@ -131,7 +131,7 @@ func (m Model) vpnLine(w int) (string, bool) {
 		return m.styles.Error.Render(truncate("vpn: blocked", w)), true
 	}
 	// The interface name, because "which VPN am I on" is the question
-	// after "am I on one" -- and a daemon that thinks it is protected by
+	// after "am I on one" - and a daemon that thinks it is protected by
 	// the wrong interface is worth being able to see.
 	iface := m.global.VPNInterface
 	if iface == "" {
@@ -152,7 +152,7 @@ const daemonStatusDot = "●"
 // stream is alive and red once it has ended.
 //
 // The dot trails the word rather than leading it so the heading starts in
-// the same column as the values beneath it -- a leading dot indents the
+// the same column as the values beneath it - a leading dot indents the
 // only line in the block that is not indented.
 func (m Model) daemonHeading(w int) string {
 	head := m.styles.ColHeader.Render(truncate("Daemon", w))

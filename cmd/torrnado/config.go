@@ -9,7 +9,7 @@ var configPathFlag string
 // it, returning the path it read (or would read) alongside the Config.
 //
 // The path is returned as well as the config so the daemon can say which
-// file it used -- a config that was never found looks exactly like one
+// file it used - a config that was never found looks exactly like one
 // that was found and had nothing to say.
 func loadConfig() (config.Config, string, error) {
 	path := configPathFlag

@@ -3,7 +3,7 @@
 A terminal BitTorrent client: a vim-like TUI ([bubbletea]/[lipgloss]) on
 top of a torrent engine ([anacrolix/torrent]) that runs as a background
 daemon. The TUI and CLI are both thin clients that talk to that daemon
-over a local Unix socket — which is what makes detached operation (start
+over a local Unix socket - which is what makes detached operation (start
 a download, close the terminal, it keeps going) possible without a
 separate architecture.
 
@@ -45,7 +45,7 @@ torrnado                                  # attach the TUI
 torrnado list --watch                     # or just watch from the shell
 ```
 
-Quitting the TUI (`q`) does not stop the daemon — your torrents keep
+Quitting the TUI (`q`) does not stop the daemon - your torrents keep
 running. Press `h` in the TUI for every key, and `:` for the command
 palette.
 
@@ -79,7 +79,7 @@ Everything else lives at **[torrnado.dev](https://torrnado.dev)**:
 
 ## Contributing
 
-`make check` — gofmt, vet and the unit tests — is the gate every commit
+`make check` - gofmt, vet and the unit tests - is the gate every commit
 has to pass. `make e2e` drives the built binary through the shell suites,
 and `make docker-test` runs all of it on Linux, which is where the daemon
 is meant to live. See [Development](https://torrnado.dev/reference/development/).

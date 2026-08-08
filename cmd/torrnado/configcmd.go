@@ -24,7 +24,7 @@ import (
 // nowhere on disk.
 //
 // It never contacts the daemon. What it prints is what a daemon started
-// now would use -- which is not necessarily what the one already running
+// now would use - which is not necessarily what the one already running
 // was started with.
 func newConfigCmd() *cobra.Command {
 	return &cobra.Command{
@@ -32,7 +32,7 @@ func newConfigCmd() *cobra.Command {
 		Short: "Print the config file location and the settings in effect",
 		Long: "Prints where torrnado looks for its configuration and the values\n" +
 			"currently in effect (defaults, plus anything the file overrides).\n\n" +
-			"Reads only the config file -- a running daemon may have been started\n" +
+			"Reads only the config file - a running daemon may have been started\n" +
 			"with different settings.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,13 +48,13 @@ func newConfigCmd() *cobra.Command {
 func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 
-	// A file that is not there is not an error -- torrnado runs on
-	// defaults -- but it is the first thing to know when a setting is not
+	// A file that is not there is not an error - torrnado runs on
+	// defaults - but it is the first thing to know when a setting is not
 	// taking effect, so it is said plainly rather than left to be
 	// inferred from the values below.
 	note := ""
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		note = "\t(not found -- built-in defaults in use)"
+		note = "\t(not found - built-in defaults in use)"
 	}
 
 	fmt.Fprintln(w, "Paths")
@@ -107,7 +107,7 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Keybinds")
 	if len(cfg.Keybinds) == 0 {
-		fmt.Fprintln(w, "  (none -- press h in the TUI for the defaults)")
+		fmt.Fprintln(w, "  (none - press h in the TUI for the defaults)")
 	} else {
 		// Sorted, because ranging a map gives a different order every
 		// run and a listing that reshuffles itself is hard to read.

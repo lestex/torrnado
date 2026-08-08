@@ -150,7 +150,7 @@ jobs:
 
       # In the run summary rather than behind a third-party service: it is
       # a number to watch drift on, not a gate.
-      - name: Summarise
+      - name: Summarize
         run: |
           {
             echo '### Coverage'

@@ -64,7 +64,7 @@ func TestDispatchAddThenList(t *testing.T) {
 	}
 }
 
-// An engine error has to reach the caller as text in Err, with OK false --
+// An engine error has to reach the caller as text in Err, with OK false -
 // this is the only channel a failure has.
 func TestDispatchReportsEngineErrors(t *testing.T) {
 	s := newTestServer(t)
@@ -103,7 +103,7 @@ func TestDispatchRejectsUnknownIDEverywhere(t *testing.T) {
 }
 
 // The global limits take no torrent id, so they succeed with no torrents
-// at all -- and setting one must not be reported as a failure.
+// at all - and setting one must not be reported as a failure.
 func TestDispatchGlobalLimits(t *testing.T) {
 	s := newTestServer(t)
 
@@ -140,7 +140,7 @@ func TestSecondDaemonIsRefused(t *testing.T) {
 	}
 }
 
-// And once the first releases it, the socket can be claimed again --
+// And once the first releases it, the socket can be claimed again -
 // otherwise a restart would need the lock file deleted by hand.
 func TestSocketCanBeReclaimedAfterClose(t *testing.T) {
 	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
