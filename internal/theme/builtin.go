@@ -15,6 +15,21 @@ func init() {
 		SelectedFg: "#f8f8f2",
 	})
 
+	// alucard is Dracula's official light counterpart.
+	register(Theme{
+		Name:       "alucard",
+		Background: "#fffbeb",
+		Foreground: "#1f1f1f",
+		Muted:      "#6c664b",
+		Accent:     "#644ac9",
+		Success:    "#14710a",
+		Warning:    "#846e15",
+		Error:      "#cb3a2a",
+		Border:     "#cfcfde",
+		SelectedBg: "#cfcfde",
+		SelectedFg: "#1f1f1f",
+	})
+
 	register(Theme{
 		Name:       "nord",
 		Background: "#2e3440",
