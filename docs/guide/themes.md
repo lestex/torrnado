@@ -1,8 +1,9 @@
 # Themes
 
-Built in: `dracula`, `nord`, `gruvbox`, `solarized-dark`, `solarized-light`,
-`catppuccin`, `tokyo-night`, and `plain` (a 16-color-safe fallback with no
-truecolor hex codes, for terminals with no real color support).
+Built in: `dracula`, `alucard` (Dracula's light counterpart), `nord`,
+`gruvbox`, `solarized-dark`, `solarized-light`, `catppuccin`,
+`tokyo-night`, and `plain` (a 16-color-safe fallback with no truecolor hex
+codes, for terminals with no real color support).
 
 Truecolor-to-256/16-color degradation is handled automatically by
 lipgloss/termenv based on the terminal's detected color profile (and
