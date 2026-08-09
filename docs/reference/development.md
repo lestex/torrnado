@@ -136,7 +136,8 @@ git push origin v0.1.0
 The tag triggers `.github/workflows/release.yml`: it reruns `make check`
 against that exact commit - a tag can be pushed at a commit CI never saw -
 then builds four archives with GoReleaser and creates the release, with
-notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`.
+notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`. The
+same tag publishes the documentation site - see Docs below.
 
 To rehearse any of it locally:
 
@@ -172,3 +173,10 @@ make docs-build   # a strict build, the same one CI runs
 
 Requirements are pinned in `docs-requirements.txt` so a local build and
 the CI build produce the same site.
+
+`.github/workflows/docs.yml` builds the site strictly on every pull request
+and on every docs change to `main`, but **publishes only from a `v*` tag**,
+so torrnado.dev describes the released binary rather than unreleased work.
+A docs fix merged to `main` therefore goes live at the next release; to
+republish without moving a tag, run the workflow manually against the tag
+ref (`gh workflow run docs.yml --ref v0.1.0`).

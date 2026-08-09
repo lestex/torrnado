@@ -1,13 +1,15 @@
-# Builds the documentation site and publishes it to GitHub Pages. Pages
-# and the custom domain are enabled in Settings -> Pages; docs/CNAME is
-# ignored for build_type: workflow, and DNS lives at the registrar.
+# Builds the docs site on every docs change, publishes it to GitHub Pages
+# from a v* tag only. Pages and the custom domain are set in Settings ->
+# Pages; DNS lives at the registrar.
 name: docs
 
 on:
   push:
+    # Both refs: a push trigger naming only branches ignores tags entirely.
     branches: [main]
-    # Only when the site could actually have changed. A code-only commit
-    # does not need to republish it.
+    tags: ["v*"]
+    # Skips code-only pushes. Not evaluated for tags, so a release always
+    # publishes.
     paths:
       - docs/**
       - mkdocs.yml
@@ -21,7 +23,7 @@ on:
       - mkdocs.yml
       - docs-requirements.txt
       - .github/workflows/docs.yml
-  # So a broken build can be fixed and redeployed without an empty commit.
+  # Redeploy a release's docs without moving the tag: run it on the tag ref.
   workflow_dispatch:
 
 # Only deploy needs Pages write, and it asks for that itself. Granting it
@@ -29,8 +31,8 @@ on:
 permissions:
   contents: read
 
-# One deployment at a time, newest push wins. Keyed by ref, or a pull
-# request build would cancel an in-flight deployment of main.
+# One deployment at a time, newest push wins. Keyed by ref, or a push to
+# main would cancel an in-flight deployment of a tag.
 concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: true
@@ -63,9 +65,9 @@ jobs:
 
   deploy:
     needs: build
-    # A pull request proves the site builds; publishing it would put
-    # unreviewed docs on torrnado.dev.
-    if: github.event_name != 'pull_request'
+    # A tag and nothing else: readers run the released binary, so main and
+    # pull requests would document behavior they do not have.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
