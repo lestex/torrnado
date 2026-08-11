@@ -8,7 +8,7 @@
 // strokes currentColor so it takes the color of whatever draws it;
 // docs/assets/favicon.svg is the same path with the accent baked in,
 // because a browser tab has no page for currentColor to inherit from.
-// The constants here approximate that curve in character cells.
+// Logo approximates that curve in character cells.
 //
 // This is its own package rather than a corner of internal/tui because
 // the TUI is not the only thing that will want it: a web or desktop front
@@ -19,27 +19,13 @@ package branding
 
 import "strings"
 
-// Logo is the mark at full size, five rows by seven columns. Sized for a
-// screen with room to spare, such as a help overlay or a splash.
+// Logo is the mark in character cells, four columns by three rows. It
+// heads the help screen, which is the only place the terminal draws it.
 //
-// Drawn with the rounded box-drawing set (U+256D..U+2570) because the
-// square corners make the same path read as a maze rather than a curve.
-// A terminal font without them degrades to missing glyphs rather than to
-// something wrong, which is the failure worth having.
+// Drawn with the rounded box-drawing set (U+256D..U+2570) because square
+// corners make the same path read as a maze. A font without them degrades
+// to missing glyphs rather than to something wrong.
 const Logo = "" +
-	"╭─────╮\n" +
-	"│ ╭─╮ │\n" +
-	"│ │ ╰─╯\n" +
-	"│ ╰───╯\n" +
-	"╰──────"
-
-// LogoSmall is the mark at four columns by three rows, for a sidebar or
-// anywhere else a full-size one would crowd the content around it.
-//
-// The turn count drops from two to one: at this size a second turn is a
-// solid block rather than a spiral, which is the same reason the SVG uses
-// two turns and not the three that look best on paper.
-const LogoSmall = "" +
 	"╭──╮\n" +
 	"│╭╯\n" +
 	"╰╯"
