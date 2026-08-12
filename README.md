@@ -35,6 +35,13 @@ page](https://github.com/lestex/torrnado/releases), or build it:
 go build -o torrnado ./cmd/torrnado   # requires Go 1.25+
 ```
 
+For a box you leave running, every release also publishes a container
+image for amd64 and arm64:
+
+```sh
+docker pull ghcr.io/lestex/torrnado
+```
+
 There is no install step beyond putting the binary on your `$PATH`.
 
 ## Use

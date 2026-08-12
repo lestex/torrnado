@@ -115,11 +115,12 @@ a tunnel, and lets them go again when it reconnects.
 === "Docker"
 
     ```sh
-    docker build -t torrnado .
-    docker run --rm -v "$PWD/downloads:/downloads" torrnado version
+    docker pull ghcr.io/lestex/torrnado
+    docker run --rm ghcr.io/lestex/torrnado version
     ```
 
-    For leaving it running on a box - see [Docker](server/docker.md).
+    Published per release for amd64 and arm64. For leaving it running on
+    a box - see [Docker](server/docker.md).
 
 </div>
 
