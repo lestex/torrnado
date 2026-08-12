@@ -4,6 +4,19 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.2.0 - 2026-08-12
+
+### Features
+
+- A logo, drawn once and used in three places
+- **theme:** Add alucard, a light palette from Dracula's own light variant
+- **docs:** The site wears the terminal's mark
+
+### Bug fixes
+
+- **docs:** The logo was rendering black in the header
+- **tui:** One mark, on the help screen
+
 ## 0.1.0 - 2026-08-07
 
 ### Features
@@ -134,6 +147,7 @@ editing this file by hand.
 - **engine:** Delete the .part files too when deleting a torrent's data
 - **tui:** V plays a torrent from anywhere, and says why when it cannot
 - Fix readme
+- **release:** Stop discarding the release notes
 
 ### Dependencies
 
