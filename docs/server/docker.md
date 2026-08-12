@@ -1,12 +1,22 @@
 # Running in Docker
 
+Every release publishes an image to GitHub Container Registry, for
+`linux/amd64` and `linux/arm64`:
+
 ```sh
-docker build -t torrnado .
+docker pull ghcr.io/lestex/torrnado          # or :0.2.0, or :0.2
+```
+
+`latest` follows the newest release, `0.2.0` pins one exactly, and `0.2`
+tracks that minor series. Pin a version anywhere the download directory
+matters - see the completion-database note below.
+
+```sh
 docker run -d --name torrnado \
   -v torrnado-state:/var/lib/torrnado \
   -v "$PWD/downloads:/downloads" \
   -p 51413:51413 -p 51413:51413/udp \
-  torrnado
+  ghcr.io/lestex/torrnado
 
 docker exec torrnado torrnado add <magnet>
 docker exec torrnado torrnado list
@@ -29,3 +39,16 @@ Config lives at `/home/torrnado/.config/torrnado/config.toml` in the
 image; mount your own over it to change anything. `docker build --target
 test .` runs the unit and e2e suites inside the image instead of
 building it.
+
+## Building it yourself
+
+```sh
+docker build -t torrnado .
+```
+
+That still works and is what CI checks on every push. An image built this
+way reports `dev` from `torrnado version`, because the version is stamped
+in from the tag: pass `--build-arg VERSION=... --build-arg COMMIT=...` if
+you want it to say something. The published images are built the same
+way, cross-compiled per architecture rather than emulated, which is what
+`CGO_ENABLED=0` buys.

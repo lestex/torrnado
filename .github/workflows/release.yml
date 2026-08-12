@@ -72,3 +72,63 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The container image, to ghcr.io/lestex/torrnado.
+  #
+  # Gated on the release job rather than run beside it: the image and the
+  # archives are one release, and `make check` there is what says this
+  # commit is fit to publish at all.
+  image:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # pushing to GHCR
+    steps:
+      - uses: actions/checkout@v7
+
+      # linux/arm64 is cross-compiled by the Dockerfile, so QEMU is only
+      # here for the alpine runtime stage's own arm64 layers.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Also writes the OCI labels, and org.opencontainers.image.source is
+      # the one that makes GHCR show the package on the repo page rather
+      # than as an orphan.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # `latest` comes from the default latest=auto flavor, which
+          # skips prereleases - v1.0.0-rc1 must not become latest.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # The archives stamp the version without its v and the commit's own
+      # date; the image says the same or the two disagree about what they
+      # are.
+      - id: stamp
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.stamp.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.stamp.outputs.date }}

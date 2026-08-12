@@ -15,7 +15,12 @@
 # container.
 
 # --- build -------------------------------------------------------------
-FROM golang:1.25 AS build
+#
+# Pinned to the *build* platform and cross-compiled from there, rather
+# than run under emulation per target: CGO_ENABLED=0 makes GOARCH the
+# only thing that changes, so a linux/arm64 image costs a compiler flag
+# instead of a QEMU'd toolchain.
+FROM --platform=$BUILDPLATFORM golang:1.25 AS build
 
 WORKDIR /src
 
@@ -35,7 +40,20 @@ COPY . .
 # binary, which is what lets the runtime stage below be this small.
 #
 # Trimpath keeps build machine paths out of panic traces.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/torrnado ./cmd/torrnado
+#
+# TARGETOS/TARGETARCH are filled in by BuildKit. VERSION and the rest are
+# the same -X targets the Makefile and GoReleaser stamp, so an image built
+# by the release workflow reports a version instead of "dev"; left unset,
+# a plain `docker build` still works and still says dev.
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=""
+ARG COMMIT=""
+ARG BUILD_DATE=""
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath \
+    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
+    -o /out/torrnado ./cmd/torrnado
 
 # --- test --------------------------------------------------------------
 #
