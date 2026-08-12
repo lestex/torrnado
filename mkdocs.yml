@@ -11,8 +11,8 @@ docs_dir: docs
 
 theme:
   name: material
-  # The spiral, drawn once and used everywhere: the header, the favicon,
-  # and internal/branding's character-cell version for the TUI.
+  # The coil, drawn once and used everywhere: the header, the favicon, and
+  # internal/branding's character art, which is the shape the SVGs trace.
   #
   # The header mark goes through icon rather than logo. `logo` emits an
   # <img>, and an SVG in an <img> has no page to inherit from, so its

@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/lestex/torrnado/internal/branding"
 )
 
 type helpEntry struct {
@@ -52,11 +54,17 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Quit, "quit (the daemon keeps running)"},
 	}
 
+	// The sections are built first so the header can be chosen against
+	// their real height rather than a guessed one: adding a keybind later
+	// then costs the mark, not the key it was added for.
+	var body strings.Builder
+	writeHelpSection(&body, m, "NAVIGATION", nav, width)
+	writeHelpSection(&body, m, "ACTIONS", actions, width)
+
 	var b strings.Builder
-	b.WriteString(m.styles.Title.Render("torrnado - keys"))
+	b.WriteString(m.helpHeader(height, strings.Count(body.String(), "\n")+1))
 	b.WriteString("\n\n")
-	writeHelpSection(&b, m, "NAVIGATION", nav, width)
-	writeHelpSection(&b, m, "ACTIONS", actions, width)
+	b.WriteString(body.String())
 
 	lines := strings.Split(b.String(), "\n")
 	note := "Keys reflect any [keybinds] overrides in config.toml."
@@ -67,6 +75,21 @@ func (m Model) renderHelp(width, height int) string {
 	}
 	lines = append(lines, m.styles.Muted.Render(truncate(note, width)))
 	return strings.Join(lines, "\n")
+}
+
+// helpHeader is the mark beside the wordmark, dropped for a one-line
+// title when the keys would not otherwise fit: this screen exists to show
+// the reference, not the logo.
+func (m Model) helpHeader(height, bodyLines int) string {
+	// The mark's rows, the blank line under it, and the note at the foot.
+	mark := branding.LogoLines(branding.Logo)
+	if height > 0 && bodyLines+len(mark)+2 > height {
+		return m.styles.Title.Render("torrnado - keys")
+	}
+	words := m.styles.Title.Render("torrnado") + "\n" +
+		m.styles.Muted.Render("keys & commands")
+	return lipgloss.JoinHorizontal(lipgloss.Center,
+		m.styles.Title.Render(branding.Logo), "   ", words)
 }
 
 func writeHelpSection(b *strings.Builder, m Model, title string, entries []helpEntry, width int) {

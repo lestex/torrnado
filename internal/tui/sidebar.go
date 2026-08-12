@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/lestex/torrnado/internal/branding"
 	"github.com/lestex/torrnado/internal/engine"
 )
 
@@ -61,16 +60,8 @@ func (m Model) renderSidebar(p panes) string {
 
 	var lines []string
 
-	// The mark above the name, in the title's own color so the two read as
-	// one block. Dropped entirely when the sidebar is too narrow to hold
-	// it, rather than truncated: half a spiral is not a smaller spiral, it
-	// is a broken box.
-	if w >= branding.Width(branding.LogoSmall) {
-		for _, row := range branding.LogoLines(branding.LogoSmall) {
-			lines = append(lines, m.styles.SidebarTitle.Render(row))
-		}
-	}
-
+	// No mark here: the sidebar is 20 columns that torrent names and
+	// filters compete for, and the help screen already carries it.
 	lines = append(lines,
 		m.styles.SidebarTitle.Render(truncate("torrnado", w)),
 		"",
