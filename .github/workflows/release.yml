@@ -30,7 +30,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # goreleaser needs the tags to work out a version, and git-cliff
           # needs the history to write anything at all.
