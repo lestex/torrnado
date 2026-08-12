@@ -36,7 +36,7 @@ jobs:
           # needs the history to write anything at all.
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: .go-version
 
