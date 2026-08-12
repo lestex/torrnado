@@ -117,11 +117,16 @@ slow for every push and too valuable to run only when someone remembers.
 The tag is the version; nothing is committed anywhere to forget to bump.
 
 ```sh
-make check && make e2e
+make check && make e2e && make docs-build
 make changelog TAG=v0.1.0       # files the pending commits under that version
 git commit -am "chore: changelog for v0.1.0"
 
-# main is protected: the changelog commit lands through a pull request.
+# The site publishes from the tag, so the version it states has to be
+# right before you cut one: the hero badge on docs/index.md and the
+# tarball name in it and in getting-started/installation.md.
+git commit -am "docs: v0.1.0"
+
+# main is protected: the prep commits land through a pull request.
 git checkout -b release-v0.1.0 && git push -u origin release-v0.1.0
 gh pr create --base main --fill && gh pr merge --merge
 
