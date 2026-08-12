@@ -4,6 +4,13 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.3.0 - 2026-08-12
+
+### Features
+
+- **ci:** Publish the container image to ghcr.io on release
+- **docs:** An install script at torrnado.dev/install.sh
+
 ## 0.2.0 - 2026-08-12
 
 ### Features
