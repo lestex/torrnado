@@ -28,8 +28,17 @@ separate architecture.
 
 ## Install
 
-Grab an archive for your platform from the [releases
-page](https://github.com/lestex/torrnado/releases), or build it:
+```sh
+curl -fsSL https://torrnado.dev/install.sh | sh
+```
+
+Picks the archive for your platform, checks it against the release's
+`checksums.txt`, and installs it - to `/usr/local/bin`, or `~/.local/bin`
+when that is not writable. The script is
+[docs/install.sh](docs/install.sh) if you would rather read it first.
+
+Or grab an archive from the [releases
+page](https://github.com/lestex/torrnado/releases) yourself, or build it:
 
 ```sh
 go build -o torrnado ./cmd/torrnado   # requires Go 1.25+

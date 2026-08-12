@@ -92,6 +92,16 @@ a tunnel, and lets them go again when it reconnects.
 
 <div class="tn-install" markdown>
 
+=== "Install script"
+
+    ```sh
+    curl -fsSL https://torrnado.dev/install.sh | sh
+    ```
+
+    Picks the archive for your platform, checks it against the release's
+    `checksums.txt`, and installs it. [What it
+    does](getting-started/installation.md#the-one-liner).
+
 === "Released binary"
 
     ```sh

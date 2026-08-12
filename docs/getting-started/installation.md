@@ -1,5 +1,30 @@
 # Installation
 
+## The one-liner
+
+```sh
+curl -fsSL https://torrnado.dev/install.sh | sh
+```
+
+It works out your platform, downloads that archive from the latest
+release, checks it against the release's own `checksums.txt` before
+unpacking anything, and puts the binary in `/usr/local/bin` - or
+`~/.local/bin` when that is not writable, since a script you piped into a
+shell should not be asking for your password. It tells you which, and
+whether that directory is on your `PATH`.
+
+Two knobs:
+
+```sh
+TORRNADO_VERSION=v0.1.0 curl -fsSL https://torrnado.dev/install.sh | sh   # pin a version
+TORRNADO_INSTALL_DIR=~/bin curl -fsSL https://torrnado.dev/install.sh | sh
+```
+
+Piping a script into a shell is a real thing to be uneasy about. Read it
+first if you would rather - it is
+[one file](https://github.com/lestex/torrnado/blob/main/docs/install.sh),
+under a hundred lines - or skip it entirely and use the archive directly:
+
 ## A released binary
 
 Every tag publishes archives for Linux and macOS on both architectures,
