@@ -1,14 +1,13 @@
 // Package branding holds torrnado's mark in the forms a terminal can
 // draw it.
 //
-// The mark is a spiral: a vortex seen from above, for a client named
-// after a storm. It exists in three renderings that are meant to stay the
-// same shape rather than three separate designs. The vector original is
-// overrides/.icons/torrnado/logo.svg, a real Archimedean spiral that
-// strokes currentColor so it takes the color of whatever draws it;
-// docs/assets/favicon.svg is the same path with the accent baked in,
-// because a browser tab has no page for currentColor to inherit from.
-// Logo approximates that curve in character cells.
+// The mark is a coil: a vortex seen from above, for a client named after
+// a storm. Logo below is the original, and the site's two SVGs trace the
+// same glyphs on the same 4x3 cell grid rather than being a second
+// design - overrides/.icons/torrnado/logo.svg strokes currentColor so it
+// takes the color of whatever draws it, and docs/assets/favicon.svg is
+// the same path with the accent baked in, because a browser tab has no
+// page for currentColor to inherit from. Change one and redraw the rest.
 //
 // This is its own package rather than a corner of internal/tui because
 // the TUI is not the only thing that will want it: a web or desktop front
