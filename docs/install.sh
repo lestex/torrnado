@@ -17,11 +17,36 @@ REPO="lestex/torrnado"
 say() { printf '%s\n' "$*"; }
 die() { printf 'install: %s\n' "$*" >&2; exit 1; }
 
+# get downloads url to a file and, when it cannot, says which kind of
+# failure it was: a missing asset and a server having a bad day are the
+# same exit status otherwise, and reporting "there is no build for your
+# platform" during an outage sends people looking for a problem that is
+# not there.
 if command -v curl >/dev/null 2>&1; then
-	get() { curl -fsSL "$1" -o "$2"; }
+	# No -f: it hides the status code, which is the thing worth reporting.
+	# -L first, so the code is the one from the end of the redirect chain -
+	# release downloads land on a different host than they start on.
+	get() {
+		code=$(curl -sSL -o "$2" -w '%{http_code}' "$1" 2>/dev/null) || code=000
+		case "$code" in
+		2??) return 0 ;;
+		404) die "$3 is not in this release - see https://github.com/$REPO/releases" ;;
+		000) die "could not reach github.com to download $3" ;;
+		*) die "downloading $3 failed: HTTP $code - github.com may be having trouble, try again" ;;
+		esac
+	}
 	read_url() { curl -fsSL "$1"; }
 elif command -v wget >/dev/null 2>&1; then
-	get() { wget -qO "$2" "$1"; }
+	# wget cannot hand back the status code without parsing its output, so
+	# this is coarser: 8 covers every error response, 404 and 503 alike.
+	get() {
+		wget -qO "$2" "$1" && return 0
+		case $? in
+		8) die "$3: the server said no - it may not be in this release, or github.com may be having trouble" ;;
+		4) die "could not reach github.com to download $3" ;;
+		*) die "downloading $3 failed" ;;
+		esac
+	}
 	read_url() { wget -qO- "$1"; }
 else
 	die "curl or wget is required"
@@ -60,8 +85,8 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 say "torrnado $version - $os/$arch"
-get "$base/$archive" "$tmp/$archive" || die "no $archive in $version"
-get "$base/checksums.txt" "$tmp/checksums.txt" || die "could not fetch checksums.txt"
+get "$base/$archive" "$tmp/$archive" "$archive"
+get "$base/checksums.txt" "$tmp/checksums.txt" "checksums.txt"
 
 # Verified before anything is unpacked: this script is piped into a
 # shell, so the one thing it can still promise is that the bytes it runs
