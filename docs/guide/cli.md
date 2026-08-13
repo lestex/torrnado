@@ -43,6 +43,9 @@ Every subcommand accepts `--config <path>` to use a config file other than
 the XDG default. Torrent ids are hex-encoded info hashes, as printed by
 `add` and `list`.
 
+All of this is also in `man torrnado`, which every release archive ships
+as `torrnado.1` - see [Installation](../getting-started/installation.md#the-man-page).
+
 ## Batch add
 
 `:add` (and `torrnado add` on the CLI) accepts any mix of:

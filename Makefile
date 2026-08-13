@@ -55,7 +55,7 @@ LDFLAGS   := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(
 VENV := .venv
 PIP  := $(VENV)/bin/pip
 
-.PHONY: help build run test test-race e2e cover vet fmt fmt-check tidy check clean changelog docker docker-test systemd-test docs-deps docs-serve docs-build
+.PHONY: help build man run test test-race e2e cover vet fmt fmt-check tidy check clean changelog docker docker-test systemd-test docs-deps docs-serve docs-build
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -63,6 +63,12 @@ help: ## Show this help
 
 build: ## Build the binary into the repo root
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
+
+# Written by the binary itself from its own command tree, so the page
+# cannot describe a flag that is not there. The release build runs the
+# same command and ships the result in the archive.
+man: ## Generate torrnado.1 from the command tree
+	$(GO) run $(PKG) man --release "$(VERSION)" -o torrnado.1
 
 run: build ## Build, then run it
 	./$(BINARY)

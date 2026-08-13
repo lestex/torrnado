@@ -45,6 +45,7 @@ func main() {
 		newOpenCmd(),
 		newConfigCmd(),
 		newVersionCmd(),
+		newManCmd(),
 	)
 
 	// --version as well as `version`: one is what a person types, the
