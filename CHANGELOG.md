@@ -4,6 +4,13 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.3.1 - 2026-08-13
+
+### Bug fixes
+
+- **engine:** A move takes the unfinished data and the file priorities with it
+- **engine:** Stop marking wanted the files someone switched off
+
 ## 0.3.0 - 2026-08-12
 
 ### Features
