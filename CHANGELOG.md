@@ -4,6 +4,12 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.0 - 2026-08-13
+
+### Features
+
+- **docs:** The install script puts the man page in too
+
 ## 0.4.0 - 2026-08-13
 
 ### Features
