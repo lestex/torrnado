@@ -123,6 +123,29 @@ install -m 0755 "$tmp/torrnado" "$dir/torrnado" 2>/dev/null ||
 
 say "installed $dir/torrnado"
 
+# The man page goes beside the binary rather than anywhere central,
+# because that is how man finds it: for a PATH entry <prefix>/bin, man-db
+# searches <prefix>/share/man. So installing to ~/.local/bin or
+# /usr/local/bin puts `man torrnado` on the same PATH that found the
+# binary, with nothing to configure and no index to rebuild.
+#
+# Best effort throughout: a release before v0.4.0 has no page to install,
+# and an unwritable man directory is not a reason to fail an install that
+# has already put the binary where it was asked to.
+case "$dir" in
+*/bin) mandir="${dir%/bin}/share/man/man1" ;;
+*) mandir="$dir/../share/man/man1" ;;
+esac
+if [ -f "$tmp/torrnado.1" ]; then
+	if mkdir -p "$mandir" 2>/dev/null &&
+		cp "$tmp/torrnado.1" "$mandir/torrnado.1" 2>/dev/null; then
+		chmod 0644 "$mandir/torrnado.1" 2>/dev/null || true
+		say "installed $mandir/torrnado.1"
+	else
+		say "could not write $mandir; skipping the man page"
+	fi
+fi
+
 case ":$PATH:" in
 *":$dir:"*) ;;
 *)
