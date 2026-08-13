@@ -22,9 +22,13 @@ than left as a surprise:
   no in-place relocate. `MoveStorage` pauses the torrent, moves files on
   disk itself, re-adds the torrent pointed at a new
   `storage.NewFile(newDir)`, and re-verifies data in the background (a
-  hash check against files already on disk, not a re-download). This
-  also means a move resets any custom per-file priorities back to normal
-  - the re-added `Torrent` is a fresh instance with no priority history.
+  hash check against files already on disk, not a re-download). The
+  re-added `Torrent` is a fresh instance with no priority history, so the
+  per-file priorities are read off the old one first and applied again
+  afterwards; without that, a move quietly re-wants every file that had
+  been switched off. Both names of every file move, `<path>` and
+  `<path>.part`, since only one of the two exists and an in-progress
+  torrent is entirely the latter.
   Rebuilding the spec has one trap of its own: `Torrent.Metainfo()`
   returns an allocated-but-empty piece-layers map for a v1 torrent, and a
   non-nil map is what the library takes as "this is v2" - the re-add

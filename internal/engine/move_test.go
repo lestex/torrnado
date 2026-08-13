@@ -122,6 +122,104 @@ func TestMoveStorageWorksOnAMultiPieceTorrent(t *testing.T) {
 	t.Error("the verification after a move never finished")
 }
 
+// An unfinished file lives at <path>.part, and a move that looked only
+// for the finished name found nothing, reported success, and left every
+// incomplete file where it was - so the torrent re-downloaded data that
+// was already on disk and the .part was orphaned at the old location.
+func TestMoveStorageTakesPartFilesWithIt(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
+
+	// The payload renamed to what the file storage calls a file it has
+	// not finished. The torrent was built from the complete file, so this
+	// is exactly the on-disk shape of a download in progress.
+	complete := filepath.Join(cfg.DataDir, "payload.bin")
+	part := complete + partFileSuffix
+	if err := os.Rename(complete, part); err != nil {
+		t.Fatalf("rename to .part: %v", err)
+	}
+
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	newDir := t.TempDir()
+	if err := e.MoveStorage(id, newDir); err != nil {
+		t.Fatalf("MoveStorage: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(newDir, "payload.bin"+partFileSuffix)); err != nil {
+		t.Errorf("the incomplete data did not move: %v", err)
+	}
+	if _, err := os.Stat(part); !os.IsNotExist(err) {
+		t.Errorf("the incomplete data was left behind at the old location (err = %v)", err)
+	}
+}
+
+// Moving re-adds the torrent against new storage, and the re-added one is
+// a fresh instance with no priority history - so without putting them
+// back, a move silently re-wants every file the user had switched off.
+func TestMoveStorageKeepsFilePriorities(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
+
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	// An add marks its files wanted from a goroutine that waits on
+	// metadata, and for a .torrent that metadata is already there - so
+	// setting a priority immediately races it, and the loser is silently
+	// overwritten. Wait for it to have run before choosing anything.
+	waitForFilePriority(t, e, id, PriorityNormal)
+
+	if err := e.SetFilePriority(id, 0, PriorityNone); err != nil {
+		t.Fatalf("SetFilePriority: %v", err)
+	}
+
+	if err := e.MoveStorage(id, t.TempDir()); err != nil {
+		t.Fatalf("MoveStorage: %v", err)
+	}
+
+	detail, err := e.TorrentDetail(id)
+	if err != nil {
+		t.Fatalf("TorrentDetail: %v", err)
+	}
+	if len(detail.Files) == 0 {
+		t.Fatal("the moved torrent reports no files")
+	}
+	if got := detail.Files[0].Priority; got != PriorityNone {
+		t.Errorf("file priority after the move = %v, want %v", got, PriorityNone)
+	}
+}
+
+// waitForFilePriority blocks until a torrent's first file reports want,
+// so a test can act after the add has finished rather than during it.
+func waitForFilePriority(t *testing.T, e *Engine, id TorrentID, want Priority) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		d, err := e.TorrentDetail(id)
+		if err == nil && len(d.Files) > 0 && d.Files[0].Priority == want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("file 0 never reached priority %v", want)
+}
+
 func findSnapshot(t *testing.T, e *Engine, id TorrentID) TorrentSnapshot {
 	t.Helper()
 	for _, s := range e.ListTorrents() {

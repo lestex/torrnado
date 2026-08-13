@@ -119,8 +119,13 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 			return
 		}
 		e.log.Info("metadata received", "id", id, "name", t.Name(), "size", t.Length())
+		// Every file except the ones already spoken for. For a .torrent
+		// the metadata is here before this goroutine is scheduled, so a
+		// priority set right after the add - by a script, or by the
+		// session restore - lands in the window this would otherwise
+		// overwrite.
 		if !opts.Paused {
-			downloadAllFiles(t)
+			downloadUnchosenFiles(t, e.chosenFilesOf(id))
 		}
 		// Now there is a metainfo to save, which is what makes the next
 		// restart able to re-add this torrent without finding a peer.
@@ -147,9 +152,37 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 // torrent started that way downloads correctly while reporting every file
 // as "none" forever.
 func downloadAllFiles(t *torrent.Torrent) {
-	for _, f := range filesOrNil(t) {
+	downloadUnchosenFiles(t, nil)
+}
+
+// downloadUnchosenFiles marks every file wanted except the ones whose
+// index is in chosen - the files something has already decided about.
+//
+// Without that exemption, a priority set between an add and the goroutine
+// that marks its files wanted is silently overwritten, and so is one
+// restored from the session file.
+func downloadUnchosenFiles(t *torrent.Torrent, chosen map[int]bool) {
+	for i, f := range filesOrNil(t) {
+		if chosen[i] {
+			continue
+		}
 		f.SetPriority(torrent.PiecePriorityNormal)
 	}
+}
+
+// chosenFilesOf copies a torrent's chosen set, for use outside the lock.
+func (e *Engine) chosenFilesOf(id TorrentID) map[int]bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	tr, ok := e.torrents[id]
+	if !ok || len(tr.chosenFiles) == 0 {
+		return nil
+	}
+	out := make(map[int]bool, len(tr.chosenFiles))
+	for i := range tr.chosenFiles {
+		out[i] = true
+	}
+	return out
 }
 
 func (e *Engine) lookup(id TorrentID) (*tracked, error) {
@@ -298,12 +331,11 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 
 	if !paused {
 		// A torrent added paused never had its files marked wanted, and
-		// would otherwise sit at zero forever after being resumed. Skip
-		// it if any file already has a priority, so resuming does not
-		// discard choices made while it was paused.
-		if tr.t.Info() != nil && allFilesUnset(tr.t) {
-			downloadAllFiles(tr.t)
-		}
+		// would otherwise sit at zero forever after being resumed. The
+		// files chosen while it was paused are left as they were: they
+		// read as PiecePriorityNone, exactly like a file nobody has
+		// touched, so only the engine's own record can tell them apart.
+		downloadUnchosenFiles(tr.t, e.chosenFilesOf(id))
 	}
 
 	e.persist()
@@ -311,15 +343,19 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	return nil
 }
 
-// allFilesUnset reports whether no file has been given a priority yet.
-// Vacuously true before metadata arrives.
-func allFilesUnset(t *torrent.Torrent) bool {
-	for _, f := range filesOrNil(t) {
-		if f.Priority() != torrent.PiecePriorityNone {
-			return false
+// applyFilePriorities puts each file back to the priority at the same
+// index, for a torrent that has just been re-added against new storage.
+//
+// Short lists are tolerated rather than treated as an error: the caller
+// is mid-move with the data already relocated, and a file count that has
+// somehow changed is not worth failing that over.
+func applyFilePriorities(t *torrent.Torrent, prios []Priority) {
+	for i, f := range filesOrNil(t) {
+		if i >= len(prios) {
+			return
 		}
+		f.SetPriority(toLibPriority(prios[i]))
 	}
-	return true
 }
 
 // SetFilePriority sets how badly one file's data is wanted.
@@ -340,6 +376,15 @@ func (e *Engine) SetFilePriority(id TorrentID, fileIndex int, prio Priority) err
 		return fmt.Errorf("file index %d out of range (0..%d)", fileIndex, len(files)-1)
 	}
 	files[fileIndex].SetPriority(toLibPriority(prio))
+	// Recorded so nothing marks this file wanted again behind the
+	// caller's back - see chosenFiles.
+	e.mu.Lock()
+	if tr.chosenFiles == nil {
+		tr.chosenFiles = map[int]bool{}
+	}
+	tr.chosenFiles[fileIndex] = true
+	e.mu.Unlock()
+
 	e.persist()
 	e.snapshotAndBroadcastNow()
 	return nil
@@ -718,15 +763,30 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
+	// Captured before the drop below: the re-added torrent is a fresh
+	// instance with no priority history, and this is the last moment the
+	// old one has any.
+	oldPriorities := make([]Priority, 0, len(tr.t.Files()))
+	for _, f := range tr.t.Files() {
+		oldPriorities = append(oldPriorities, fromLibPriority(f.Priority()))
+	}
+
 	oldPath := tr.savePath
 	for _, f := range tr.t.Files() {
-		src := filepath.Join(oldPath, f.Path())
 		dst := filepath.Join(newDir, f.Path())
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
 		}
-		if err := moveFile(src, dst); err != nil {
-			return fmt.Errorf("move %s: %w", f.Path(), err)
+		// Both names, because an unfinished file is on disk as
+		// <path>.part and only one of the two exists at a time. Moving
+		// the finished name alone found nothing for every incomplete
+		// file, reported success, and left the data behind to be
+		// downloaded again.
+		for _, suffix := range []string{"", partFileSuffix} {
+			src := filepath.Join(oldPath, f.Path()) + suffix
+			if err := moveFile(src, dst+suffix); err != nil {
+				return fmt.Errorf("move %s: %w", f.Path()+suffix, err)
+			}
 		}
 	}
 
@@ -775,11 +835,17 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		return err
 	}
 	// The re-added Torrent is a fresh instance with every file back at
-	// unset priority, so it needs the same downloadAllFiles() call
-	// addSpec relies on - which means a move also resets any custom
-	// per-file priorities that had been set before it back to "wanted at
-	// normal priority" rather than preserving them.
-	if !wasPaused {
+	// unset priority, so the ones captured above are put back. Without
+	// this a move quietly undid a file selection: everything the user had
+	// switched off came back wanted at normal.
+	//
+	// Applied whether or not the torrent was paused, because a priority
+	// is not a pause - and SetPaused only reaches for downloadAllFiles
+	// when every file is unset, so a restored selection survives a later
+	// resume rather than being overwritten by it.
+	if len(oldPriorities) > 0 {
+		applyFilePriorities(t, oldPriorities)
+	} else if !wasPaused {
 		downloadAllFiles(t)
 	}
 

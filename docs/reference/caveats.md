@@ -42,13 +42,10 @@ whole client and offers no per-torrent hook, so the daemon toggles a
 torrent's data transfer off and on around the cap each second. It
 averages out near the limit but is bursty. Global limits are exact.
 
-**A moved torrent loses its per-file priorities.** Moving re-adds the
-torrent against new storage, and the re-added torrent is a fresh instance
-with no priority history.
-
-**Removing a torrent can leave `.part` files.** The library writes an
-incomplete file as `<path>.part` and renames it only when every piece has
-landed; the remove and move paths do not account for that yet.
+**A moved torrent re-verifies.** Moving re-adds the torrent against new
+storage, so it hashes what it just moved rather than trusting it. That is
+a read of the data already on disk, not a re-download, and the file
+priorities set before the move are put back afterwards.
 
 **Local Service Discovery does nothing.** `network.lsd` is accepted and
 validated, but the library implements no LSD at all. The key exists so a
