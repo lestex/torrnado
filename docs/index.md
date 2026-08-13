@@ -172,7 +172,7 @@ then run `torrnado` to start - [quick start →](getting-started/quick-start.md)
 
     ---
 
-    Config, keybinds, eight built-in themes and your own.
+    Config, keybinds, nine built-in themes and your own.
 
     [Configuration](guide/configuration.md) · [Themes](guide/themes.md)
 

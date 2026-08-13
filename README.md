@@ -77,7 +77,7 @@ palette.
 - **Waits for your VPN.** Optionally holds every transfer until the system
   is on one, and lets them go again when it reconnects.
 - **Scripts.** Every action is a subcommand.
-- **Themes.** Eight built in, plus your own; `:theme` switches live.
+- **Themes.** Nine built in, plus your own; `:theme` switches live.
 
 ## Documentation
 
