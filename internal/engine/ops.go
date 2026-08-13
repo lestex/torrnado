@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -204,6 +205,9 @@ func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 		e.mu.Unlock()
 		return ErrNotFound
 	}
+	// Before the drop below, so a verification in flight stops rather
+	// than running on against a torrent that is being taken apart.
+	cancelCheckLocked(tr)
 	delete(e.torrents, id)
 	e.mu.Unlock()
 
@@ -321,6 +325,13 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	}
 	e.mu.Lock()
 	tr.paused = paused
+	// Pausing stops a running hash check too. It is the only way to call
+	// one off: a recheck on a large torrent runs for hours, and "stop
+	// what you are doing" is what pausing already means - so this needs
+	// no command of its own, and works from every client that can pause.
+	if paused {
+		cancelCheckLocked(tr)
+	}
 	// Resuming records the intent and asks for the switches to be turned;
 	// whether they actually turn is applyDataFlow's decision, since the
 	// VPN guard may be holding everything. The intent is what is
@@ -569,9 +580,22 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 //
 // The caller sets tr.checking and tr.checkTotal before starting, and
 // clears them afterwards - this only moves tr.checkDone.
-func (e *Engine) verifyPieces(tr *tracked, total int) error {
+// verifyPieces hashes each piece in turn, stopping early if ctx is
+// cancelled.
+//
+// The context stops this loop queueing work; it does not reach into the
+// library's own hashing. VerifyDataContext queues a piece and then waits,
+// and only the wait honours the context - so a cancel gives up on the
+// piece in flight and, more importantly, never asks for the remaining
+// ones. That is where the cost is: verification is quadratic in the piece
+// count against the completion database, so not starting the rest is the
+// whole saving.
+func (e *Engine) verifyPieces(ctx context.Context, tr *tracked, total int) error {
 	for i := 0; i < total; i++ {
-		if err := tr.t.Piece(i).VerifyDataContext(context.Background()); err != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := tr.t.Piece(i).VerifyDataContext(ctx); err != nil {
 			return err
 		}
 		e.mu.Lock()
@@ -579,6 +603,43 @@ func (e *Engine) verifyPieces(tr *tracked, total int) error {
 		e.mu.Unlock()
 	}
 	return nil
+}
+
+// beginCheck marks a torrent as checking and returns the context its
+// verification runs under, plus the function to call when it ends.
+//
+// Any check already running on that torrent is cancelled first: two
+// verification loops on one torrent would fight over checkDone and take
+// twice as long to get nowhere.
+func (e *Engine) beginCheck(tr *tracked, total int) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	e.mu.Lock()
+	if tr.cancelCheck != nil {
+		tr.cancelCheck()
+	}
+	tr.cancelCheck = cancel
+	tr.checking = true
+	tr.checkDone = 0
+	tr.checkTotal = total
+	e.mu.Unlock()
+
+	return ctx, func() {
+		cancel()
+		e.mu.Lock()
+		tr.cancelCheck = nil
+		tr.checking = false
+		tr.checkDone, tr.checkTotal = 0, 0
+		e.mu.Unlock()
+	}
+}
+
+// cancelCheckLocked stops a torrent's verification if one is running.
+// The caller holds e.mu.
+func cancelCheckLocked(tr *tracked) {
+	if tr.cancelCheck != nil {
+		tr.cancelCheck()
+	}
 }
 
 // ForceRecheck re-verifies a torrent's on-disk data against its piece
@@ -599,29 +660,37 @@ func (e *Engine) ForceRecheck(id TorrentID) error {
 	}
 	total := tr.t.NumPieces()
 
-	e.mu.Lock()
-	tr.checking = true
-	tr.checkDone = 0
-	tr.checkTotal = total
-	e.mu.Unlock()
+	ctx, done := e.beginCheck(tr, total)
 	e.log.Info("recheck started", "id", id, "pieces", total)
 	e.snapshotAndBroadcastNow()
 
+	// Registered with the wait group so shutdown, having cancelled the
+	// check, waits for it to unwind before closing the client. Without
+	// that the library's hashing goroutines outlive their own storage and
+	// log a burst of "error marking piece complete ... closed".
+	e.wg.Add(1)
 	go func() {
+		defer e.wg.Done()
 		started := time.Now()
-		failed := e.verifyPieces(tr, total)
+		failed := e.verifyPieces(ctx, tr, total)
 
 		e.mu.Lock()
-		tr.checking = false
-		tr.checkDone, tr.checkTotal = 0, 0
-		if failed != nil {
-			tr.lastErr = fmt.Sprintf("recheck failed: %v", failed)
-		}
+		reached := tr.checkDone
 		e.mu.Unlock()
+		done()
 
-		if failed != nil {
+		switch {
+		// Stopping on request is not a failure, and recording it as one
+		// would leave a red error on a torrent the user deliberately told
+		// to stop.
+		case errors.Is(failed, context.Canceled):
+			e.log.Info("recheck cancelled", "id", id, "verified", reached, "of", total)
+		case failed != nil:
+			e.mu.Lock()
+			tr.lastErr = fmt.Sprintf("recheck failed: %v", failed)
+			e.mu.Unlock()
 			e.log.Error("recheck failed", "id", id, "err", failed)
-		} else {
+		default:
 			e.log.Info("recheck finished", "id", id, "took", time.Since(started).Round(time.Millisecond))
 		}
 		e.snapshotAndBroadcastNow()
@@ -855,22 +924,25 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	tr.t = t
 	tr.savePath = newDir
 	tr.ownStorage = newStorage
-	tr.checking = true
-	tr.checkDone = 0
-	tr.checkTotal = total
 	e.mu.Unlock()
 
+	ctx, done := e.beginCheck(tr, total)
+
+	e.wg.Add(1)
 	go func() {
+		defer e.wg.Done()
 		// The same piece-at-a-time verification a recheck uses. It was
 		// the library's whole-torrent call here, which meant a move of a
 		// large torrent sat on a bare "checking" for as long as it took,
 		// with nothing to say whether it was a minute or an hour away.
-		verifyErr := e.verifyPieces(tr, total)
+		verifyErr := e.verifyPieces(ctx, tr, total)
+		done()
 
 		e.mu.Lock()
-		tr.checking = false
-		tr.checkDone, tr.checkTotal = 0, 0
-		if verifyErr != nil {
+		// Cancelling leaves the data moved and partly verified, which is
+		// a state the torrent recovers from by itself - not an error to
+		// hang on it.
+		if verifyErr != nil && !errors.Is(verifyErr, context.Canceled) {
 			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
 		}
 		tr.holdData = false

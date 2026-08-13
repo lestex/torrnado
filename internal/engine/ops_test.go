@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // A real client parses and validates the magnet, so the infohash has to
@@ -275,5 +276,67 @@ func TestResumeMarksUntouchedFilesWanted(t *testing.T) {
 	}
 	if got := detail.Files[0].Priority; got != PriorityNormal {
 		t.Errorf("file priority after resuming = %v, want %v", got, PriorityNormal)
+	}
+}
+
+// A recheck runs for hours on a large torrent and used to have no way
+// out but restarting the daemon: the verification loop was handed a
+// context that could never be cancelled. Pausing calls it off.
+//
+// The library's own hashing is not interrupted - VerifyDataContext
+// queues a piece and only the wait honours the context - so what this
+// asserts is the part that matters: the loop stops asking for the
+// remaining pieces, which is where the quadratic cost lives.
+func TestPausingCancelsARunningRecheck(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	// Big enough that verification cannot finish before the pause lands:
+	// 32MiB at a 16KiB piece length is 2048 pieces.
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 32*1024*1024)
+
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	if err := e.ForceRecheck(id); err != nil {
+		t.Fatalf("ForceRecheck: %v", err)
+	}
+
+	// Wait until it is genuinely under way, so the cancel has something
+	// to interrupt rather than racing the start.
+	for deadline := time.Now().Add(10 * time.Second); ; {
+		s := findSnapshot(t, e, id)
+		if s.Checking && s.CheckProgress > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the recheck never started")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	if err := e.SetPaused(id, true); err != nil {
+		t.Fatalf("SetPaused: %v", err)
+	}
+
+	// It stops promptly rather than running to the end of the piece list.
+	for deadline := time.Now().Add(10 * time.Second); ; {
+		if !findSnapshot(t, e, id).Checking {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the recheck kept going after the torrent was paused")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// And stopping on request is not an error the user has to clear.
+	if got := findSnapshot(t, e, id).Error; got != "" {
+		t.Errorf("a cancelled recheck reported an error: %q", got)
 	}
 }

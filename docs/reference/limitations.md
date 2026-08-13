@@ -99,9 +99,12 @@ than left as a surprise:
   `checking` at ~170% CPU for hours. The hashing itself finishes quickly
   - the Pieces tab shows all pieces verified long before
   `VerifyDataContext` returns. There is no fix in v1.61.0 (the newest
-  release) and no way to cancel a running recheck; restarting the daemon
-  is the only way out. **Avoid `r` / `torrnado recheck` on multi-GB
-  torrents.**
+  release), so **avoid `r` / `torrnado recheck` on multi-GB torrents** -
+  but one started by mistake can now be called off by pausing the
+  torrent, which stops the loop asking for the pieces it has not reached.
+  The piece already queued still finishes: `VerifyDataContext` queues the
+  check and only the wait honours the context, so cancelling means "stop
+  after this one", not "stop now".
 - **Force-recheck can panic the whole daemon.** `checkPendingPiecesMatches‑
   RequestOrder` is an internal consistency assertion reached from
   `pieceHashed` → `setPieceCompletion` → `openNewConns` → `needData`. It
