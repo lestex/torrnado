@@ -32,7 +32,7 @@ The engine runs as a daemon, so closing the terminal doesn't stop the download.
   <span>Linux</span>
   <span>MIT License</span>
   <span>Go 1.25+</span>
-  <span><b>v0.3.1</b></span>
+  <span><b>v0.4.0</b></span>
 </div>
 
 ## The idea
@@ -105,7 +105,7 @@ a tunnel, and lets them go again when it reconnects.
 === "Released binary"
 
     ```sh
-    tar xzf torrnado_0.3.1_linux_amd64.tar.gz
+    tar xzf torrnado_0.4.0_linux_amd64.tar.gz
     ./torrnado version
     ```
 
