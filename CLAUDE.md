@@ -174,8 +174,9 @@ before assuming an API does what it sounds like it does. Short version:
 - File storage defaults `UsePartFiles` to true, so an incomplete file is at
   `<path>.part` on disk, sparse and written out of order; it is renamed only
   once every one of its pieces lands. Never hand that path to anything that
-  reads it - use `Engine.OpenFile`. (`RemoveTorrent`/`MoveStorage` both still
-  ignore this and will miss `.part` files; unfixed.)
+  reads it - use `Engine.OpenFile`. `RemoveTorrent` and `MoveStorage` both
+  handle the pair (`dataPaths`, and the move loop's two suffixes): missing
+  the `.part` leaves a half-downloaded torrent's data entirely behind.
 - Reads on a paused torrent do not block waiting for a resume, they fail
   immediately - `DisallowDataDownload` means "never coming". Hence
   `Engine.PrepareStream`.

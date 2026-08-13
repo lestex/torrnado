@@ -311,6 +311,21 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	return nil
 }
 
+// applyFilePriorities puts each file back to the priority at the same
+// index, for a torrent that has just been re-added against new storage.
+//
+// Short lists are tolerated rather than treated as an error: the caller
+// is mid-move with the data already relocated, and a file count that has
+// somehow changed is not worth failing that over.
+func applyFilePriorities(t *torrent.Torrent, prios []Priority) {
+	for i, f := range filesOrNil(t) {
+		if i >= len(prios) {
+			return
+		}
+		f.SetPriority(toLibPriority(prios[i]))
+	}
+}
+
 // allFilesUnset reports whether no file has been given a priority yet.
 // Vacuously true before metadata arrives.
 func allFilesUnset(t *torrent.Torrent) bool {
@@ -718,15 +733,30 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
+	// Captured before the drop below: the re-added torrent is a fresh
+	// instance with no priority history, and this is the last moment the
+	// old one has any.
+	oldPriorities := make([]Priority, 0, len(tr.t.Files()))
+	for _, f := range tr.t.Files() {
+		oldPriorities = append(oldPriorities, fromLibPriority(f.Priority()))
+	}
+
 	oldPath := tr.savePath
 	for _, f := range tr.t.Files() {
-		src := filepath.Join(oldPath, f.Path())
 		dst := filepath.Join(newDir, f.Path())
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
 		}
-		if err := moveFile(src, dst); err != nil {
-			return fmt.Errorf("move %s: %w", f.Path(), err)
+		// Both names, because an unfinished file is on disk as
+		// <path>.part and only one of the two exists at a time. Moving
+		// the finished name alone found nothing for every incomplete
+		// file, reported success, and left the data behind to be
+		// downloaded again.
+		for _, suffix := range []string{"", partFileSuffix} {
+			src := filepath.Join(oldPath, f.Path()) + suffix
+			if err := moveFile(src, dst+suffix); err != nil {
+				return fmt.Errorf("move %s: %w", f.Path()+suffix, err)
+			}
 		}
 	}
 
@@ -775,11 +805,17 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		return err
 	}
 	// The re-added Torrent is a fresh instance with every file back at
-	// unset priority, so it needs the same downloadAllFiles() call
-	// addSpec relies on - which means a move also resets any custom
-	// per-file priorities that had been set before it back to "wanted at
-	// normal priority" rather than preserving them.
-	if !wasPaused {
+	// unset priority, so the ones captured above are put back. Without
+	// this a move quietly undid a file selection: everything the user had
+	// switched off came back wanted at normal.
+	//
+	// Applied whether or not the torrent was paused, because a priority
+	// is not a pause - and SetPaused only reaches for downloadAllFiles
+	// when every file is unset, so a restored selection survives a later
+	// resume rather than being overwritten by it.
+	if len(oldPriorities) > 0 {
+		applyFilePriorities(t, oldPriorities)
+	} else if !wasPaused {
 		downloadAllFiles(t)
 	}
 
