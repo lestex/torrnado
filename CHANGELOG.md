@@ -4,6 +4,17 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.4.0 - 2026-08-13
+
+### Features
+
+- **cli:** Ship a man page, generated from the command tree
+
+### Bug fixes
+
+- **docs:** The install script says which kind of download failure it hit
+- **engine:** Pausing calls off a running recheck
+
 ## 0.3.1 - 2026-08-13
 
 ### Bug fixes
