@@ -36,8 +36,23 @@ tar xzf torrnado_0.3.1_linux_amd64.tar.gz
 ./torrnado version
 ```
 
-Each archive carries the binary, the README, the changelog and
-`contrib/torrnado.service` for a systemd install.
+Each archive carries the binary, the README, the changelog,
+`contrib/torrnado.service` for a systemd install, and `torrnado.1`.
+
+## The man page
+
+`torrnado.1` is in every release archive. Put it where `man` looks:
+
+```sh
+install -Dm644 torrnado.1 ~/.local/share/man/man1/torrnado.1   # or
+sudo install -Dm644 torrnado.1 /usr/local/share/man/man1/torrnado.1
+man torrnado
+```
+
+It is generated from the command tree at release time rather than kept as
+a file someone has to remember to edit, so it describes exactly the binary
+it shipped beside - every subcommand, every flag, and the version in its
+header. Building from source, `make man` writes the same page.
 
 !!! note "Coming from a source build"
 
