@@ -11,7 +11,8 @@ release, checks it against the release's own `checksums.txt` before
 unpacking anything, and puts the binary in `/usr/local/bin` - or
 `~/.local/bin` when that is not writable, since a script you piped into a
 shell should not be asking for your password. It tells you which, and
-whether that directory is on your `PATH`.
+whether that directory is on your `PATH`. The man page goes in beside it,
+so `man torrnado` works straight away.
 
 Two knobs:
 
@@ -41,13 +42,21 @@ Each archive carries the binary, the README, the changelog,
 
 ## The man page
 
-`torrnado.1` is in every release archive. Put it where `man` looks:
+The one-liner installs it for you. Doing it by hand from an archive, put
+it beside the binary rather than anywhere central:
 
 ```sh
-install -Dm644 torrnado.1 ~/.local/share/man/man1/torrnado.1   # or
+install -Dm644 torrnado.1 ~/.local/share/man/man1/torrnado.1   # for ~/.local/bin
 sudo install -Dm644 torrnado.1 /usr/local/share/man/man1/torrnado.1
 man torrnado
 ```
+
+Beside it, because that is how `man` finds it: for a `PATH` entry
+`<prefix>/bin`, man-db searches `<prefix>/share/man`. So a binary on your
+`PATH` brings its own page with it, with nothing to configure and no
+index to rebuild - `mandb` is only needed for `apropos`. On Arch in
+particular, use `/usr/local`, never `/usr/share/man`, which belongs to
+pacman.
 
 It is generated from the command tree at release time rather than kept as
 a file someone has to remember to edit, so it describes exactly the binary
