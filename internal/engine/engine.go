@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -131,6 +132,12 @@ type tracked struct {
 	// the next tick would happily allow transfers again halfway through,
 	// since nothing else about the torrent says it is busy.
 	holdData bool
+
+	// cancelCheck stops the verification loop in checking, if one is
+	// running. Held here rather than passed around because the things
+	// that want to stop it - a pause, a removal, a shutdown - all reach
+	// the torrent, not the goroutine.
+	cancelCheck context.CancelFunc
 
 	checking bool   // a hash check is running
 	lastErr  string // last failure worth showing the user
@@ -341,6 +348,15 @@ func (e *Engine) closeNow() error {
 	// Saved before anything is torn down: a clean shutdown should leave
 	// the session on disk matching what was running.
 	e.persist()
+
+	// Verification goroutines are not in e.wg, so nothing below waits for
+	// them. Told to stop first, they unwind on their own rather than
+	// racing the client out from under themselves.
+	e.mu.Lock()
+	for _, tr := range e.torrents {
+		cancelCheckLocked(tr)
+	}
+	e.mu.Unlock()
 
 	close(e.closeCh)
 	e.wg.Wait()

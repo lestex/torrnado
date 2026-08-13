@@ -49,7 +49,7 @@ mode, just the movement/action idioms.
 | `x`, `dd`          | remove selected (or cursor row), keep data on disk |
 | `D`                | remove selected (or cursor row), delete data too   |
 | `X`                | delete the data, keep the torrent in the list      |
-| `p`                | toggle pause/resume on selected (or cursor row)    |
+| `p`                | toggle pause/resume; also stops a running recheck   |
 | `r`                | force recheck on selected (or cursor row)          |
 | `enter`            | move focus into the detail pane                    |
 | `esc`              | focus back to the list, then clear selection / search / filter |

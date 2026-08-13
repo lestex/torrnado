@@ -56,8 +56,8 @@ gap is discoverable rather than silent.
 count against the completion database - hours on a large single-file
 torrent - and can hit an assertion inside the library that kills the
 daemon from a goroutine nothing here can recover from. Do not reach for
-it as a diagnostic. See [library
-limitations](limitations.md).
+it as a diagnostic. Pausing the torrent calls off one you regret. See
+[library limitations](limitations.md).
 
 **A client and daemon of different versions can disagree.** The daemon
 outliving its clients is the design, so a freshly built TUI may attach to
