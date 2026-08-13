@@ -211,3 +211,69 @@ func TestWaitingForMetadataIsNotAChecking(t *testing.T) {
 		t.Errorf("StatusText = %q, want %q", got, "checking")
 	}
 }
+
+// A file switched off while a torrent is paused stays off when it is
+// resumed. Resuming has to mark files wanted - a torrent added paused
+// never had that done - but "nobody has touched this file" and "the user
+// switched this file off" are the same PiecePriorityNone to the library,
+// so reading the answer back off it re-wants everything that was
+// deselected.
+func TestResumeKeepsAFileThatWasSwitchedOff(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
+
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{Paused: true})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	if err := e.SetFilePriority(id, 0, PriorityNone); err != nil {
+		t.Fatalf("SetFilePriority: %v", err)
+	}
+
+	if err := e.SetPaused(id, false); err != nil {
+		t.Fatalf("SetPaused: %v", err)
+	}
+
+	detail, err := e.TorrentDetail(id)
+	if err != nil {
+		t.Fatalf("TorrentDetail: %v", err)
+	}
+	if got := detail.Files[0].Priority; got != PriorityNone {
+		t.Errorf("file priority after resuming = %v, want %v", got, PriorityNone)
+	}
+}
+
+// The other half of the same rule: a torrent added paused with nothing
+// chosen must still start downloading when it is resumed.
+func TestResumeMarksUntouchedFilesWanted(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
+
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{Paused: true})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	if err := e.SetPaused(id, false); err != nil {
+		t.Fatalf("SetPaused: %v", err)
+	}
+
+	detail, err := e.TorrentDetail(id)
+	if err != nil {
+		t.Fatalf("TorrentDetail: %v", err)
+	}
+	if got := detail.Files[0].Priority; got != PriorityNormal {
+		t.Errorf("file priority after resuming = %v, want %v", got, PriorityNormal)
+	}
+}

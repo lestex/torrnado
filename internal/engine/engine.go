@@ -96,6 +96,13 @@ type tracked struct {
 	// must be closed when the torrent is removed.
 	ownStorage storage.ClientImplCloser
 
+	// chosenFiles holds the indices something has deliberately set a
+	// priority for, so marking a torrent's files wanted can leave those
+	// alone. The library cannot answer this: a file nobody has touched
+	// and a file explicitly set to "none" are both PiecePriorityNone, so
+	// asking it which is which marks a deselected file wanted again.
+	chosenFiles map[int]bool
+
 	// The client reports cumulative byte counters, not speeds, so a rate
 	// is the change since the previous tick divided by the time between
 	// them. These hold the previous reading and the rate derived from it.
