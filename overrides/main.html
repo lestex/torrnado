@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+<!--
+  Open Graph and Twitter card tags, so a link to torrnado.dev unfurls with
+  a title, a description and the mark rather than as bare text.
+
+  Hand-written rather than Material's `social` plugin, which renders a
+  per-page card image and needs cairo and pillow added to
+  docs-requirements.txt and to the CI image for one picture. The card that
+  already exists for GitHub's repo preview does the same job here.
+-->
+{% block extrahead %}
+  {% set page_title = config.site_name %}
+  {% if page and page.title and not page.is_homepage %}
+    {% set page_title = page.title ~ " - " ~ config.site_name %}
+  {% endif %}
+
+  {% if page and page.meta and page.meta.description %}
+    {% set page_description = page.meta.description %}
+  {% else %}
+    {% set page_description = config.site_description %}
+  {% endif %}
+
+  <!-- rstrip because site_url may or may not carry a trailing slash, and
+       the two spellings differ by a 404. -->
+  {% set card = config.site_url.rstrip('/') ~ '/assets/social-preview.png' %}
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ page_title }}">
+  <meta property="og:description" content="{{ page_description }}">
+  <meta property="og:image" content="{{ card }}">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  {% if page and page.canonical_url %}
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  {% endif %}
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ page_title }}">
+  <meta name="twitter:description" content="{{ page_description }}">
+  <meta name="twitter:image" content="{{ card }}">
+{% endblock %}

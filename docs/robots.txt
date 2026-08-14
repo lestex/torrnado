@@ -1,0 +1,8 @@
+# Nothing here is private, and the point of the site is to be found.
+# The sitemap line is the reason this file exists: crawling is allowed by
+# default, but this is where a crawler looks to be told where the sitemap
+# is. MkDocs writes that file on every build.
+User-agent: *
+Allow: /
+
+Sitemap: https://torrnado.dev/sitemap.xml
