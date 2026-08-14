@@ -63,7 +63,11 @@ commit_parsers = [
   { message = "^style", skip = true },
   { message = "^chore", skip = true },
   { message = "^ci", skip = true },
-  { message = "^build", skip = true },
+  # build is the exception among these: a toolchain or base-image bump
+  # changes what is inside the binary someone downloads - the Go 1.25.13
+  # bump fixed four stdlib advisories reachable from this code - so it is
+  # filed under Dependencies rather than hidden.
+  { message = "^build", group = "<!-- 3 -->Dependencies" },
   { message = "^Merge", skip = true },
   { body = ".*security", group = "<!-- 4 -->Security" },
   { message = ".*", group = "<!-- 5 -->Other" },
