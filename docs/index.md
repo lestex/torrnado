@@ -1,4 +1,8 @@
 ---
+description: >-
+  torrnado is a terminal BitTorrent client with a vim-like TUI. The engine
+  runs as a background daemon, so closing the terminal does not stop the
+  download.
 hide:
   - navigation
   - toc

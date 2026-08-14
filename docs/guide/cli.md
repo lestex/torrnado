@@ -1,3 +1,9 @@
+---
+description: >-
+  Every torrnado subcommand: add, remove, pause, recheck, priority, limit,
+  move, list and preview - each one a scriptable client of the daemon.
+---
+
 # Command line
 
 Every subcommand is a thin client: it dials the daemon's socket, spawns a

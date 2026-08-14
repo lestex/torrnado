@@ -1,3 +1,10 @@
+---
+description: >-
+  Install torrnado on macOS or Linux: a one-line install script with a
+  checksum check, a release archive, a container image, or a build from
+  source.
+---
+
 # Installation
 
 ## The one-liner

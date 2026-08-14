@@ -1,3 +1,9 @@
+---
+description: >-
+  torrnado's terminal interface: three panes, vim keys, a command palette,
+  and a detail pane showing the piece map, connected peers and files.
+---
+
 # The TUI
 
 Run `torrnado` with no arguments. It attaches to the daemon, spawning one
