@@ -179,6 +179,13 @@ make docs-build   # a strict build, the same one CI runs
 Requirements are pinned in `docs-requirements.txt` so a local build and
 the CI build produce the same site.
 
+The two images that sell the thing are generated, not drawn by hand:
+`demo.tape` records `docs/assets/demo.gif` with [vhs](https://github.com/charmbracelet/vhs)
+(it needs a daemon with a torrent already downloading - the header of the
+tape says how), and `social-preview.html` renders
+`docs/assets/social-preview.png`, the card GitHub shows when the repo is
+linked. Both carry their command in a comment at the top.
+
 `.github/workflows/docs.yml` builds the site strictly on every pull request
 and on every docs change to `main`, but **publishes only from a `v*` tag**,
 so torrnado.dev describes the released binary rather than unreleased work.

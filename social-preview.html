@@ -1,0 +1,53 @@
+<!-- GitHub's social preview card: Settings > General > Social preview.
+     GitHub wants 1280x640; render it at exactly that with headless Chrome,
+     because a thumbnailer will letterbox it into a square and clip the right
+     edge:
+
+     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+       --headless --disable-gpu --hide-scrollbars --window-size=1280,640 \
+       --screenshot=docs/assets/social-preview.png social-preview.html
+-->
+<html><body style="margin:0">
+<!-- GitHub social preview: 1280x640. Rendered to PNG, not shipped as HTML. -->
+<div style="
+  width:1280px; height:640px; box-sizing:border-box;
+  background:#0d1117;
+  padding:72px 80px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  font-family:'JetBrains Mono','SF Mono',ui-monospace,monospace;
+  color:#e6edf3;
+  position:relative; overflow:hidden;">
+
+  <!-- the accent glow, same colour the TUI and the site use -->
+  <div style="position:absolute; top:-260px; right:-160px; width:760px; height:760px;
+              background:radial-gradient(circle, rgba(189,147,249,.20) 0%, rgba(189,147,249,0) 68%);"></div>
+
+  <div style="position:relative">
+    <div style="display:flex; align-items:center; gap:22px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 20 14" style="width:76px;height:53px;color:#bd93f9">
+        <path d="M21 6L21 5Q21 3 19 3L5 3Q3 3 3 5L3 13Q3 15 5 15L7 15Q9 15 9 13L9 11Q9 9 11 9L13 9Q15 9 15 7L15 6"
+              fill="none" stroke="currentColor" stroke-width="1.2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="font-size:78px; font-weight:700; letter-spacing:-.01em">torrnado</div>
+    </div>
+
+    <div style="margin-top:26px; font-size:30px; line-height:1.45; color:#c9d1d9; max-width:940px">
+      A terminal BitTorrent client with a vim-like TUI.
+    </div>
+    <div style="margin-top:8px; font-size:30px; line-height:1.45; color:#8b949e; max-width:940px">
+      The engine runs as a daemon, so closing the terminal
+      doesn't stop the download.
+    </div>
+  </div>
+
+  <div style="position:relative; display:flex; align-items:flex-end; justify-content:space-between">
+    <div style="font-size:25px; color:#8b949e; line-height:1.9">
+      <span style="color:#bd93f9">$</span> curl -fsSL https://torrnado.dev/install.sh | sh
+    </div>
+    <div style="font-size:22px; color:#6e7681; text-align:right; line-height:1.7">
+      macOS · Linux<br>MIT · Go
+    </div>
+  </div>
+</div>
+</body></html>
