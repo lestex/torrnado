@@ -11,20 +11,7 @@ separate architecture.
 
 **Documentation: [torrnado.dev](https://torrnado.dev)**
 
-```
-┌──────────────────┐┌────────────────────────────────────────────────────────────────────┐
-│ torrnado         ││    Name                  Progress            Size    Status        │
-│                  ││ >  archlinux-2026.08.01… ━━━━━━━────── 42%   1.5GiB  downloading   │
-│ Status           ││    Fedora-KDE-Desktop-L… ━━━━━━━━━━━━ 100%   3.1GiB  seeding       │
-│  All             ││ *  ubuntu-26.04-desktop… ━━──────────  11%   6.1GiB  paused        │
-│  Downloading     ││                                                                    │
-│  Seeding         │└────────────────────────────────────────────────────────────────────┘
-│  Completed       │┌────────────────────────────────────────────────────────────────────┐
-│  Stopped         ││  ─ [Pieces]  Peers   Files                                         │
-│                  ││  1950/24208 pieces verified × 256.0KiB                             │
-└──────────────────┘└────────────────────────────────────────────────────────────────────┘
- ↓ 21.4MiB/s  ↑ 0B/s  │  3 torrents                              added 1 torrent(s)
-```
+![torrnado](docs/assets/demo.gif)
 
 ## Install
 
