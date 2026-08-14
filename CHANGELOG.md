@@ -4,6 +4,12 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.1 - 2026-08-14
+
+### Dependencies
+
+- Go 1.25.13
+
 ## 0.5.0 - 2026-08-13
 
 ### Features
@@ -182,5 +188,8 @@ editing this file by hand.
 
 ### Dependencies
 
+- Silence Material's MkDocs 2.0 banner
+- Generate CHANGELOG.md from the commit log
 - Bump indirect deps off vulnerable versions
+- Keep docs and refactor commits out of the changelog
 

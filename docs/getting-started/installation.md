@@ -33,7 +33,7 @@ plus `checksums.txt`, on the [releases
 page](https://github.com/lestex/torrnado/releases):
 
 ```sh
-tar xzf torrnado_0.5.0_linux_amd64.tar.gz
+tar xzf torrnado_0.5.1_linux_amd64.tar.gz
 ./torrnado version
 ```
 
