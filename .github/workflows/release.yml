@@ -102,7 +102,7 @@ jobs:
       # the one that makes GHCR show the package on the repo page rather
       # than as an orphan.
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           # `latest` comes from the default latest=auto flavor, which
