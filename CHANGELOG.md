@@ -4,6 +4,17 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.2 - 2026-08-18
+
+### Features
+
+- **config:** Render an annotated config.toml from a Config
+- **cli:** Torrnado init writes a config file to edit
+- **tui:** :help opens the reference screen
+- **tui:** The help screen lists every palette command
+- **tui:** ? opens the help screen alongside h
+- **tui:** Point a new user at the palette and the help screen
+
 ## 0.5.1 - 2026-08-14
 
 ### Dependencies
