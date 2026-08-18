@@ -13,8 +13,13 @@ type KeyMap struct {
 	Pause, Recheck             string
 	Detail, Back, Quit         string
 	Search, Command, Help      string
-	Preview                    string
-	Open                       string
+	// HelpAlt is the second key that opens the reference. "?" is what
+	// people press when they do not know the keys yet - it is the
+	// convention less/man/vim/git set - and "h" is what they press once
+	// they do. Neither is worth giving up for the other.
+	HelpAlt string
+	Preview string
+	Open    string
 
 	// Pane focus and detail-pane tab movement.
 	FocusNext, FocusPrev   string
@@ -47,6 +52,7 @@ func DefaultKeyMap() KeyMap {
 		Search:  "/",
 		Command: ":",
 		Help:    "h",
+		HelpAlt: "?",
 		Preview: "v",
 		// Free, next to nothing destructive, and the letter every file
 		// manager and editor already uses for "open".
@@ -90,6 +96,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.Search, "search")
 	apply(&k.Command, "command")
 	apply(&k.Help, "help")
+	apply(&k.HelpAlt, "help_alt")
 	apply(&k.Preview, "preview")
 	apply(&k.Open, "open")
 	apply(&k.Detail, "detail")

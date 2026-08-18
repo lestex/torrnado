@@ -275,7 +275,7 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.commandBuf = ""
 		return m, nil
 
-	case key == km.Help:
+	case key == km.Help, key == km.HelpAlt:
 		m.showHelp = true
 		return m, nil
 

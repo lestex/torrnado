@@ -22,6 +22,32 @@ func displayKey(key string) string {
 	return key
 }
 
+// keyPair labels an action bound to two keys, and collapses to one when
+// a config file has bound both to the same thing - "h / h" would read as
+// a bug in the screen rather than a choice in the file.
+func keyPair(primary, alt string) string {
+	if alt == "" || alt == primary {
+		return displayKey(primary)
+	}
+	return displayKey(primary) + " / " + displayKey(alt)
+}
+
+// helpHint is the footer's standing pointer at the reference screen.
+//
+// It names the alternate key rather than the primary one: "?" is what
+// someone who has never seen this program tries, and they are exactly who
+// the hint is for.
+func (m Model) helpHint() string {
+	key := m.keymap.HelpAlt
+	if key == "" {
+		key = m.keymap.Help
+	}
+	if key == "" {
+		return ""
+	}
+	return displayKey(key) + " help"
+}
+
 // renderHelp draws the keybind reference.
 //
 // It is generated from the live keymap rather than written out by hand,
@@ -50,7 +76,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Command, "open the command palette"},
 		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},
-		{km.Help, "show this screen"},
+		{keyPair(km.Help, km.HelpAlt), "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},
 	}
 
