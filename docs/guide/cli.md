@@ -29,6 +29,7 @@ torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
 torrnado open <id...>                 open the torrent's folder
 torrnado config                       where the config lives, and what is in effect
+torrnado init                         write a config file of the defaults to edit
 ```
 
 `torrnado config` is the one command that never touches the daemon: it
@@ -39,6 +40,14 @@ overrides together. Useful when a setting seems to be ignored, since the
 first answer is usually that the file is somewhere other than where it
 was written. What it prints is what a daemon started *now* would use; one
 already running may have been started with something else.
+
+`torrnado init` writes that config file for you, with every key set to
+the default it already has and this machine's resolved paths in it - so
+configuring something is editing a line rather than transcribing the key
+from the documentation. It never overwrites an existing file without
+`--force`, and `--print` sends it to stdout instead of to disk. Neither
+it nor the file is required: torrnado runs on the built-in defaults, and
+deleting a line goes back to one.
 
 `list --watch` renders the daemon's pushed events rather than polling, so
 it updates when state actually changes (~1s) and costs no extra requests.
