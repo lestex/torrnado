@@ -433,3 +433,33 @@ func TestMarkersDoNotChangeTheRowWidth(t *testing.T) {
 		t.Errorf("header is %d columns and a row is %d", header, plain)
 	}
 }
+
+// The first screen a new user sees. "no torrents yet" answers a question
+// nobody asked; what to do about it is the one they have, so both ways
+// to add a torrent and the way to the reference have to be on it.
+func TestEmptyListSaysWhatToDoNext(t *testing.T) {
+	m := testModel()
+	m.styles = newStyles(loadTestTheme(t))
+
+	got := m.renderEmptyList(80, 10)
+
+	for _, want := range []string{"no torrents yet", ":add", "torrnado add", "h / ?"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the empty list does not mention %q:\n%s", want, got)
+		}
+	}
+}
+
+// It is drawn into a pane that has already been measured, so it must not
+// hand back more lines than it was given - lipgloss grows the box rather
+// than clipping, which pushes the frame off the screen.
+func TestEmptyListFitsTheHeightItIsGiven(t *testing.T) {
+	m := testModel()
+	m.styles = newStyles(loadTestTheme(t))
+
+	for height := 1; height <= 6; height++ {
+		if got := strings.Count(m.renderEmptyList(80, height), "\n") + 1; got > height {
+			t.Errorf("at height %d the empty list rendered %d lines", height, got)
+		}
+	}
+}
