@@ -86,7 +86,14 @@ always apply to the list's selection or cursor row.
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
 | `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
+| `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
+
+The reference screen lists this table too, generated from the same
+definitions the palette reads, so it cannot describe a command that isn't
+there or miss one that is. It stacks into a single column when the
+terminal is tall enough and splits into two when it isn't, which is what
+keeps the commands on screen at 24 rows.
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
 containing a space possible (`:move '/media/big disk'`). Quoting a magnet
