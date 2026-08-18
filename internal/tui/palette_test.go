@@ -1,6 +1,10 @@
 package tui
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"strconv"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -151,4 +155,94 @@ func TestSplitArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// :help opens the same screen the help key does. Without this it would
+// be a command the palette accepts and then appears to ignore, since the
+// screen it opens is drawn by the next frame rather than by a status
+// message.
+func TestHelpCommandOpensTheHelpScreen(t *testing.T) {
+	m := testModel("a")
+	if m.showHelp {
+		t.Fatal("the test model starts with the help screen already open")
+	}
+
+	next, _ := m.execCommand("help")
+
+	if !next.(Model).showHelp {
+		t.Error(":help did not open the help screen")
+	}
+}
+
+// The two halves of the palette - what execCommand answers to, and what
+// the help screen says it answers to - are edited in the same file so
+// they stay together. This is what makes "stay together" a test rather
+// than a habit: it reads the switch itself, so a case added without a
+// line in paletteCommands fails here, and so does a documented command
+// that no case implements.
+func TestPaletteCommandsMatchWhatExecCommandAccepts(t *testing.T) {
+	implemented := execCommandCases(t)
+	if len(implemented) == 0 {
+		t.Fatal("no case clauses were found in execCommand, so this test proves nothing")
+	}
+
+	documented := map[string]bool{}
+	for _, c := range paletteCommands {
+		for _, name := range c.names {
+			if documented[name] {
+				t.Errorf("%q is listed twice in paletteCommands", name)
+			}
+			documented[name] = true
+		}
+	}
+
+	for name := range implemented {
+		if !documented[name] {
+			t.Errorf("the palette accepts %q, but the help screen does not list it", name)
+		}
+	}
+	for name := range documented {
+		if !implemented[name] {
+			t.Errorf("the help screen lists %q, but the palette does not accept it", name)
+		}
+	}
+}
+
+// execCommandCases returns every string the switch in execCommand
+// matches on, read out of the source rather than the binary: a switch is
+// not something a running program can enumerate.
+func execCommandCases(t *testing.T) map[string]bool {
+	t.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), "palette.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing palette.go: %v", err)
+	}
+
+	names := map[string]bool{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "execCommand" {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			clause, ok := n.(*ast.CaseClause)
+			if !ok {
+				return true
+			}
+			for _, expr := range clause.List {
+				lit, ok := expr.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					continue
+				}
+				name, err := strconv.Unquote(lit.Value)
+				if err != nil {
+					t.Fatalf("case %s in execCommand does not unquote: %v", lit.Value, err)
+				}
+				names[name] = true
+			}
+			return true
+		})
+	}
+	return names
 }

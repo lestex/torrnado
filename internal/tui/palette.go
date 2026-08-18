@@ -19,6 +19,36 @@ import (
 // It deliberately mirrors the CLI subcommands rather than inventing its
 // own vocabulary, so knowing one teaches the other.
 
+// paletteCommand is one line of the help screen's COMMANDS section,
+// together with every word execCommand answers to for it.
+//
+// The list lives here rather than in help.go because a vocabulary and the
+// documentation of it drift the moment they sit in different files -
+// adding a case below is meant to be the same edit as adding the line
+// people read. A test parses execCommand's switch and fails if the two
+// ever disagree, in either direction, so a command cannot be added
+// without being documented or documented without existing.
+type paletteCommand struct {
+	names []string // what execCommand accepts, aliases included
+	usage string   // how the line reads on the help screen
+	desc  string
+}
+
+var paletteCommands = []paletteCommand{
+	{[]string{"add"}, ":add <magnet|file|dir>", "add torrents - anything `torrnado add` takes"},
+	{[]string{"pause", "resume"}, ":pause / :resume", "pause or resume the marked torrents"},
+	{[]string{"rm", "remove", "rm!", "remove!"}, ":rm / :rm!", "remove them; ! deletes the data too"},
+	{[]string{"purge"}, ":purge", "delete their data, keeping them in the list"},
+	{[]string{"recheck"}, ":recheck", "re-verify the data on disk"},
+	{[]string{"limit-up"}, ":limit-up <rate>", "global upload cap: 500k, 2M, unlimited"},
+	{[]string{"limit-down"}, ":limit-down <rate>", "global download cap"},
+	{[]string{"move"}, ":move <dir>", "move the torrent under the cursor"},
+	{[]string{"sort"}, ":sort <column> [desc]", "name, size, progress, ratio, eta, added, down, up"},
+	{[]string{"theme"}, ":theme [name]", "open the theme picker, or apply one by name"},
+	{[]string{"help"}, ":help", "show this screen"},
+	{[]string{"q", "quit"}, ":q", "quit (the daemon keeps running)"},
+}
+
 func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 	fields := splitArgs(line)
 	if len(fields) == 0 {
@@ -89,6 +119,13 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		m.sortBy = mode
 		m.sortDesc = len(args) > 1 && args[1] == "desc"
 		m.clampCursor(len(m.visibleTorrents()))
+		return m, nil
+
+	case "help":
+		// The same screen the help key opens, reachable from the palette
+		// for someone who came looking for the command list and found the
+		// prompt first - which is where ":" habits lead.
+		m.showHelp = true
 		return m, nil
 
 	case "q", "quit":
