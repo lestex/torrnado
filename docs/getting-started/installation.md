@@ -7,6 +7,33 @@ description: >-
 
 # Installation
 
+## Arch Linux
+
+```sh
+yay -S torrnado-bin       # or paru -S torrnado-bin, or makepkg it by hand
+```
+
+[`torrnado-bin`](https://aur.archlinux.org/packages/torrnado-bin) on the
+AUR. `-bin` because it installs the released binary rather than compiling
+one - it is the same archive the releases page serves, with the checksums
+that release published, and the PKGBUILD is written by the release itself
+rather than kept up to date by hand.
+
+It brings the man page, and `contrib/torrnado.service` as a real unit at
+`/usr/lib/systemd/system/torrnado.service` with its paths corrected for a
+packaged install. The `torrnado` service account it runs as is created at
+install time through `sysusers.d`. To use it, point `download_dir` at
+something the service can write and add that path to `ReadWritePaths=`:
+
+```sh
+sudoedit /etc/torrnado/config.toml     # the unit sets XDG_CONFIG_HOME=/etc
+sudo systemctl enable --now torrnado
+```
+
+Everything the unit expects, and why, is in [The
+daemon](../server/daemon.md) and in the comments at the top of the unit
+itself.
+
 ## The one-liner
 
 ```sh

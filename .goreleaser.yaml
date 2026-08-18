@@ -63,6 +63,60 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# The Arch package, pushed to the AUR as torrnado-bin on every tag.
+#
+# -bin because that is what the AUR calls a package of pre-built binaries
+# rather than one that compiles from source; GoReleaser appends the suffix
+# itself if it is missing. A source package would be a second build to
+# keep working, and this one is the same artifact the release page serves,
+# checksummed by the same run.
+aurs:
+  - name: torrnado-bin
+    ids: [torrnado]
+    homepage: https://torrnado.dev/
+    description: Terminal BitTorrent client with a vim-like interface and a background daemon
+    license: MIT
+    maintainers:
+      - Andrey Larin <lestex at gmail dot com>
+    # The AUR takes a push over SSH and nothing else, so this is a real
+    # private key (passphrase-less, as ssh in a runner cannot answer a
+    # prompt) held as a secret. Never the key itself here.
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: ssh://aur@aur.archlinux.org/torrnado-bin.git
+    # A -rc or -beta tag must not become what pacman installs.
+    skip_upload: auto
+    provides: [torrnado]
+    conflicts: [torrnado]
+    optdepends:
+      # config.toml's default player, and what `v` in the interface runs.
+      - "mpv: previewing a file while it downloads"
+    package: |-
+      install -Dm755 "./torrnado" "${pkgdir}/usr/bin/torrnado"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/torrnado/LICENSE"
+      install -Dm644 "./torrnado.1" "${pkgdir}/usr/share/man/man1/torrnado.1"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/torrnado/README.md"
+      install -Dm644 "./CHANGELOG.md" "${pkgdir}/usr/share/doc/torrnado/CHANGELOG.md"
+
+      # The unit in contrib/ is written for a hand-rolled install and says
+      # /usr/local/bin; a packaged binary lives in /usr/bin. The grep is
+      # not decoration - if that line ever changes shape, the sed silently
+      # does nothing and the package ships a unit pointing at a path it
+      # never installed. Failing the build is the cheap end of that.
+      sed 's|/usr/local/bin/torrnado|/usr/bin/torrnado|' contrib/torrnado.service > torrnado.service
+      grep -q '^ExecStart=/usr/bin/torrnado daemon$' torrnado.service
+      install -Dm644 "./torrnado.service" "${pkgdir}/usr/lib/systemd/system/torrnado.service"
+
+      # The unit runs as User=torrnado, which has to exist before systemd
+      # can start it. sysusers.d is how a package asks for that on Arch -
+      # pacman's systemd hook creates the account at install time, and
+      # StateDirectory= makes /var/lib/torrnado at first start.
+      #
+      # printf rather than a heredoc: GoReleaser indents this whole block
+      # into package(), and an indented terminator does not close a
+      # heredoc - the PKGBUILD stops parsing there.
+      printf 'u torrnado - "torrnado BitTorrent daemon" /var/lib/torrnado\n' > torrnado.sysusers
+      install -Dm644 "./torrnado.sysusers" "${pkgdir}/usr/lib/sysusers.d/torrnado.conf"
+
 snapshot:
   version_template: "{{ incpatch .Version }}-snapshot"
 

@@ -72,6 +72,12 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The AUR takes a git push over SSH and nothing else, so this is
+          # a passphrase-less private key whose public half is on the AUR
+          # account - a runner cannot answer a passphrase prompt. Without
+          # it the aur step fails; add the secret and re-run this workflow
+          # from the same tag rather than moving the tag.
+          AUR_KEY: ${{ secrets.AUR_KEY }}
 
   # The container image, to ghcr.io/lestex/torrnado.
   #
