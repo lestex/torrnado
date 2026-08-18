@@ -44,6 +44,7 @@ func main() {
 		newPreviewCmd(),
 		newOpenCmd(),
 		newConfigCmd(),
+		newInitCmd(),
 		newVersionCmd(),
 		newManCmd(),
 	)

@@ -6,6 +6,11 @@ not just Linux). Every key is optional; a missing file is not an error,
 an invalid one is - validation fails with the specific bad key rather
 than silently ignoring it.
 
+`torrnado init` writes this file for you, annotated, with the paths this
+machine actually resolved rather than the ones below. It refuses to
+overwrite an existing config unless you pass `--force`; `torrnado init
+--print` shows it without writing anything.
+
 ```toml
 download_dir  = "~/Downloads/torrnado"                     # default download directory
 daemon_socket = "~/.local/share/torrnado/daemon.sock"       # IPC socket path
