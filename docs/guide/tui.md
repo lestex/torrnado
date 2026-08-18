@@ -25,7 +25,7 @@ highlighted border, and it's where `j`/`k` go:
 │  Complet…││ ─ [Pieces]  Peers   Files                      │
 │  Stopped ││ 1950/24208 pieces × 256.0KiB                   │
 └──────────┘└────────────────────────────────────────────────┘
- ↓ 21.4MiB/s  ↑ 0B/s  │  2 torrents        j/k select  h help
+ ↓ 21.4MiB/s  ↑ 0B/s  │  2 torrents                     ? help
 ```
 
 - **Sidebar** filters the list by status. It intersects with `/` search
@@ -42,6 +42,19 @@ highlighted border, and it's where `j`/`k` go:
 
 Vim-like navigation, not vim's editing model - there's no insert/visual
 mode, just the movement/action idioms.
+
+`?` and `h` both open the reference, and the footer says so in its right
+corner whenever it has nothing else to report - so the keys are reachable
+without knowing a key. With no torrents yet, the list says what to do
+next rather than only that it is empty:
+
+```
+ no torrents yet
+
+   :add <magnet|file|dir>  add a torrent without leaving here
+   torrnado add <magnet>   or from a shell, interface or not
+   h / ?                   every key and command
+```
 
 | Key                | Action                                            |
 |--------------------|----------------------------------------------------|
@@ -62,7 +75,7 @@ mode, just the movement/action idioms.
 | `:`                | open the command palette                           |
 | `v`                | stream to your player: the file under the cursor, or the torrent's biggest |
 | `o`                | open the torrent's folder in your file manager      |
-| `h`                | keybind & command reference                        |
+| `h`, `?`           | keybind & command reference                        |
 | `q`                | quit the TUI (the daemon keeps running)             |
 
 With the detail pane focused on its Files tab, `j`/`k` move between files
