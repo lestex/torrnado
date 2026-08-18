@@ -46,11 +46,12 @@ There is no install step beyond putting the binary on your `$PATH`.
 torrnado add 'magnet:?xt=urn:btih:...'   # spawns a daemon if none is running
 torrnado                                  # attach the TUI
 torrnado list --watch                     # or just watch from the shell
+torrnado init                             # a config file of the defaults, to edit
 ```
 
 Quitting the TUI (`q`) does not stop the daemon - your torrents keep
-running. Press `h` in the TUI for every key, and `:` for the command
-palette.
+running. Press `?` or `h` in the TUI for every key and every command, and
+`:` for the command palette.
 
 ## What it does
 
