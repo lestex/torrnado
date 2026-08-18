@@ -144,13 +144,32 @@ then builds four archives with GoReleaser and creates the release, with
 notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`. The
 same tag publishes the documentation site - see Docs below.
 
+It also publishes the Arch package, as `torrnado-bin` on the AUR, from
+the archives and checksums of that same tag. The AUR accepts a git push
+over SSH and nothing else, so the workflow needs a passphrase-less
+private key in the `AUR_KEY` secret, whose public half is on the AUR
+account that maintains the package. Without it every other part of the
+release still runs and the AUR step fails; add the secret and re-run the
+workflow from the same tag rather than moving the tag. A `-rc` or `-beta`
+tag is skipped (`skip_upload: auto`), so a pre-release never becomes what
+`pacman` installs.
+
 To rehearse any of it locally:
 
 ```sh
 goreleaser check                       # validate .goreleaser.yaml
 goreleaser build --snapshot --clean    # build all four targets into dist/
 git cliff --latest --strip header      # exactly what the release page gets
+
+# The PKGBUILD and .SRCINFO this tag would push, written to dist/aur/
+# and pushed nowhere:
+goreleaser release --snapshot --clean --skip=publish
 ```
+
+The PKGBUILD's `package()` rewrites the unit's `ExecStart` from
+`/usr/local/bin` to `/usr/bin` and then greps for the result, so a change
+to that line in `contrib/torrnado.service` fails the package build rather
+than shipping a unit pointing at a path the package never installed.
 
 `make changelog` uses `git-cliff` from `PATH` and falls back to its
 container image, so it works on a machine that has never installed it.
