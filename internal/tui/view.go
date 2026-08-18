@@ -150,13 +150,28 @@ func (m Model) renderFooter(p panes) string {
 		statusStyle = m.styles.StatusErr
 	}
 
+	// With nothing to report, that end of the line carries the way in to
+	// everything else. It costs a corner of a row that was empty anyway,
+	// and it is the difference between a reference someone finds and one
+	// they have to already know the key for. Any real message takes the
+	// space back.
+	right, rightStyle := m.status, statusStyle
+	if right == "" {
+		right, rightStyle = m.helpHint(), m.styles.Muted
+	}
+
 	// Both, when both fit.
-	if gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(m.status) - 1; m.status == "" || gap >= 1 {
+	if gap := p.footerW - lipgloss.Width(left) - lipgloss.Width(right) - 1; gap >= 1 {
 		line := m.styles.StatusBar.Render(left)
-		if m.status != "" {
-			line += strings.Repeat(" ", gap) + statusStyle.Render(m.status) + " "
+		if right != "" {
+			line += strings.Repeat(" ", gap) + rightStyle.Render(right) + " "
 		}
 		return truncate(line, p.footerW)
+	}
+	// The hint yields rather than taking the line: it answers a question
+	// nobody asked, where a status message answers one they did.
+	if m.status == "" {
+		return truncate(m.styles.StatusBar.Render(left), p.footerW)
 	}
 
 	// Otherwise the message takes the line. It answers something the user

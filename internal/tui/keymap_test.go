@@ -86,3 +86,21 @@ func TestEveryFieldIsOverridable(t *testing.T) {
 			overridable, v.NumField())
 	}
 }
+
+// The second help key is a binding like any other, so a config file that
+// wants "?" for something else has somewhere to move it to.
+func TestHelpAltIsRebindable(t *testing.T) {
+	km := DefaultKeyMap()
+	if km.HelpAlt != "?" {
+		t.Errorf("HelpAlt = %q, want ?", km.HelpAlt)
+	}
+
+	km = km.WithOverrides(map[string]string{"help_alt": "f1"})
+	if km.HelpAlt != "f1" {
+		t.Errorf("after the override, HelpAlt = %q, want f1", km.HelpAlt)
+	}
+	// The primary key is a separate binding and must not move with it.
+	if km.Help != "h" {
+		t.Errorf("overriding help_alt changed help to %q", km.Help)
+	}
+}

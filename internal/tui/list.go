@@ -5,6 +5,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/lestex/torrnado/internal/engine"
 )
 
@@ -147,7 +149,7 @@ func (m Model) renderListHeader(p panes) string {
 func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH int) string {
 	height := paneH - 1 // the header owns one row
 	if len(m.torrents) == 0 {
-		return m.styles.Muted.Render(" no torrents yet - add one with `torrnado add`")
+		return m.renderEmptyList(p.listContentW, height)
 	}
 	if len(visible) == 0 {
 		return m.styles.Muted.Render(" nothing matches status " + filterNames[m.filter])
@@ -159,6 +161,37 @@ func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH i
 	var lines []string
 	for i := start; i < end; i++ {
 		lines = append(lines, m.renderRow(p, visible[i], i == m.cursor)...)
+	}
+	return strings.Join(clampLines(lines, height), "\n")
+}
+
+// renderEmptyList draws what to do next, for a list with nothing in it.
+//
+// This is the first thing a new user sees, and "no torrents yet" on its
+// own answers the question they do not have. The one they do have is what
+// to do about it, so the three ways in are on screen: the palette, the
+// shell, and the screen that lists everything else. Naming the keys here
+// rather than expecting them to be found is the whole point - a keybind
+// reference nobody knows how to open is not a reference.
+func (m Model) renderEmptyList(width, height int) string {
+	rows := []helpEntry{
+		{":add <magnet|file|dir>", "add a torrent without leaving here"},
+		{"torrnado add <magnet>", "or from a shell, interface or not"},
+		{keyPair(m.keymap.Help, m.keymap.HelpAlt), "every key and command"},
+	}
+
+	keyW := 0
+	for _, r := range rows {
+		if w := lipgloss.Width(r.key); w > keyW {
+			keyW = w
+		}
+	}
+
+	lines := []string{m.styles.Muted.Render(" no torrents yet"), ""}
+	for _, r := range rows {
+		lines = append(lines, "   "+
+			m.styles.Row.Render(padRight(r.key, keyW))+"  "+
+			m.styles.Muted.Render(truncate(r.desc, width-keyW-5)))
 	}
 	return strings.Join(clampLines(lines, height), "\n")
 }

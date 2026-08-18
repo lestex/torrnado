@@ -22,6 +22,32 @@ func displayKey(key string) string {
 	return key
 }
 
+// keyPair labels an action bound to two keys, and collapses to one when
+// a config file has bound both to the same thing - "h / h" would read as
+// a bug in the screen rather than a choice in the file.
+func keyPair(primary, alt string) string {
+	if alt == "" || alt == primary {
+		return displayKey(primary)
+	}
+	return displayKey(primary) + " / " + displayKey(alt)
+}
+
+// helpHint is the footer's standing pointer at the reference screen.
+//
+// It names the alternate key rather than the primary one: "?" is what
+// someone who has never seen this program tries, and they are exactly who
+// the hint is for.
+func (m Model) helpHint() string {
+	key := m.keymap.HelpAlt
+	if key == "" {
+		key = m.keymap.Help
+	}
+	if key == "" {
+		return ""
+	}
+	return displayKey(key) + " help"
+}
+
 // renderHelp draws the keybind reference.
 //
 // It is generated from the live keymap rather than written out by hand,
@@ -47,24 +73,22 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Purge, "delete their data, keeping the torrents in the list"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
-		{km.Command, "command palette: :add, :theme, :limit-up, :move, :q"},
+		{km.Command, "open the command palette"},
 		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},
-		{km.Help, "show this screen"},
+		{keyPair(km.Help, km.HelpAlt), "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},
 	}
 
 	// The sections are built first so the header can be chosen against
 	// their real height rather than a guessed one: adding a keybind later
 	// then costs the mark, not the key it was added for.
-	var body strings.Builder
-	writeHelpSection(&body, m, "NAVIGATION", nav, width)
-	writeHelpSection(&body, m, "ACTIONS", actions, width)
+	body := m.helpBody(width, height, nav, actions, paletteHelp())
 
 	var b strings.Builder
-	b.WriteString(m.helpHeader(height, strings.Count(body.String(), "\n")+1))
+	b.WriteString(m.helpHeader(height, strings.Count(body, "\n")+1))
 	b.WriteString("\n\n")
-	b.WriteString(body.String())
+	b.WriteString(body)
 
 	lines := strings.Split(b.String(), "\n")
 	note := "Keys reflect any [keybinds] overrides in config.toml."
@@ -76,6 +100,95 @@ func (m Model) renderHelp(width, height int) string {
 	lines = append(lines, m.styles.Muted.Render(truncate(note, width)))
 	return strings.Join(lines, "\n")
 }
+
+// paletteHelp renders the palette's own command list as help entries.
+//
+// The vocabulary itself lives in palette.go, beside the switch that reads
+// it, so this screen cannot list a command that does not exist.
+func paletteHelp() []helpEntry {
+	entries := make([]helpEntry, len(paletteCommands))
+	for i, c := range paletteCommands {
+		entries[i] = helpEntry{c.usage, c.desc}
+	}
+	return entries
+}
+
+// helpBody lays the sections out in one column, or two when that is the
+// only way they fit.
+//
+// Stacked, the three sections run past the bottom of an 80x24 terminal,
+// and the commands - the section furthest down - are the ones clipped
+// away entirely. Side by side they are roughly half as tall. One column
+// reads better whenever there is room for it, so the split is what
+// happens when there is not, rather than what happens on a wide screen:
+// a tall terminal keeps the full descriptions at the same width where a
+// short one gives them up to keep the commands visible.
+func (m Model) helpBody(width, height int, nav, actions, commands []helpEntry) string {
+	var stacked strings.Builder
+	writeHelpSection(&stacked, m, "NAVIGATION", nav, width)
+	writeHelpSection(&stacked, m, "ACTIONS", actions, width)
+	writeHelpSection(&stacked, m, "COMMANDS", commands, width)
+	one := strings.TrimRight(stacked.String(), "\n") + "\n"
+
+	// Room for the one-line title, the blank line under it and the note at
+	// the foot - the least the rest of the screen can be drawn in. height
+	// is 0 when unbounded, which is all the room there is.
+	if width < helpTwoColumnWidth || height <= 0 || strings.Count(one, "\n")+3 <= height {
+		return one
+	}
+
+	// Split by what each side needs rather than down the middle: the
+	// commands carry their arguments in the key column where a keybind is
+	// one keystroke, and the keybind descriptions are the longer prose. An
+	// even split truncates one column while the other keeps whitespace it
+	// has no use for.
+	leftNeed := helpNaturalWidth(nav, actions)
+	rightNeed := helpNaturalWidth(commands)
+	leftW := (width - helpGutter) * leftNeed / (leftNeed + rightNeed)
+	if leftNeed+rightNeed+helpGutter <= width {
+		leftW = leftNeed
+	}
+	rightW := width - leftW - helpGutter
+
+	var left, right strings.Builder
+	writeHelpSection(&left, m, "NAVIGATION", nav, leftW)
+	writeHelpSection(&left, m, "ACTIONS", actions, leftW)
+	writeHelpSection(&right, m, "COMMANDS", commands, rightW)
+
+	// Width() on the left block puts the gutter at a fixed column rather
+	// than after its longest line, so the two columns line up. Nothing
+	// wraps: every line was already truncated to leftW.
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Width(leftW+helpGutter).Render(strings.TrimRight(left.String(), "\n")),
+		strings.TrimRight(right.String(), "\n")) + "\n"
+}
+
+// helpNaturalWidth is the width the given sections would take with
+// nothing truncated: the widest key, the gap either side of it, and the
+// longest description.
+func helpNaturalWidth(sections ...[]helpEntry) int {
+	keyW, descW := 0, 0
+	for _, entries := range sections {
+		for _, e := range entries {
+			if w := lipgloss.Width(e.key); w > keyW {
+				keyW = w
+			}
+			if w := lipgloss.Width(e.desc); w > descW {
+				descW = w
+			}
+		}
+	}
+	// Matching writeHelpSection's own two-space indent and separator.
+	return keyW + descW + 4
+}
+
+// helpTwoColumnWidth is where two columns start being worth more than the
+// room they cost: below it the descriptions truncate to nothing and the
+// screen is less readable split than stacked.
+const (
+	helpTwoColumnWidth = 100
+	helpGutter         = 4
+)
 
 // helpHeader is the mark beside the wordmark, dropped for a one-line
 // title when the keys would not otherwise fit: this screen exists to show

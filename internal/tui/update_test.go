@@ -606,3 +606,23 @@ func TestAShortStatusSharesTheFooter(t *testing.T) {
 		t.Errorf("the footer is %d columns, want at most %d", w, p.footerW)
 	}
 }
+
+// "?" is what someone who has never used this program presses, and "h"
+// is what they press once they know it. Both have to reach the same
+// screen, or the discoverable one is a key that appears to do nothing.
+func TestBothHelpKeysOpenTheHelpScreen(t *testing.T) {
+	for _, key := range []string{"h", "?"} {
+		if m := press(testModel("a"), key); !m.showHelp {
+			t.Errorf("%q did not open the help screen", key)
+		}
+	}
+}
+
+// The screen closes on any key, "?" included - it must not toggle itself
+// straight back open.
+func TestHelpClosesOnTheKeyThatOpenedIt(t *testing.T) {
+	m := press(testModel("a"), "?")
+	if m = press(m, "?"); m.showHelp {
+		t.Error("pressing ? again left the help screen open")
+	}
+}
