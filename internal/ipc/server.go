@@ -26,6 +26,15 @@ type Server struct {
 	// releases the exclusive flock.
 	lock *os.File
 
+	// conns is every client connection currently being served, and closing
+	// guards against one being registered after shutdown has walked the
+	// map. Closing the listener does not touch connections already
+	// accepted, so without this Close would wait on a read that only ends
+	// when the client feels like disconnecting - see Close.
+	connMu  sync.Mutex
+	conns   map[net.Conn]struct{}
+	closing bool
+
 	wg sync.WaitGroup
 }
 
@@ -58,20 +67,67 @@ func Serve(socketPath string, eng *engine.Engine,
 		return nil, fmt.Errorf("listen on %s: %w", socketPath, err)
 	}
 
-	s := &Server{eng: eng, ln: ln, socketPath: socketPath, previewURL: previewURL, lock: lock}
+	s := &Server{
+		eng:        eng,
+		ln:         ln,
+		socketPath: socketPath,
+		previewURL: previewURL,
+		lock:       lock,
+		conns:      map[net.Conn]struct{}{},
+	}
 	s.wg.Add(1)
 	go s.acceptLoop()
 	return s, nil
 }
 
-// Close stops accepting new connections, waits for in-flight ones to
-// finish, and removes the socket file.
+// Close stops accepting new connections, disconnects the clients still
+// attached, and removes the socket file.
+//
+// Hanging up on them is not a courtesy that can be skipped. Closing the
+// listener stops new connections and nothing else: a connection already
+// accepted is parked in a blocking read that ends when the client
+// disconnects, which for an attached TUI is whenever the person using it
+// decides to quit. Waiting on that meant a SIGTERM logged "shutting down"
+// and then sat there - no session saved, no client closed - until a
+// service manager gave up and killed it.
 func (s *Server) Close() error {
 	err := s.ln.Close()
+	s.closeConns()
 	s.wg.Wait()
 	os.Remove(s.socketPath)
 	releaseDaemonLock(s.lock)
 	return err
+}
+
+// closeConns hangs up on every client being served and refuses any that
+// arrive afterwards.
+func (s *Server) closeConns() {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	s.closing = true
+	for conn := range s.conns {
+		conn.Close()
+	}
+}
+
+// track registers a connection so closeConns can reach it, reporting
+// false when shutdown has already been through the map - in which case
+// the caller must hang up itself, or Close would wait forever on a
+// connection accepted a moment too late.
+func (s *Server) track(conn net.Conn) bool {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	if s.closing {
+		return false
+	}
+	s.conns[conn] = struct{}{}
+	return true
+}
+
+func (s *Server) untrack(conn net.Conn) {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	delete(s.conns, conn)
 }
 
 func (s *Server) acceptLoop() {
@@ -94,6 +150,11 @@ func (s *Server) acceptLoop() {
 // handleConn reads requests from one client until it disconnects.
 func (s *Server) handleConn(conn net.Conn) {
 	defer conn.Close()
+
+	if !s.track(conn) {
+		return // shutting down, and this one arrived too late to be tracked
+	}
+	defer s.untrack(conn)
 
 	dec := gob.NewDecoder(conn)
 	enc := gob.NewEncoder(conn)
