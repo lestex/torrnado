@@ -12,6 +12,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/muesli/termenv v0.16.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
 	golang.org/x/sys v0.46.0
 	golang.org/x/time v0.14.0
 )
@@ -54,7 +55,7 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
@@ -92,7 +93,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tidwall/btree v1.8.1 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
