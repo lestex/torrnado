@@ -45,8 +45,15 @@ func newConfigCmd() *cobra.Command {
 	}
 }
 
+// newReportWriter is the column layout the key/value reports share, so
+// `torrnado config` and `torrnado status` line up as one family rather
+// than two that happen to look similar.
+func newReportWriter(out io.Writer) *tabwriter.Writer {
+	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+}
+
 func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
-	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	w := newReportWriter(out)
 
 	// A file that is not there is not an error - torrnado runs on
 	// defaults - but it is the first thing to know when a setting is not

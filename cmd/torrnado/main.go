@@ -43,6 +43,8 @@ func main() {
 		newListCmd(),
 		newPreviewCmd(),
 		newOpenCmd(),
+		newStatusCmd(),
+		newStopCmd(),
 		newConfigCmd(),
 		newInitCmd(),
 		newVersionCmd(),
@@ -55,7 +57,12 @@ func main() {
 	root.SetVersionTemplate("torrnado {{.Version}}\n")
 
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		// An empty message is `torrnado status --quiet` reporting its
+		// answer as an exit status; printing "error:" alone would be
+		// noise in a shell condition.
+		if err.Error() != "" {
+			fmt.Fprintln(os.Stderr, "error:", err)
+		}
 		os.Exit(1)
 	}
 }
