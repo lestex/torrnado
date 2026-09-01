@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -229,4 +230,94 @@ func findSnapshot(t *testing.T, e *Engine, id TorrentID) TorrentSnapshot {
 	}
 	t.Fatalf("torrent %s is not in the list", id)
 	return TorrentSnapshot{}
+}
+
+// A move that fails partway must let the torrent go again.
+//
+// The hold is invisible in a snapshot - a held torrent is neither paused
+// nor errored - so leaving it set stopped the torrent transferring for
+// the life of the daemon while the list went on reporting it as healthy.
+func TestFailedMoveReleasesTheHold(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 512*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// A destination the payload cannot be written to: a directory sitting
+	// exactly where the file has to land. Every other way of failing a
+	// move needs a full disk or a revoked permission.
+	newDir := filepath.Join(t.TempDir(), "dest")
+	if err := os.MkdirAll(filepath.Join(newDir, "payload.bin"), 0o755); err != nil {
+		t.Fatalf("mkdir blocker: %v", err)
+	}
+
+	if err := e.MoveStorage(id, newDir); err == nil {
+		t.Fatal("MoveStorage onto a directory should have failed")
+	}
+
+	tr, err := e.lookup(id)
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	e.mu.Lock()
+	hold := tr.holdData
+	down, up := tr.dataFlow(e.blocked)
+	snap := e.snapshotLocked(id, tr)
+	e.mu.Unlock()
+
+	if hold {
+		t.Error("holdData still set: the torrent can never transfer again")
+	}
+	if !down || !up {
+		t.Errorf("data flow still off after a failed move (down=%v up=%v)", down, up)
+	}
+	// The hold cannot be seen, so the reason for the failure has to be.
+	if snap.Error == "" {
+		t.Error("a failed move left nothing on the torrent to explain it")
+	}
+	if snap.State != StateError {
+		t.Errorf("state = %s after a failed move, want error", snap.State)
+	}
+}
+
+// Nothing serializes two operations against one torrent: each IPC
+// connection gets its own goroutine and dispatches inline. Both replace
+// tr.t, and a verification started by one runs for hours reading it.
+//
+// Only meaningful under -race, which `make test-race` and CI both run.
+func TestConcurrentMovesDoNotRace(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 1024*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// One of the two may legitimately fail - they are moving the same
+	// files out from under each other. What must not happen is a race, or
+	// a torrent left held.
+	base := t.TempDir()
+	var wg sync.WaitGroup
+	for _, dir := range []string{"a", "b"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e.MoveStorage(id, filepath.Join(base, dir))
+		}()
+	}
+	wg.Wait()
 }

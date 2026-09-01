@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lestex/torrnado/internal/engine"
 )
@@ -162,4 +163,46 @@ func TestSocketCanBeReclaimedAfterClose(t *testing.T) {
 		t.Fatalf("could not reclaim the socket after a clean shutdown: %v", err)
 	}
 	second.Close()
+}
+
+// Shutting down must not wait on a client that is still attached. The TUI
+// holds its connection open for as long as it runs, so a daemon that
+// waited for the read loop to end would hang on every SIGTERM until the
+// person at the keyboard happened to quit.
+func TestCloseDisconnectsAnAttachedClient(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	srv, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	c, err := Dial(sock)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer c.Close()
+	// Ping first, so the connection is certainly accepted and being served
+	// rather than still sitting in the listener's backlog.
+	if err := c.Ping(); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		srv.Close()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close blocked with a client still attached")
+	}
 }
