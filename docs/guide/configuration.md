@@ -31,7 +31,6 @@ high = 51433   # a range is tried in order until one binds
 [network]
 dht        = true
 pex        = true
-lsd        = true    # accepted, but has no effect - see Limitations
 encryption = true
 seed       = true     # keep uploading after a torrent completes
 
@@ -46,6 +45,22 @@ file          = ""        # empty = stderr, which is what a service manager want
 
 [keybinds]
 ```
+
+!!! warning "Upgrading from v0.5.3 or earlier: remove `network.lsd`"
+
+    `lsd` was accepted but never did anything - the torrent library
+    implements no Local Service Discovery - and it has been removed
+    rather than left looking like a setting. An unknown key is a hard
+    error, so a config still carrying it stops torrnado from starting:
+
+    ```
+    error: config ~/.config/torrnado/config.toml: unknown key(s): network.lsd
+    ```
+
+    Delete the `lsd` line from `[network]`. That is the whole fix. If you
+    run the daemon under systemd it will fail to start and retry until it
+    gives up, so check `journalctl -u torrnado` for that line after
+    upgrading.
 
 A leading `~` is expanded to your home directory in `download_dir`,
 `daemon_socket`, `state_dir` and `log.file`. Your shell normally does that

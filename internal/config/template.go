@@ -49,7 +49,6 @@ func Template(c Config) []byte {
 	writeRows(b, []row{
 		{"dht", tomlBool(c.Network.DHT), ""},
 		{"pex", tomlBool(c.Network.PEX), ""},
-		{"lsd", tomlBool(c.Network.LSD), "accepted, but the torrent library has no LSD"},
 		{"encryption", tomlBool(c.Network.Encryption), ""},
 		{"seed", tomlBool(c.Network.Seed), "keep uploading after a torrent completes"},
 	})

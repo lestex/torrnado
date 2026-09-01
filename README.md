@@ -78,7 +78,6 @@ Everything else lives at **[torrnado.dev](https://torrnado.dev)**:
 | [Configuration](https://torrnado.dev/guide/configuration/) · [Themes](https://torrnado.dev/guide/themes/) | config schema, keybinds, palettes |
 | [Streaming preview](https://torrnado.dev/guide/streaming/) | play a file while it downloads |
 | [The daemon](https://torrnado.dev/server/daemon/) · [systemd](https://torrnado.dev/server/systemd/) · [Docker](https://torrnado.dev/server/docker/) | leave it running on a box |
-| [Library limitations](https://torrnado.dev/reference/limitations/) | the anacrolix/torrent traps this works around |
 | [Development](https://torrnado.dev/reference/development/) | layout, tests, how to work on it |
 
 ## Contributing

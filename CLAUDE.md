@@ -184,8 +184,8 @@ before assuming an API does what it sounds like it does. Short version:
   Checking/Error in preference to Paused. Use `Snapshot.Paused`.
 - No native pause/resume, no live "move storage", no port-range binding,
   no Local Service Discovery (LSD) support at all in the library -
-  each is worked around in `internal/engine` and documented there and in
-  the README's "anacrolix/torrent limitations" section.
+  each is worked around in `internal/engine` and documented on the
+  function that works around it.
 
 ### Session persistence
 
