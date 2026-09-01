@@ -4,6 +4,19 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.3 - 2026-09-01
+
+### Bug fixes
+
+- Close attached clients when the daemon shuts down
+- Read a torrent's fields under the lock in long operations
+- A failed move no longer freezes the torrent
+- Expand a leading ~ in config paths
+
+### Dependencies
+
+- Gorilla/websocket 1.5.0 -> 1.5.3 for GO-2026-6278
+
 ## 0.5.2 - 2026-08-18
 
 ### Features
