@@ -591,11 +591,20 @@ func (e *Engine) SetTorrentRateLimit(id TorrentID, uploadBps, downloadBps int64)
 // count against the completion database, so not starting the rest is the
 // whole saving.
 func (e *Engine) verifyPieces(ctx context.Context, tr *tracked, total int) error {
+	// Read once, with the lock. A move or a purge replaces tr.t with a
+	// fresh instance, so a loop re-reading it every iteration both races
+	// that write and, having lost the race, carries on hashing a torrent
+	// nobody asked about. This runs for hours on a large torrent, which is
+	// a long time to leave that window open.
+	e.mu.Lock()
+	t := tr.t
+	e.mu.Unlock()
+
 	for i := 0; i < total; i++ {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := tr.t.Piece(i).VerifyDataContext(ctx); err != nil {
+		if err := t.Piece(i).VerifyDataContext(ctx); err != nil {
 			return err
 		}
 		e.mu.Lock()
@@ -723,7 +732,16 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	if err != nil {
 		return err
 	}
-	if tr.t.Info() == nil {
+	// Read with the lock and used as locals from here on: everything below
+	// runs outside it, and a concurrent move or purge swaps these fields
+	// underneath - which is a data race, and one that would have this call
+	// deleting the paths of one torrent instance while dropping another.
+	e.mu.Lock()
+	t, savePath, oldStorage := tr.t, tr.savePath, tr.ownStorage
+	hasInfo := t.Info() != nil
+	e.mu.Unlock()
+
+	if !hasInfo {
 		return fmt.Errorf("torrent metadata not available yet")
 	}
 
@@ -737,18 +755,17 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
 
-	paths := dataPaths(tr.savePath, tr.t)
-	ih := tr.t.InfoHash()
-	mi := tr.t.Metainfo()
-	oldStorage := tr.ownStorage
+	paths := dataPaths(savePath, t)
+	ih := t.InfoHash()
+	mi := t.Metainfo()
 
-	tr.t.Drop()
+	t.Drop()
 	if oldStorage != nil {
 		oldStorage.Close()
 	}
 
 	deleteFiles(paths)
-	removeEmptyDirs(tr.savePath, paths)
+	removeEmptyDirs(savePath, paths)
 
 	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
 	if err != nil {
@@ -763,11 +780,11 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	}
 	var newStorage storage.ClientImplCloser
 	if oldStorage != nil {
-		newStorage = storage.NewFile(tr.savePath)
+		newStorage = storage.NewFile(savePath)
 		spec.Storage = newStorage
 	}
 
-	t, _, err := e.client.AddTorrentSpec(spec)
+	fresh, _, err := e.client.AddTorrentSpec(spec)
 	if err != nil {
 		if newStorage != nil {
 			newStorage.Close()
@@ -776,13 +793,13 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	}
 
 	e.mu.Lock()
-	tr.t = t
+	tr.t = fresh
 	tr.ownStorage = newStorage
 	tr.holdData = false
 	tr.applyDataFlow(e.blocked) // still paused, so still off
 	e.mu.Unlock()
 
-	e.log.Info("torrent data deleted", "id", id, "name", t.Name(), "save_path", tr.savePath)
+	e.log.Info("torrent data deleted", "id", id, "name", fresh.Name(), "save_path", savePath)
 	e.persist()
 	e.snapshotAndBroadcastNow()
 	return nil
@@ -816,7 +833,17 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	if err != nil {
 		return err
 	}
-	if tr.t.Info() == nil {
+
+	// Read with the lock and used as locals from here on: everything below
+	// runs outside it, and a concurrent move or purge swaps these fields
+	// underneath - which is a data race, and one that would have this call
+	// moving one torrent instance's files while re-adding another's.
+	e.mu.Lock()
+	t, oldPath, oldStorage := tr.t, tr.savePath, tr.ownStorage
+	hasInfo := t.Info() != nil
+	e.mu.Unlock()
+
+	if !hasInfo {
 		return fmt.Errorf("torrent metadata not available yet")
 	}
 	if err := os.MkdirAll(newDir, 0o755); err != nil {
@@ -835,13 +862,12 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	// Captured before the drop below: the re-added torrent is a fresh
 	// instance with no priority history, and this is the last moment the
 	// old one has any.
-	oldPriorities := make([]Priority, 0, len(tr.t.Files()))
-	for _, f := range tr.t.Files() {
+	oldPriorities := make([]Priority, 0, len(t.Files()))
+	for _, f := range t.Files() {
 		oldPriorities = append(oldPriorities, fromLibPriority(f.Priority()))
 	}
 
-	oldPath := tr.savePath
-	for _, f := range tr.t.Files() {
+	for _, f := range t.Files() {
 		dst := filepath.Join(newDir, f.Path())
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
@@ -859,9 +885,8 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		}
 	}
 
-	ih := tr.t.InfoHash()
-	mi := tr.t.Metainfo()
-	oldStorage := tr.ownStorage
+	ih := t.InfoHash()
+	mi := t.Metainfo()
 
 	newStorage := storage.NewFile(newDir)
 	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
@@ -883,12 +908,12 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		spec.PieceLayers = nil
 	}
 
-	tr.t.Drop()
+	t.Drop()
 	if oldStorage != nil {
 		oldStorage.Close()
 	}
 
-	t, _, err := e.client.AddTorrentSpec(spec)
+	fresh, _, err := e.client.AddTorrentSpec(spec)
 	if err != nil {
 		// The data has already been moved and the old torrent dropped, so
 		// there is no unbroken state to return to. Record it where the
@@ -913,15 +938,15 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	// when every file is unset, so a restored selection survives a later
 	// resume rather than being overwritten by it.
 	if len(oldPriorities) > 0 {
-		applyFilePriorities(t, oldPriorities)
+		applyFilePriorities(fresh, oldPriorities)
 	} else if !wasPaused {
-		downloadAllFiles(t)
+		downloadAllFiles(fresh)
 	}
 
-	total := t.NumPieces()
+	total := fresh.NumPieces()
 
 	e.mu.Lock()
-	tr.t = t
+	tr.t = fresh
 	tr.savePath = newDir
 	tr.ownStorage = newStorage
 	e.mu.Unlock()

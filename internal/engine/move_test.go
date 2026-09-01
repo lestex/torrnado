@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -229,4 +230,38 @@ func findSnapshot(t *testing.T, e *Engine, id TorrentID) TorrentSnapshot {
 	}
 	t.Fatalf("torrent %s is not in the list", id)
 	return TorrentSnapshot{}
+}
+
+// Nothing serializes two operations against one torrent: each IPC
+// connection gets its own goroutine and dispatches inline. Both replace
+// tr.t, and a verification started by one runs for hours reading it.
+//
+// Only meaningful under -race, which `make test-race` and CI both run.
+func TestConcurrentMovesDoNotRace(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 1024*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// One of the two may legitimately fail - they are moving the same
+	// files out from under each other. What must not happen is a race, or
+	// a torrent left held.
+	base := t.TempDir()
+	var wg sync.WaitGroup
+	for _, dir := range []string{"a", "b"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e.MoveStorage(id, filepath.Join(base, dir))
+		}()
+	}
+	wg.Wait()
 }

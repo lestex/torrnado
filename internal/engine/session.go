@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/anacrolix/torrent"
 )
 
 // Session persistence: what the daemon needs to come back as it was after
@@ -161,15 +163,18 @@ func (e *Engine) recordLocked(id TorrentID, tr *tracked) torrentRecord {
 // arrived and that does not have one on disk already. The metainfo of a
 // given infohash never changes, so an existing file is never rewritten.
 func (e *Engine) saveMetainfo() {
+	// The torrent itself is captured here, not the tracked it hangs off:
+	// a move or a purge replaces tr.t, and reading that field outside the
+	// lock below would race the write that replaces it.
 	e.mu.Lock()
 	type pending struct {
 		id TorrentID
-		tr *tracked
+		t  *torrent.Torrent
 	}
 	var todo []pending
 	for id, tr := range e.torrents {
 		if tr.t.Info() != nil {
-			todo = append(todo, pending{id, tr})
+			todo = append(todo, pending{id, tr.t})
 		}
 	}
 	e.mu.Unlock()
@@ -179,7 +184,7 @@ func (e *Engine) saveMetainfo() {
 		if _, err := os.Stat(path); err == nil {
 			continue
 		}
-		mi := p.tr.t.Metainfo()
+		mi := p.t.Metainfo()
 		f, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
 		if err != nil {
 			e.log.Error("saving metainfo failed", "id", p.id, "err", err)
