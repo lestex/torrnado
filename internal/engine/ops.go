@@ -846,6 +846,8 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	if !hasInfo {
 		return fmt.Errorf("torrent metadata not available yet")
 	}
+	// Before the hold below, so a destination that cannot even be created
+	// fails without having stopped the torrent at all.
 	if err := os.MkdirAll(newDir, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", newDir, err)
 	}
@@ -855,6 +857,9 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	// Held rather than switched off directly: the tick applies its own
 	// verdict every second, and would allow transfers again in the middle
 	// of the move - nothing else about the torrent says it is busy.
+	//
+	// Every path out from here goes through moveFailed, which is what
+	// takes the hold off again.
 	tr.holdData = true
 	tr.applyDataFlow(e.blocked)
 	e.mu.Unlock()
@@ -870,7 +875,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	for _, f := range t.Files() {
 		dst := filepath.Join(newDir, f.Path())
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
+			return e.moveFailed(tr, id, fmt.Errorf("create %s: %w", filepath.Dir(dst), err))
 		}
 		// Both names, because an unfinished file is on disk as
 		// <path>.part and only one of the two exists at a time. Moving
@@ -880,7 +885,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 		for _, suffix := range []string{"", partFileSuffix} {
 			src := filepath.Join(oldPath, f.Path()) + suffix
 			if err := moveFile(src, dst+suffix); err != nil {
-				return fmt.Errorf("move %s: %w", f.Path()+suffix, err)
+				return e.moveFailed(tr, id, fmt.Errorf("move %s: %w", f.Path()+suffix, err))
 			}
 		}
 	}
@@ -888,13 +893,11 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	ih := t.InfoHash()
 	mi := t.Metainfo()
 
-	newStorage := storage.NewFile(newDir)
 	spec, err := torrent.TorrentSpecFromMetaInfoErr(&mi)
 	if err != nil {
-		return fmt.Errorf("rebuild spec: %w", err)
+		return e.moveFailed(tr, id, fmt.Errorf("rebuild spec: %w", err))
 	}
 	spec.InfoHash = ih
-	spec.Storage = newStorage
 	// A v1 torrent has no piece layers, but Metainfo() still hands back a
 	// map for them - allocated, then left empty because no file has a v2
 	// piece root. A non-nil map is what the library takes as "this is a
@@ -907,6 +910,10 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	if len(spec.PieceLayers) == 0 {
 		spec.PieceLayers = nil
 	}
+	// Built only once the spec is known to be good, so a failure above
+	// does not leak a storage instance nothing will ever close.
+	newStorage := storage.NewFile(newDir)
+	spec.Storage = newStorage
 
 	t.Drop()
 	if oldStorage != nil {
@@ -916,17 +923,15 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	fresh, _, err := e.client.AddTorrentSpec(spec)
 	if err != nil {
 		// The data has already been moved and the old torrent dropped, so
-		// there is no unbroken state to return to. Record it where the
-		// user will see it: otherwise the list goes on showing the stale
-		// figures of a torrent that is no longer running at all.
-		err = fmt.Errorf("re-add torrent at new location: %w", err)
+		// there is no unbroken state to return to. Recording the new save
+		// path is still worth it: the data is there, and a restart re-adds
+		// from the session file rather than looking where it used to be.
+		newStorage.Close()
 		e.mu.Lock()
 		tr.savePath = newDir
-		tr.lastErr = err.Error()
 		e.mu.Unlock()
-		e.log.Error("move failed after the data was moved", "id", id, "dir", newDir, "err", err)
-		e.snapshotAndBroadcastNow()
-		return err
+		e.persist()
+		return e.moveFailed(tr, id, fmt.Errorf("re-add torrent at new location: %w", err))
 	}
 	// The re-added Torrent is a fresh instance with every file back at
 	// unset priority, so the ones captured above are put back. Without
@@ -978,6 +983,29 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// moveFailed records a move that could not finish and lets the torrent go
+// again.
+//
+// Releasing the hold is the important half. It is set for the whole of a
+// move so nothing transfers into files being shuffled around underneath
+// it, and a return that leaves it set stops that torrent transferring for
+// as long as the daemon runs. Nothing in the snapshot would say why
+// either: a held torrent is neither paused nor errored, so it goes on
+// reporting "downloading" or "seeding" while not a byte moves. Hence the
+// error as well - the hold is invisible, and the reason for it should
+// not be.
+func (e *Engine) moveFailed(tr *tracked, id TorrentID, err error) error {
+	e.mu.Lock()
+	tr.lastErr = err.Error()
+	tr.holdData = false
+	tr.applyDataFlow(e.blocked)
+	e.mu.Unlock()
+
+	e.log.Error("move failed", "id", id, "err", err)
+	e.snapshotAndBroadcastNow()
+	return err
 }
 
 func moveFile(src, dst string) error {
