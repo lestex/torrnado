@@ -272,6 +272,17 @@ type GlobalStats struct {
 	// bytes/sec (0 = unlimited).
 	UploadLimit   int64
 	DownloadLimit int64
+	// Version is the daemon's own build string, and StartedAt when its
+	// engine came up. Both are here because the daemon outlives its
+	// clients by design: a CLI built this afternoon routinely talks to
+	// one started last week, and until now nothing on the wire said so.
+	//
+	// A daemon older than these fields leaves them at their zero values,
+	// which is what gob does with a field it has never heard of - so a
+	// reader must treat empty as "that daemon cannot say" rather than as
+	// a fact about it.
+	Version   string
+	StartedAt time.Time
 }
 
 // Event is broadcast to subscribers whenever engine state changes: on a
