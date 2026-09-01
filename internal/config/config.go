@@ -27,14 +27,8 @@ type RateLimits struct {
 // Network toggles the peer-discovery and transport features anacrolix/torrent
 // supports globally (see internal/engine.Config for the caveats on each).
 type Network struct {
-	DHT bool `toml:"dht"`
-	PEX bool `toml:"pex"`
-	// LSD is accepted and validated like any other key, but has no effect:
-	// anacrolix/torrent does not implement Local Service Discovery. Kept
-	// in the schema so config files written against the spec don't fail
-	// validation, and `torrnado config` prints it with that caveat beside
-	// it rather than letting the key be silently ignored.
-	LSD        bool `toml:"lsd"`
+	DHT        bool `toml:"dht"`
+	PEX        bool `toml:"pex"`
 	Encryption bool `toml:"encryption"`
 	Seed       bool `toml:"seed"`
 }
@@ -171,7 +165,7 @@ func Default() (Config, error) {
 		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
-		Network:      Network{DHT: true, PEX: true, LSD: true, Encryption: true, Seed: true},
+		Network:      Network{DHT: true, PEX: true, Encryption: true, Seed: true},
 		// Off, so installing torrnado never stops a download for a reason
 		// the user did not ask for. Turning it on is a deliberate act.
 		VPN: VPN{Required: false},
@@ -184,6 +178,11 @@ func Default() (Config, error) {
 // Load reads and validates the config file at path. If the file doesn't
 // exist, it returns Default() with no error - a missing config is not a
 // failure, an invalid one is.
+//
+// An unknown key is one of those failures, including a key this schema
+// used to have: `network.lsd` was removed rather than kept as a no-op, so
+// a config still carrying it does not load. The error names the key, and
+// deleting the line is the whole fix.
 func Load(path string) (Config, error) {
 	cfg, err := Default()
 	if err != nil {

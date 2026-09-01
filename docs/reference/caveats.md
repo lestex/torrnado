@@ -47,10 +47,12 @@ storage, so it hashes what it just moved rather than trusting it. That is
 a read of the data already on disk, not a re-download, and the file
 priorities set before the move are put back afterwards.
 
-**Local Service Discovery does nothing.** `network.lsd` is accepted and
-validated, but the library implements no LSD at all. The key exists so a
-config written against the documented schema does not fail, and so the
-gap is discoverable rather than silent.
+**There is no Local Service Discovery.** Peers on your own LAN are found
+the same way as any others - trackers, DHT, PEX - and not by multicast
+(BEP 14), which the torrent library does not implement. `network.lsd` was
+accepted as a no-op until v0.5.4 and has been **removed**, rather than
+left in place pretending to be a setting. A config file still carrying it
+will not load; see below.
 
 **Rechecking is expensive.** Forcing a recheck is O(N²) in the piece
 count against the completion database - hours on a large single-file

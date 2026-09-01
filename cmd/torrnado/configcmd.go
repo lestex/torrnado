@@ -87,7 +87,6 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintf(w, "  network.pex\t%t\n", cfg.Network.PEX)
 	// Called out where someone reading the value would otherwise believe
 	// it, rather than only in the README.
-	fmt.Fprintf(w, "  network.lsd\t%t\t(accepted, but the torrent library has no LSD)\n", cfg.Network.LSD)
 	fmt.Fprintf(w, "  network.encryption\t%t\n", cfg.Network.Encryption)
 	fmt.Fprintf(w, "  network.seed\t%t\n", cfg.Network.Seed)
 	// What it does and does not cover, said where someone turning it on

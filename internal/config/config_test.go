@@ -302,3 +302,29 @@ func TestLoadLeavesOtherTildesAlone(t *testing.T) {
 		t.Errorf("state_dir = %q, want it untouched", cfg.StateDir)
 	}
 }
+
+// network.lsd was in the schema and `torrnado init` wrote it, so an
+// upgrade meets config files that still carry it. It is gone rather than
+// kept as a no-op, which means those files do not load - deliberately, so
+// nobody goes on believing they have local peer discovery. What the error
+// has to do is name the key, because deleting that line is the whole fix.
+func TestRemovedLSDKeyFailsByName(t *testing.T) {
+	_, err := Load(writeConfig(t, "[network]\ndht = true\nlsd = true\n"))
+	if err == nil {
+		t.Fatal("a config carrying the removed key should not load")
+	}
+	if !strings.Contains(err.Error(), "network.lsd") {
+		t.Errorf("error must name the key so the fix is obvious, got: %v", err)
+	}
+}
+
+// And `torrnado init` must not write a key that would not load back.
+func TestGeneratedConfigLoads(t *testing.T) {
+	def, err := Default()
+	if err != nil {
+		t.Fatalf("Default: %v", err)
+	}
+	if _, err := Load(writeConfig(t, string(Template(def)))); err != nil {
+		t.Fatalf("the generated config must load: %v", err)
+	}
+}
