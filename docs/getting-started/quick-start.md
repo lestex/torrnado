@@ -59,8 +59,13 @@ started with.
 Quitting the TUI does not stop anything. To actually stop the daemon:
 
 ```sh
-pkill -f 'torrnado daemon'      # or kill the pid from its start log line
+kill "$(lsof -t ~/.local/share/torrnado/daemon.sock.lock)"
 ```
+
+Asking which process holds the lock file beside the socket, rather than
+matching on a process name, because whoever holds it *is* the daemon
+whatever the binary is called. The pid is also on the `daemon starting`
+line in the log. More on this in [The daemon](../server/daemon.md).
 
 There is no `torrnado stop`, because a daemon that is still seeding is a
 normal state to leave a machine in.
