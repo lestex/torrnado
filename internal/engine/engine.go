@@ -69,6 +69,11 @@ type Config struct {
 	// persistence entirely.
 	StateDir string
 
+	// Version is the daemon's build string, reported in GlobalStats so a
+	// client can see what it is talking to. Empty is fine; it simply
+	// leaves the field empty on the wire.
+	Version string
+
 	// Logger receives the engine's own messages and the torrent
 	// library's. Nil discards both.
 	Logger *slog.Logger
@@ -191,9 +196,10 @@ type Engine struct {
 	blocked    bool
 	vpnChecked bool
 
-	lastTick time.Time
-	closeCh  chan struct{}
-	wg       sync.WaitGroup
+	lastTick  time.Time
+	startedAt time.Time
+	closeCh   chan struct{}
+	wg        sync.WaitGroup
 }
 
 // New starts an engine and its background tick loop.
@@ -254,6 +260,7 @@ func New(cfg Config) (*Engine, error) {
 		torrents:    map[TorrentID]*tracked{},
 		subs:        map[chan Event]struct{}{},
 		lastTick:    time.Now(),
+		startedAt:   time.Now(),
 		closeCh:     make(chan struct{}),
 	}
 	// Before the tick loop and before RestoreSession can add anything, so
@@ -523,6 +530,8 @@ func (e *Engine) eventLocked() Event {
 	ev.Global.VPNRequired = e.cfg.RequireVPN
 	ev.Global.VPNActive = e.vpn.Active
 	ev.Global.VPNInterface = e.vpn.Interface
+	ev.Global.Version = e.cfg.Version
+	ev.Global.StartedAt = e.startedAt
 	if free, total, err := diskUsage(e.cfg.DataDir); err == nil {
 		ev.Global.DiskFreeBytes = free
 		ev.Global.DiskTotalBytes = total

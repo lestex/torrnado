@@ -16,33 +16,49 @@ thin client that connects to it over a Unix domain socket
   background automatically, but you can also run it yourself directly if
   you'd rather manage it with systemd/launchd/tmux than let torrnado
   manage it.
+- **`torrnado status`** reports whether a daemon owns the socket, and
+  **`torrnado stop`** shuts it down and waits. Both identify it by the
+  lock it holds rather than by process name; `status` is the one
+  subcommand that will never start a daemon.
 - **`torrnado add/remove/pause/resume/recheck/priority/limit/move/list`**
   are scriptable passthroughs to a running daemon (spawning one if needed,
   same as the bare command). Everything you can do in the TUI's command
   palette, you can also do from a shell script.
 
-To actually stop the daemon, send it SIGTERM or SIGINT. There is no
-`torrnado stop` subcommand, since a daemon that's still seeding is a
-normal, intentional state to leave it in.
-
-Find the pid by asking which process holds the lock file beside the
-socket:
+To see whether one is running, and to stop it:
 
 ```sh
-lsof -t ~/.local/share/torrnado/daemon.sock.lock       # the daemon's pid
-kill "$(lsof -t ~/.local/share/torrnado/daemon.sock.lock)"
+torrnado status     # is a daemon running, which process, and what is it doing
+torrnado stop       # SIGTERM it, and wait until it has shut down cleanly
 ```
 
-That file carries an exclusive lock for as long as the daemon runs - it
-is what stops a second one claiming the same socket - so whoever holds it
-*is* the daemon that owns this state directory, whatever the binary
-happens to be called. `pkill -f "torrnado daemon"` matches on the command
-line instead, which quietly finds nothing when the running copy was built
-or installed under another name, and can just as easily match a daemon
-belonging to a different state directory. The pid is also on the
-`daemon starting` line in the log, and the same trick is how the
-end-to-end suites find their own daemon without going near anybody
-else's.
+Both find the daemon by the exclusive lock it holds on
+`<state_dir>/daemon.sock.lock` for as long as it runs - the same lock
+that stops a second daemon claiming the socket. Whoever holds it *is* the
+daemon for this state directory, whatever the binary happens to be
+called, and the kernel releases it however the process dies. That is why
+neither command matches on a process name: `pkill -f "torrnado daemon"`
+quietly finds nothing when the running copy was installed under another
+name, and can just as easily match a daemon belonging to a different
+state directory.
+
+`torrnado stop` waits rather than firing and forgetting, because SIGTERM
+is when the session is written - returning earlier would invite starting
+a new daemon while the old one is still saving. `--timeout 0` returns
+immediately if you would rather not wait.
+
+Stopping is still not something to do by reflex. A daemon that is
+seeding is doing its job, and leaving it running is the normal state for
+a machine you have set up to do this.
+
+`torrnado status` never starts a daemon, which no other subcommand can
+claim: the rest dial the socket and spawn one when nothing answers, so
+asking them whether a daemon is running would make the answer yes. It
+also distinguishes a daemon that is running and answering from one that
+is running but too busy to accept a connection - a real state, since a
+daemon part-way through a hash check can miss any timeout - because
+mistaking the second for "not running" is how someone ends up with two
+engines on one data directory.
 
 ## Running it unattended
 

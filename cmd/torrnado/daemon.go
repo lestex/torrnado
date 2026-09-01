@@ -70,6 +70,7 @@ func runDaemon() error {
 		RequireVPN:        cfg.VPN.Required,
 		VPNCheck:          vpnChecker(cfg.VPN.Interfaces),
 		StateDir:          cfg.StateDir,
+		Version:           currentBuild().String(),
 		Logger:            lg.Logger,
 		LibraryLevel:      libLevel,
 	})
