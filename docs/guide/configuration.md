@@ -13,12 +13,12 @@ overwrite an existing config unless you pass `--force`; `torrnado init
 
 ```toml
 download_dir  = "~/Downloads/torrnado"                     # default download directory
-daemon_socket = "~/.local/share/torrnado/daemon.sock"       # IPC socket path
-state_dir     = "~/.local/share/torrnado"                    # session file + saved metainfo
-                                                              # (a second daemon needs its own)
-theme         = "dracula"                                     # see Themes below
-player        = "mpv"                                          # used by preview; may carry flags
-opener        = "open"                                          # xdg-open on Linux; used by `o` / `torrnado open`
+daemon_socket = "~/.local/share/torrnado/daemon.sock"      # IPC socket path
+state_dir     = "~/.local/share/torrnado"                  # session file + saved metainfo
+                                                           # (a second daemon needs its own)
+theme         = "dracula"                                  # see Themes below
+player        = "mpv"                                      # used by preview; may carry flags
+opener        = "open"                                     # xdg-open on Linux; used by `o` / `torrnado open`
 
 [rate_limit]
 upload   = "unlimited"   # or "500k", "2M", "1.5G", a bare byte count, "0"
@@ -26,7 +26,7 @@ download = "unlimited"
 
 [port]
 low  = 51413   # 0/0 = let the OS pick a random port
-high = 51433    # a range is tried in order until one binds
+high = 51433   # a range is tried in order until one binds
 
 [network]
 dht        = true
@@ -37,15 +37,21 @@ seed       = true     # keep uploading after a torrent completes
 
 [vpn]
 required   = false   # hold every transfer while the system is not on a VPN
-interfaces = []       # extra interfaces to count as a VPN - see below
+interfaces = []      # extra interfaces to count as a VPN - see below
 
 [log]
 level         = "info"    # debug, info, warn, error
-library_level = "warn"     # the torrent library's own messages, filtered separately
-file          = ""          # empty = stderr, which is what a service manager wants
+library_level = "warn"    # the torrent library's own messages, filtered separately
+file          = ""        # empty = stderr, which is what a service manager wants
 
 [keybinds]
 ```
+
+A leading `~` is expanded to your home directory in `download_dir`,
+`daemon_socket`, `state_dir` and `log.file`. Your shell normally does that
+before a program ever sees the path, which makes a config file the one
+place it has to be done here. `player` and `opener` are commands rather
+than paths and are left alone.
 
 ## Seeing what is in effect
 
@@ -85,9 +91,9 @@ for a single-file one. The program it runs is yours to choose:
 
 ```toml
 opener = "open"                                 # macOS: Finder (the default)
-opener = "xdg-open"                              # Linux: your file manager (the default)
-opener = "alacritty --working-directory %f"       # a terminal in the folder instead
-opener = "nautilus"                                # or name one directly
+opener = "xdg-open"                             # Linux: your file manager (the default)
+opener = "alacritty --working-directory %f"     # a terminal in the folder instead
+opener = "nautilus"                             # or name one directly
 ```
 
 `%f` is replaced by the directory. A command that does not mention it gets

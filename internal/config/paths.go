@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // xdgConfigHome resolves $XDG_CONFIG_HOME, defaulting to ~/.config. Go's
@@ -77,4 +79,50 @@ func DefaultDownloadDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, "Downloads", "torrnado"), nil
+}
+
+// expandHome replaces a leading ~ with the user's home directory.
+//
+// A shell does this before a program ever sees an argument, which makes a
+// config file the one place a path written "~/Downloads" arrives with the
+// tilde still on it. Taken literally it is a perfectly valid relative
+// path, so nothing fails: the daemon creates a directory actually called
+// "~" beside whatever its working directory happens to be, and the
+// downloads go somewhere nobody thinks to look. The sample config in the
+// docs is written with tildes, so this is the shape people copy.
+//
+// Only a leading "~" or "~/" is touched. "~user" is left alone: resolving
+// another account's home needs the user database, and a path beginning
+// with a tilde that is not the current user's home is likelier to be a
+// filename than a request anyone means.
+func expandHome(path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve %q: %w", path, err)
+	}
+	if path == "~" {
+		return home, nil
+	}
+	return filepath.Join(home, path[2:]), nil
+}
+
+// expandPaths resolves a leading ~ in every value naming a file or a
+// directory.
+//
+// Player and Opener are left out on purpose. They are commands, split on
+// spaces and free to carry flags, so a tilde in one is not necessarily at
+// the front of a path - and the thing they are pointed at is a binary on
+// $PATH far more often than a file in a home directory.
+func (c *Config) expandPaths() error {
+	for _, field := range []*string{&c.DownloadDir, &c.DaemonSocket, &c.StateDir, &c.Log.File} {
+		v, err := expandHome(*field)
+		if err != nil {
+			return err
+		}
+		*field = v
+	}
+	return nil
 }

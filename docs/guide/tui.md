@@ -135,5 +135,5 @@ torrnado add ~/downloads/some.torrent
 torrnado add https://torrent.fedoraproject.org/torrents/Fedora-COSMIC-Live-x86_64-44.torrent
 torrnado add ~/torrents/*.torrent
 torrnado add ~/torrents/            # every .torrent file in the directory
-torrnado add magnets.txt             # one magnet uri per line
+torrnado add magnets.txt            # one magnet uri per line
 ```

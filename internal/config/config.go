@@ -211,6 +211,12 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("config %s: unknown key(s): %s", path, strings.Join(keys, ", "))
 	}
 
+	// Before Validate, so the checks below see the path that will actually
+	// be used rather than the one that was written down.
+	if err := cfg.expandPaths(); err != nil {
+		return Config{}, fmt.Errorf("config %s: %w", path, err)
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config %s: %w", path, err)
 	}

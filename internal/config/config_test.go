@@ -241,3 +241,64 @@ func TestValidateRejectsAnEmptyOpener(t *testing.T) {
 		t.Errorf("error should name the key, got: %v", err)
 	}
 }
+
+// A shell expands ~ before a program sees it, so a config file is the one
+// place a path arrives with the tilde still attached - and taken
+// literally it is a valid relative path, so the daemon quietly made a
+// directory called "~" next to wherever it happened to be running.
+func TestLoadExpandsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	body := "" +
+		"download_dir  = \"~/Downloads/torrnado\"\n" +
+		"daemon_socket = \"~/.local/share/torrnado/daemon.sock\"\n" +
+		"state_dir     = \"~\"\n" +
+		"[log]\nfile = \"~/torrnado.log\"\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	for _, tc := range []struct{ name, got, want string }{
+		{"download_dir", cfg.DownloadDir, filepath.Join(home, "Downloads", "torrnado")},
+		{"daemon_socket", cfg.DaemonSocket, filepath.Join(home, ".local", "share", "torrnado", "daemon.sock")},
+		{"state_dir", cfg.StateDir, home},
+		{"log.file", cfg.Log.File, filepath.Join(home, "torrnado.log")},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s = %q, want %q", tc.name, tc.got, tc.want)
+		}
+	}
+}
+
+// Only a leading tilde of our own is ours to resolve. "~user" needs the
+// user database, and a tilde anywhere else is just a character someone
+// put in a filename.
+func TestLoadLeavesOtherTildesAlone(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	body := "download_dir = \"/srv/~backup/torrnado\"\nstate_dir = \"~someone/state\"\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DownloadDir != "/srv/~backup/torrnado" {
+		t.Errorf("download_dir = %q, want it untouched", cfg.DownloadDir)
+	}
+	if cfg.StateDir != "~someone/state" {
+		t.Errorf("state_dir = %q, want it untouched", cfg.StateDir)
+	}
+}
