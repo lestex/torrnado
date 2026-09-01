@@ -31,7 +31,7 @@ high = 51433   # a range is tried in order until one binds
 [network]
 dht        = true
 pex        = true
-lsd        = true    # accepted, but has no effect - see Limitations
+lsd        = true    # accepted, but has no effect - the library has no LSD
 encryption = true
 seed       = true     # keep uploading after a torrent completes
 

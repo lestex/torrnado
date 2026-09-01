@@ -32,8 +32,8 @@ type Network struct {
 	// LSD is accepted and validated like any other key, but has no effect:
 	// anacrolix/torrent does not implement Local Service Discovery. Kept
 	// in the schema so config files written against the spec don't fail
-	// validation, and so the limitation is discoverable from `torrnado
-	// -help-config` / the README rather than silently ignored.
+	// validation, and `torrnado config` prints it with that caveat beside
+	// it rather than letting the key be silently ignored.
 	LSD        bool `toml:"lsd"`
 	Encryption bool `toml:"encryption"`
 	Seed       bool `toml:"seed"`
@@ -48,7 +48,7 @@ type VPN struct {
 	// It stops piece data moving. Tracker announces and DHT traffic
 	// continue regardless, so the swarm still learns the real address of
 	// a blocked daemon; this is "nothing transfers off-VPN", not a
-	// network kill switch. See docs/reference/limitations.md.
+	// network kill switch.
 	Required bool `toml:"required"`
 	// Interfaces names devices to count as a VPN whatever the system says
 	// about them. The escape hatch for a tunnel the kernel cannot label:

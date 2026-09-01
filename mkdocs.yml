@@ -105,6 +105,5 @@ nav:
       - systemd: server/systemd.md
       - Docker: server/docker.md
   - Reference:
-      - Library limitations: reference/limitations.md
       - Non-goals and caveats: reference/caveats.md
       - Development: reference/development.md
