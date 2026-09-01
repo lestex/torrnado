@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -205,4 +206,91 @@ func TestCloseDisconnectsAnAttachedClient(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close blocked with a client still attached")
 	}
+}
+
+// DaemonInfo is what `torrnado status` and `torrnado stop` are built on,
+// so it has to be right about all three states.
+func TestDaemonInfoReportsOwnership(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	// Nothing has ever run here: no lock file, and asking must not make
+	// one - a question should not leave state behind.
+	info, err := DaemonInfo(sock)
+	if err != nil {
+		t.Fatalf("DaemonInfo before start: %v", err)
+	}
+	if info.Running {
+		t.Error("reported a daemon before one was started")
+	}
+	if _, err := os.Stat(info.LockPath); !os.IsNotExist(err) {
+		t.Error("asking whether a daemon runs created the lock file")
+	}
+
+	srv, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	info, err = DaemonInfo(sock)
+	if err != nil {
+		t.Fatalf("DaemonInfo while running: %v", err)
+	}
+	if !info.Running {
+		t.Error("did not see the running daemon's lock")
+	}
+	if info.PID != os.Getpid() {
+		t.Errorf("pid = %d, want this process (%d)", info.PID, os.Getpid())
+	}
+
+	// And the lock going away is what tells `torrnado stop` the daemon
+	// has finished, so it must not linger past Close.
+	srv.Close()
+	info, err = DaemonInfo(sock)
+	if err != nil {
+		t.Fatalf("DaemonInfo after close: %v", err)
+	}
+	if info.Running {
+		t.Error("still reported a daemon after the server closed")
+	}
+}
+
+// DaemonInfo takes the same lock it is asking about, so a daemon starting
+// while something asks must not be refused. Without the retry in
+// acquireDaemonLock, asking often enough stops a daemon from starting at
+// all.
+func TestDaemonInfoDoesNotBlockAStartingDaemon(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				DaemonInfo(sock)
+			}
+		}
+	}()
+	defer func() { close(stop); <-done }()
+
+	srv, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("Serve while status was being asked: %v", err)
+	}
+	srv.Close()
 }
