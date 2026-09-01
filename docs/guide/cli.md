@@ -15,6 +15,8 @@ in the TUI you can do from a shell script.
 ```
 torrnado                              attach the TUI (spawns a daemon if needed)
 torrnado daemon                       run the engine in the foreground
+torrnado status                       is a daemon running, and what is it doing; --quiet
+torrnado stop                         shut the running daemon down; --timeout
 torrnado add <sources...>             add torrent(s); --save-path, --paused
 torrnado remove <id...>               remove; --delete-data
 torrnado purge <id...>                delete the data, keep the torrent
@@ -32,7 +34,28 @@ torrnado config                       where the config lives, and what is in eff
 torrnado init                         write a config file of the defaults to edit
 ```
 
-`torrnado config` is the one command that never touches the daemon: it
+`torrnado status` and `torrnado config` are the two commands that never
+start a daemon. That matters more than it sounds: every other subcommand
+dials the socket and spawns one when nothing answers, so asking any of
+them whether a daemon is running would make the answer yes.
+
+`status` finds the daemon by the exclusive lock it holds beside its
+socket, not by process name, so it is right about a daemon running from a
+renamed or relocated binary and never confuses one belonging to a
+different state directory. It separates three states rather than two:
+not running, running and answering, and running but not answering - the
+last being a daemon busy enough with a hash check to miss a connection,
+which is worth knowing precisely because mistaking it for a dead one is
+how two engines end up on a single data directory. `--quiet` prints
+nothing and reports the answer as its exit status, for shell conditions.
+
+`torrnado stop` sends SIGTERM to that same daemon and waits for it to
+exit, which is when it has saved its session and closed the engine
+cleanly. `--timeout 0` returns without waiting. It is deliberately not a
+thing to run out of habit: a daemon that is still seeding is doing its
+job.
+
+`torrnado config` is the other command that never touches the daemon: it
 prints the config file it would read (saying so when there isn't one),
 every path derived from it - downloads, state, socket, session file,
 saved metainfo - and the settings actually in effect, defaults and
