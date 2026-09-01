@@ -32,7 +32,7 @@ high = 51433   # a range is tried in order until one binds
 dht        = true
 pex        = true
 encryption = true
-seed       = true     # keep uploading after a torrent completes
+seed       = false   # keep uploading after a torrent completes
 
 [vpn]
 required   = false   # hold every transfer while the system is not on a VPN
@@ -45,6 +45,24 @@ file          = ""        # empty = stderr, which is what a service manager want
 
 [keybinds]
 ```
+
+!!! note "`network.seed` is off by default"
+
+    A completed torrent stops uploading unless you turn seeding on. This
+    is narrower than it sounds: while a torrent is still downloading,
+    peers are uploaded to regardless, because that is what persuades them
+    to send you data. What `seed = true` adds is uploading *after* there
+    is nothing left in it for you.
+
+    It is off because it is the one setting that keeps costing something
+    once the work is finished - bandwidth, an open port, and a continuing
+    advertisement of what this machine holds. Set it to `true` if you
+    want to give back to the swarms you take from, and note that private
+    trackers generally require it.
+
+    If you have no config file you were seeding before and will not be
+    after upgrading. An existing file that sets `seed` explicitly is
+    unaffected.
 
 !!! warning "Upgrading from v0.5.3 or earlier: remove `network.lsd`"
 
