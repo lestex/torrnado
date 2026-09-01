@@ -21,10 +21,28 @@ thin client that connects to it over a Unix domain socket
   same as the bare command). Everything you can do in the TUI's command
   palette, you can also do from a shell script.
 
-To actually stop the daemon: send it SIGTERM/SIGINT (`pkill -f "torrnado daemon"`,
-or `kill` the pid from its log line) - there's no `torrnado stop`
-subcommand, since a daemon that's still seeding is a normal, intentional
-state to leave it in.
+To actually stop the daemon, send it SIGTERM or SIGINT. There is no
+`torrnado stop` subcommand, since a daemon that's still seeding is a
+normal, intentional state to leave it in.
+
+Find the pid by asking which process holds the lock file beside the
+socket:
+
+```sh
+lsof -t ~/.local/share/torrnado/daemon.sock.lock       # the daemon's pid
+kill "$(lsof -t ~/.local/share/torrnado/daemon.sock.lock)"
+```
+
+That file carries an exclusive lock for as long as the daemon runs - it
+is what stops a second one claiming the same socket - so whoever holds it
+*is* the daemon that owns this state directory, whatever the binary
+happens to be called. `pkill -f "torrnado daemon"` matches on the command
+line instead, which quietly finds nothing when the running copy was built
+or installed under another name, and can just as easily match a daemon
+belonging to a different state directory. The pid is also on the
+`daemon starting` line in the log, and the same trick is how the
+end-to-end suites find their own daemon without going near anybody
+else's.
 
 ## Running it unattended
 
