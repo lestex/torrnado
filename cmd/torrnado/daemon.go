@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
+	"github.com/lestex/torrnado/internal/launch"
 	"github.com/lestex/torrnado/internal/logging"
 	"github.com/lestex/torrnado/internal/stream"
 	"github.com/lestex/torrnado/internal/vpn"
@@ -71,6 +74,7 @@ func runDaemon() error {
 		RequireVPN:        cfg.VPN.Required,
 		VPNCheck:          vpnChecker(cfg.VPN.Interfaces),
 		MinFreeSpace:      int64(cfg.MinFreeSpace),
+		OnComplete:        completionHook(cfg.OnComplete, lg),
 		SeedRatio:         cfg.SeedLimit.Ratio,
 		SeedTime:          time.Duration(cfg.SeedLimit.Time),
 		StateDir:          cfg.StateDir,
@@ -151,6 +155,41 @@ func runDaemon() error {
 		return nil
 	}
 	return nil
+}
+
+// completionHook adapts a configured command to the closure the engine
+// takes, or returns nil when nothing is configured.
+//
+// The engine is handed a function for the same reason it is handed a VPN
+// check: running a program means internal/launch, and the engine
+// deliberately depends on nothing internal. This is the one place that
+// knows about both.
+//
+// The command is detached, so a hook that runs for an hour does not hold
+// up the tick that called it, and it outlives the daemon rather than
+// being killed with it. Nothing waits for it, which also means nothing
+// reports its exit status - a failure shows up in whatever the hook
+// itself writes, not here.
+func completionHook(command string, lg *logging.Logger) func(engine.TorrentSnapshot) {
+	if strings.TrimSpace(command) == "" {
+		return nil
+	}
+	return func(s engine.TorrentSnapshot) {
+		env := []string{
+			"TORRNADO_ID=" + string(s.ID),
+			"TORRNADO_NAME=" + s.Name,
+			"TORRNADO_PATH=" + s.DataDir,
+			"TORRNADO_SIZE=" + strconv.FormatInt(s.TotalLength, 10),
+		}
+		// The folder rather than the torrent's name: a hook that unpacks,
+		// moves or scans wants somewhere it can act on.
+		if err := launch.DetachedEnv(command, s.DataDir, env); err != nil {
+			lg.Error("the on_complete hook failed to start",
+				"id", s.ID, "name", s.Name, "command", command, "err", err)
+			return
+		}
+		lg.Info("on_complete hook started", "id", s.ID, "name", s.Name)
+	}
 }
 
 // vpnChecker adapts internal/vpn to the closure the engine takes.

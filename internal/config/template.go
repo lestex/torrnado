@@ -32,6 +32,7 @@ func Template(c Config) []byte {
 		{"theme", tomlString(c.Theme), "a built-in, or a .toml in <config>/torrnado/themes"},
 		{"player", tomlString(c.Player), "preview command; %f places the URL"},
 		{"opener", tomlString(c.Opener), "folder command; %f places the path"},
+		{"on_complete", tomlString(c.OnComplete), "run when a torrent finishes; %f places its folder"},
 	})
 
 	b.WriteString(templateRateLimit)

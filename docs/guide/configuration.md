@@ -20,6 +20,7 @@ min_free_space = "none"                                    # hold transfers belo
 theme         = "dracula"                                  # see Themes below
 player        = "mpv"                                      # used by preview; may carry flags
 opener        = "open"                                     # xdg-open on Linux; used by `o` / `torrnado open`
+on_complete   = ""                                         # run once when a torrent finishes; %f is its folder
 
 [rate_limit]
 upload   = "unlimited"   # or "500k", "2M", "1.5G", a bare byte count, "0"

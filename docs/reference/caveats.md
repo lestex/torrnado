@@ -47,6 +47,26 @@ storage, so it hashes what it just moved rather than trusting it. That is
 a read of the data already on disk, not a re-download, and the file
 priorities set before the move are put back afterwards.
 
+**The completion hook runs once, and is not waited for.** `on_complete`
+runs a command the first time a torrent finishes, given the torrent's
+folder in place of `%f` - or appended, when the command names no
+placeholder. The name, id, size and path also arrive as `TORRNADO_NAME`,
+`TORRNADO_ID`, `TORRNADO_SIZE` and `TORRNADO_PATH`, so a notification
+script need not parse them back out of a path.
+
+It is split on spaces and run directly, never through a shell, so a
+folder containing a space still arrives as one argument. Put anything
+needing pipes or globbing in a script and point at that.
+
+The command is detached: a hook that runs for an hour does not hold up
+the daemon, and it outlives it. Nothing waits for it, so nothing reports
+its exit status - a failure shows up in whatever the hook itself writes.
+
+It fires once per torrent for the life of that torrent, not once per
+daemon start. A torrent that was already finished when the daemon started
+does not re-run it, which is what stops a restart re-notifying or
+re-unpacking everything ever downloaded.
+
 **Seeding limits stop a torrent, they do not hold it.** `[seed_limit]`
 pauses a torrent once it has finished downloading and then reaches a
 ratio or a seeding time, whichever comes first. That is deliberately a
