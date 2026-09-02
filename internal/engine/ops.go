@@ -86,11 +86,18 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	id := TorrentID(t.InfoHash().HexString())
 
 	e.mu.Lock()
-	if _, exists := e.torrents[id]; exists {
+	if tr, exists := e.torrents[id]; exists {
 		// Same infohash as one already tracked: the client hands back the
 		// torrent it already has, so discard the storage just created.
 		if ownStorage != nil {
 			ownStorage.Close()
+		}
+		// Adding it paused still has to mean paused. Re-adding is the
+		// obvious way to say "and hold this one", and silently keeping it
+		// running looked like the add had failed. Only ever tightening:
+		// a plain re-add must not resume something deliberately paused.
+		if opts.Paused {
+			tr.paused = true
 		}
 	} else {
 		e.torrents[id] = &tracked{

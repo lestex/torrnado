@@ -47,6 +47,25 @@ storage, so it hashes what it just moved rather than trusting it. That is
 a read of the data already on disk, not a re-download, and the file
 priorities set before the move are put back afterwards.
 
+**The piece map lags the progress bar, by a lot.** A torrent's progress
+counts bytes received, including chunks that have not been hash-checked
+yet. The Pieces tab counts only pieces that have been verified *and*
+written to storage. On a large torrent those two answers differ by
+minutes: the bar can read 100% while well under half the map is filled
+in. Nothing is missing and nothing needs re-downloading - the map catches
+up on its own. That is why the tab is labelled "verified" rather than
+"complete"; a piece nobody has asked storage about yet is unknown, not
+absent.
+
+**`priority low` is the same as `normal`.** The library's scale has
+nothing between "not wanted" and "wanted normally", so the low that other
+clients read as "fetch this after everything else" has no faithful
+equivalent here and is mapped to normal. It is not mapped to *none*,
+because that would silently stop downloading a file somebody had asked to
+deprioritise, which is the worse of the two wrong answers. The file list
+reads the value back off the library, so a file set to low shows as
+normal afterwards - the setting was accepted, it just had nowhere to go.
+
 **The completion hook runs once, and is not waited for.** `on_complete`
 runs a command the first time a torrent finishes, given the torrent's
 folder in place of `%f` - or appended, when the command names no
