@@ -10,6 +10,10 @@ editing this file by hand.
 
 - Add torrents dropped into a watched directory
 
+### Dependencies
+
+- Take git-cliff's changelog on stdout
+
 ## 0.5.6 - 2026-09-02
 
 ### Features
