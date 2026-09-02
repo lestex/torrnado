@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -399,5 +400,87 @@ func TestLifetimeTotalsSurviveAMove(t *testing.T) {
 	}
 	if snap.Uploaded < 5<<20 {
 		t.Errorf("uploaded = %d after a move, want at least %d", snap.Uploaded, 5<<20)
+	}
+}
+
+// Hammers SaveSession from several goroutines while the state it saves
+// changes underneath, and checks the file never ends up older than the
+// last value written.
+//
+// An honest note on what this is worth: it does not reproduce the
+// out-of-order write that saveMu exists to prevent - that window is
+// between one saver reading the records and writing them, and it has not
+// been made to lose a value on demand here. So this is a smoke test over
+// concurrent saves, not proof of the fix. It is kept because nothing else
+// calls SaveSession concurrently at all, and under -race it would catch a
+// worse class of mistake.
+func TestConcurrentSavesDoNotLoseUpdates(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 128*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// One goroutine keeps saving while the other raises the totals and
+	// saves after each change. Whatever order they run in, the file must
+	// never end up older than the last value written before the final
+	// save.
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	// Several, because the window is between one saver reading the
+	// records and writing them; one competitor rarely lands inside it.
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					e.SaveSession()
+				}
+			}
+		}()
+	}
+
+	var last int64
+	for i := 1; i <= 200; i++ {
+		last = int64(i) << 20
+		e.mu.Lock()
+		e.torrents[id].baseUploaded = last
+		e.mu.Unlock()
+		if err := e.SaveSession(); err != nil {
+			t.Fatalf("SaveSession: %v", err)
+		}
+	}
+	close(stop)
+	wg.Wait()
+
+	// A final save, so the comparison is against a settled file.
+	if err := e.SaveSession(); err != nil {
+		t.Fatalf("final SaveSession: %v", err)
+	}
+
+	data, err := os.ReadFile(e.sessionPath())
+	if err != nil {
+		t.Fatalf("read session: %v", err)
+	}
+	var sf sessionFile
+	if err := json.Unmarshal(data, &sf); err != nil {
+		t.Fatalf("parse session: %v", err)
+	}
+	for _, rec := range sf.Torrents {
+		if rec.InfoHash == string(id) && rec.Uploaded < last {
+			t.Errorf("session went backwards: uploaded = %d on disk, want at least %d", rec.Uploaded, last)
+		}
 	}
 }

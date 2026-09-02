@@ -114,7 +114,13 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	// from a peer first, and for a torrent with no peers it may never
 	// arrive. So wait for it in the background rather than making the
 	// caller wait an unbounded time.
+	//
+	// In the wait group because it writes: a save that lands after Close
+	// has returned puts files back in a state directory the caller
+	// believes it has finished with.
+	e.wg.Add(1)
 	go func() {
+		defer e.wg.Done()
 		select {
 		case <-t.GotInfo():
 		case <-e.closeCh:

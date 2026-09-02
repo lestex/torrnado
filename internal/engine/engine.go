@@ -278,6 +278,9 @@ type Engine struct {
 	diskFree    int64
 	diskChecked bool
 
+	// saveMu serializes SaveSession end to end. See SaveSession.
+	saveMu sync.Mutex
+
 	lastTick  time.Time
 	startedAt time.Time
 	closeCh   chan struct{}

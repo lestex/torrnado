@@ -121,6 +121,21 @@ func (e *Engine) SaveSession() error {
 		return nil
 	}
 
+	// Held across the whole of this, build and write both.
+	//
+	// The records are gathered under e.mu and written outside it, so two
+	// callers could otherwise interleave: both snapshot, then the one
+	// that snapshotted first writes last, and its stale records land on
+	// top of the fresher ones. The file goes backwards, and stays that
+	// way until the next save. Adding a torrent is enough to hit it - the
+	// goroutine waiting for metadata saves too - and what is lost is
+	// whatever changed in between.
+	//
+	// A separate mutex from e.mu because this holds through a disk write,
+	// and engine operations must not queue behind that.
+	e.saveMu.Lock()
+	defer e.saveMu.Unlock()
+
 	e.mu.Lock()
 	records := make([]torrentRecord, 0, len(e.torrents))
 	for id, tr := range e.torrents {
