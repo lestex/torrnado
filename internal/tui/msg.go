@@ -15,6 +15,12 @@ type statusMsg struct {
 	isErr bool
 }
 
+// torrentsAddedMsg reports a successful add, so the model can make sure
+// what was just added is actually going to be visible. It carries the
+// status text rather than being a statusMsg, because the model may want
+// to add to it.
+type torrentsAddedMsg struct{ text string }
+
 // statusExpiredMsg asks for the status bar to be cleared. It carries the
 // sequence number of the message it was scheduled for, so a stale timer
 // cannot wipe a newer message.
