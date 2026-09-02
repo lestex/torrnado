@@ -321,3 +321,68 @@ func TestConcurrentMovesDoNotRace(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// Each structural operation has to survive being aimed at a torrent that
+// is mid-verification, and leave the engine still ticking afterwards.
+//
+// This is a smoke test over the three paths, not the regression guard for
+// the deadlock they used to cause - that is
+// TestConcurrentMovesDoNotRace, which reproduces it reliably at -count and
+// which this one does not. Kept because nothing else drives purge or
+// remove against a running check at all, and because a wedged client
+// shows up here as a timeout rather than as a confusing failure
+// elsewhere.
+func TestStructuralOpsDuringAVerificationDoNotWedgeTheClient(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		op   func(e *Engine, id TorrentID, dir string) error
+	}{
+		{"move", func(e *Engine, id TorrentID, dir string) error { return e.MoveStorage(id, dir) }},
+		{"purge", func(e *Engine, id TorrentID, _ string) error { return e.PurgeData(id) }},
+		{"remove", func(e *Engine, id TorrentID, _ string) error { return e.RemoveTorrent(id, false) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig(t)
+			e, err := New(cfg)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			t.Cleanup(func() { e.Close() })
+
+			// Enough pieces that the recheck below is still running when
+			// the operation lands on it.
+			torrentPath := writeTestTorrent(t, cfg.DataDir, 4*1024*1024)
+			id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+			if err != nil {
+				t.Fatalf("AddTorrentFile: %v", err)
+			}
+
+			if err := e.ForceRecheck(id); err != nil {
+				t.Fatalf("ForceRecheck: %v", err)
+			}
+
+			// The operation has to finish. If the client's lock is
+			// wedged it never returns, and the only symptom is the
+			// package timing out - so this is deliberately a deadline
+			// rather than an assertion on the result.
+			done := make(chan error, 1)
+			go func() { done <- tc.op(e, id, filepath.Join(t.TempDir(), "dest")) }()
+
+			select {
+			case <-done:
+			case <-time.After(30 * time.Second):
+				t.Fatal("the operation never returned: the torrent client's lock is wedged")
+			}
+
+			// And the engine has to still be alive afterwards, which is
+			// what the tick proves - it takes both locks.
+			ticked := make(chan struct{})
+			go func() { e.tick(); close(ticked) }()
+			select {
+			case <-ticked:
+			case <-time.After(30 * time.Second):
+				t.Fatal("the engine is frozen after the operation")
+			}
+		})
+	}
+}
