@@ -87,6 +87,15 @@ type Logging struct {
 type Config struct {
 	DownloadDir  string `toml:"download_dir"`
 	DaemonSocket string `toml:"daemon_socket"`
+	// WatchDir is a directory the daemon adds .torrent files from as they
+	// appear, so anything that can write a file can add a torrent -
+	// rsync, a synced download folder, a file manager on a share. Empty
+	// watches nothing.
+	//
+	// The point is a box nobody logs in to: without it the only ways in
+	// are `torrnado add` over SSH and the TUI.
+	WatchDir string `toml:"watch_dir"`
+
 	// MinFreeSpace holds every transfer while the download directory's
 	// filesystem has less than this free. Zero, the default, never holds
 	// anything.

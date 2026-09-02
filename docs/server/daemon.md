@@ -60,6 +60,29 @@ daemon part-way through a hash check can miss any timeout - because
 mistaking the second for "not running" is how someone ends up with two
 engines on one data directory.
 
+## Getting torrents in without logging in
+
+`watch_dir` points the daemon at a directory and it adds any `.torrent`
+file that appears there. That is the last manual step in an otherwise
+unattended box: without it the only ways in are `torrnado add` over SSH
+and the TUI, and with it anything that can write a file can add a
+torrent - `rsync` from your laptop, a synced download folder, a file
+manager on a Samba share, a cron job.
+
+```toml
+watch_dir = "/srv/torrent/inbox"
+```
+
+A file is only taken once its size has stopped changing, so a `.torrent`
+still being copied over a share is not read halfway through. Once added
+it is renamed to `<name>.torrent.added`, and one that could not be parsed
+to `.failed` - renamed rather than deleted, because the file dropped in
+may be the only copy, and the marker is also what stops it being added
+again after a restart. Sweep them whenever you like.
+
+The rule for what counts is the same one `torrnado add <directory>` uses:
+`.torrent` files directly inside, no recursive walk.
+
 ## Running it unattended
 
 The daemon is the whole program; the TUI and the CLI are just clients. So

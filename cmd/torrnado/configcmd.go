@@ -89,6 +89,7 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	}
 	fmt.Fprintf(w, "  download_dir\t%s\n", cfg.DownloadDir)
 	fmt.Fprintf(w, "  state_dir\t%s\n", cfg.StateDir)
+	fmt.Fprintf(w, "  watch_dir\t%s\n", orNone(cfg.WatchDir))
 	fmt.Fprintf(w, "  daemon_socket\t%s\n", cfg.DaemonSocket)
 	fmt.Fprintf(w, "  session\t%s\n", filepath.Join(cfg.StateDir, "session.json"))
 	fmt.Fprintf(w, "  saved metainfo\t%s\n", filepath.Join(cfg.StateDir, "torrents"))

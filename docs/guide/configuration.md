@@ -16,6 +16,7 @@ download_dir  = "~/Downloads/torrnado"                     # default download di
 daemon_socket = "~/.local/share/torrnado/daemon.sock"      # IPC socket path
 state_dir     = "~/.local/share/torrnado"                  # session file + saved metainfo
 min_free_space = "none"                                    # hold transfers below this much free disk
+watch_dir      = ""                                        # add .torrent files dropped here
                                                            # (a second daemon needs its own)
 theme         = "dracula"                                  # see Themes below
 player        = "mpv"                                      # used by preview; may carry flags

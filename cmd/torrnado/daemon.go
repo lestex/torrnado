@@ -131,6 +131,22 @@ func runDaemon() error {
 	}
 	defer srv.Close()
 
+	// Started after the socket is up, so a file dropped in during startup
+	// is added by a daemon that can already answer for it.
+	watchDone := make(chan struct{})
+	if cfg.WatchDir != "" {
+		if err := os.MkdirAll(cfg.WatchDir, 0o755); err != nil {
+			return fmt.Errorf("create watch dir %s: %w", cfg.WatchDir, err)
+		}
+		w := newWatcher(cfg.WatchDir, func(path string) error {
+			_, err := eng.AddTorrentFile(path, engine.AddOpts{})
+			return err
+		}, lg.Logger)
+		go w.run(watchDone)
+		lg.Info("watching for torrents", "dir", cfg.WatchDir)
+	}
+	defer close(watchDone)
+
 	lg.Info("daemon ready", "socket", cfg.DaemonSocket, "stream", stm.Addr())
 
 	// Block until asked to stop. Ctrl-C sends SIGINT; service managers
