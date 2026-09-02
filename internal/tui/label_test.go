@@ -148,3 +148,41 @@ func TestALiveLabelFilterSurvivesASnapshot(t *testing.T) {
 		t.Errorf("labelFilter = %q, want it kept", got.labelFilter)
 	}
 }
+
+// Adding a torrent while a label filter is applied used to report success
+// and change nothing on screen: a new torrent carries no label, so the
+// filter hid it, and - unlike a status filter, which a torrent moves into
+// on its own - it would never stop hiding it. Restarting the interface
+// was the only way to see what had been added.
+func TestAddingClearsALabelFilterThatWouldHideTheResult(t *testing.T) {
+	m := labelled("a", "tv")
+	m.labelFilter = "tv"
+
+	next, _ := m.Update(torrentsAddedMsg{text: "added 1 torrent(s)"})
+	got := next.(Model)
+
+	if got.labelFilter != "" {
+		t.Errorf("labelFilter = %q, want it cleared so the new torrent is visible", got.labelFilter)
+	}
+	if got.filter != filterAll {
+		t.Errorf("filter = %v, want filterAll", got.filter)
+	}
+	// Changing the view without a keypress is only acceptable if it says
+	// so; silently resetting a filter is its own surprise.
+	if !strings.Contains(got.status, "tv") {
+		t.Errorf("status = %q, want it to say which filter was cleared", got.status)
+	}
+}
+
+// With no label filter there is nothing to clear, and the message must
+// not grow an explanation of something that did not happen.
+func TestAddingLeavesTheStatusAloneWithNoLabelFilter(t *testing.T) {
+	m := labelled("a", "tv")
+
+	next, _ := m.Update(torrentsAddedMsg{text: "added 1 torrent(s)"})
+	got := next.(Model)
+
+	if got.status != "added 1 torrent(s)" {
+		t.Errorf("status = %q, want it unchanged", got.status)
+	}
+}

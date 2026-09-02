@@ -41,6 +41,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.daemonDown = true
 		return m, nil
 
+	case torrentsAddedMsg:
+		// A label filter can never show a torrent that was just added -
+		// a new one carries no label, and nothing is going to give it
+		// one. Unlike a status filter, which a torrent moves into on its
+		// own as it starts working, this hides the result of the add for
+		// good: the add reports success, the count goes up, and the list
+		// does not change. So the filter gives way to the action, and
+		// says that it did rather than just doing it.
+		text := msg.text
+		if m.labelFilter != "" {
+			text += " - cleared the " + m.labelFilter + " filter to show them"
+			m.labelFilter = ""
+			m.filter = filterAll
+			m.sidebarCursor = 0
+		}
+		return m, m.setStatus(okStatus(text))
+
 	case statusMsg:
 		cmd := m.setStatus(msg)
 		return m, cmd
