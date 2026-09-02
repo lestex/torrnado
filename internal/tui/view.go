@@ -102,16 +102,36 @@ func clampBlock(s string, height int) string {
 // Trimming happens before styling, not after: truncate measures printable
 // width but cuts runes, so trimming an already-styled string cuts through
 // its escape sequences.
-func (m Model) renderPrompt(sigil, buf string, width int) string {
+// renderPrompt draws the input line, optionally followed by Tab
+// candidates.
+//
+// The candidates go after the cursor, muted and behind a gap, so they
+// read as a hint rather than as text that has been typed. They are only
+// drawn when what is typed leaves room: the input is the thing that must
+// never be squeezed off its own line.
+func (m Model) renderPrompt(sigil, buf string, width int, hints ...string) string {
 	// The leading space, the sigil and the cursor are a cell each.
 	room := width - 3
 	if room < 1 {
 		return truncate(" "+sigil, width)
 	}
-	return m.styles.Accent.Render(" "+sigil) +
-		m.styles.Base.Render(truncateTail(buf, room)) +
+	shown := truncateTail(buf, room)
+	line := m.styles.Accent.Render(" "+sigil) +
+		m.styles.Base.Render(shown) +
 		m.styles.Accent.Render("█")
+
+	const gap = 3
+	spare := room - lipgloss.Width(shown) - gap
+	if len(hints) == 0 || spare < minHintW {
+		return line
+	}
+	return line + m.styles.Muted.Render(
+		strings.Repeat(" ", gap)+truncate(candidateList(hints), spare))
 }
+
+// minHintW is the narrowest a candidate list can be and still say
+// anything; below it the prompt keeps the whole line.
+const minHintW = 12
 
 // footerRateW is the cell each transfer total is drawn in: the arrow, a
 // space, the widest rate format.Rate can produce ("1023.9KiB/s"), and one
@@ -134,7 +154,7 @@ func (m Model) renderFooter(p panes) string {
 	case modeSearch:
 		return m.renderPrompt("/", m.searchQuery, p.footerW)
 	case modeCommand:
-		return m.renderPrompt(":", m.commandBuf, p.footerW)
+		return m.renderPrompt(":", m.commandBuf, p.footerW, m.completions...)
 	}
 	if m.showHelp {
 		return m.styles.StatusBar.Render(" press any key to close help")

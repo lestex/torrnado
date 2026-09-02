@@ -425,19 +425,31 @@ func (m Model) handleCommandKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		line := m.commandBuf
 		m.mode = modeNormal
 		m.commandBuf = ""
+		m.completions = nil
 		return m.execCommand(line)
 	case tea.KeyEsc:
 		m.mode = modeNormal
 		m.commandBuf = ""
+		m.completions = nil
 	case tea.KeyBackspace:
 		r := []rune(m.commandBuf)
 		if len(r) > 0 {
 			m.commandBuf = string(r[:len(r)-1])
 		}
+		m.completions = nil
+	case tea.KeyTab:
+		// Tab is FocusNext everywhere else, but a prompt is text, and at a
+		// prompt the shell habit is completion.
+		line, candidates := completePath(m.commandBuf)
+		m.commandBuf = line
+		m.completions = candidates
+		return m, nil
 	case tea.KeySpace:
 		m.commandBuf += " "
+		m.completions = nil
 	case tea.KeyRunes:
 		m.commandBuf += string(msg.Runes)
+		m.completions = nil
 	}
 	return m, nil
 }

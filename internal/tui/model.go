@@ -140,6 +140,11 @@ type Model struct {
 	mode        inputMode
 	searchQuery string
 	commandBuf  string
+	// completions are the candidates from the last Tab, shown beside the
+	// prompt until the next keystroke. They live here rather than going
+	// through setStatus because in command mode the footer *is* the
+	// prompt, so a status message has nowhere to appear.
+	completions []string
 
 	// showHelp overlays the keybind reference on everything else.
 	showHelp bool

@@ -81,7 +81,7 @@ func DefaultDownloadDir() (string, error) {
 	return filepath.Join(home, "Downloads", "torrnado"), nil
 }
 
-// expandHome replaces a leading ~ with the user's home directory.
+// ExpandHome replaces a leading ~ with the user's home directory.
 //
 // A shell does this before a program ever sees an argument, which makes a
 // config file the one place a path written "~/Downloads" arrives with the
@@ -95,7 +95,7 @@ func DefaultDownloadDir() (string, error) {
 // another account's home needs the user database, and a path beginning
 // with a tilde that is not the current user's home is likelier to be a
 // filename than a request anyone means.
-func expandHome(path string) (string, error) {
+func ExpandHome(path string) (string, error) {
 	if path != "~" && !strings.HasPrefix(path, "~/") {
 		return path, nil
 	}
@@ -118,7 +118,7 @@ func expandHome(path string) (string, error) {
 // $PATH far more often than a file in a home directory.
 func (c *Config) expandPaths() error {
 	for _, field := range []*string{&c.DownloadDir, &c.DaemonSocket, &c.StateDir, &c.Log.File} {
-		v, err := expandHome(*field)
+		v, err := ExpandHome(*field)
 		if err != nil {
 			return err
 		}

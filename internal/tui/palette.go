@@ -32,21 +32,26 @@ type paletteCommand struct {
 	names []string // what execCommand accepts, aliases included
 	usage string   // how the line reads on the help screen
 	desc  string
+	// completesPaths marks a command whose last argument names something
+	// on disk, so Tab can complete it. Kept here rather than as a list
+	// somewhere else, so a new path-taking command cannot quietly miss
+	// out on completion.
+	completesPaths bool
 }
 
 var paletteCommands = []paletteCommand{
-	{[]string{"add"}, ":add <magnet|file|dir>", "add torrents - anything `torrnado add` takes"},
-	{[]string{"pause", "resume"}, ":pause / :resume", "pause or resume the marked torrents"},
-	{[]string{"rm", "remove", "rm!", "remove!"}, ":rm / :rm!", "remove them; ! deletes the data too"},
-	{[]string{"purge"}, ":purge", "delete their data, keeping them in the list"},
-	{[]string{"recheck"}, ":recheck", "re-verify the data on disk"},
-	{[]string{"limit-up"}, ":limit-up <rate>", "global upload cap: 500k, 2M, unlimited"},
-	{[]string{"limit-down"}, ":limit-down <rate>", "global download cap"},
-	{[]string{"move"}, ":move <dir>", "move the torrent under the cursor"},
-	{[]string{"sort"}, ":sort <column> [desc]", "name, size, progress, ratio, eta, added, down, up"},
-	{[]string{"theme"}, ":theme [name]", "open the theme picker, or apply one by name"},
-	{[]string{"help"}, ":help", "show this screen"},
-	{[]string{"q", "quit"}, ":q", "quit (the daemon keeps running)"},
+	{[]string{"add"}, ":add <magnet|file|dir>", "add torrents - anything `torrnado add` takes", true},
+	{[]string{"pause", "resume"}, ":pause / :resume", "pause or resume the marked torrents", false},
+	{[]string{"rm", "remove", "rm!", "remove!"}, ":rm / :rm!", "remove them; ! deletes the data too", false},
+	{[]string{"purge"}, ":purge", "delete their data, keeping them in the list", false},
+	{[]string{"recheck"}, ":recheck", "re-verify the data on disk", false},
+	{[]string{"limit-up"}, ":limit-up <rate>", "global upload cap: 500k, 2M, unlimited", false},
+	{[]string{"limit-down"}, ":limit-down <rate>", "global download cap", false},
+	{[]string{"move"}, ":move <dir>", "move the torrent under the cursor", true},
+	{[]string{"sort"}, ":sort <column> [desc]", "name, size, progress, ratio, eta, added, down, up", false},
+	{[]string{"theme"}, ":theme [name]", "open the theme picker, or apply one by name", false},
+	{[]string{"help"}, ":help", "show this screen", false},
+	{[]string{"q", "quit"}, ":q", "quit (the daemon keeps running)", false},
 }
 
 func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
@@ -61,7 +66,7 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		if len(args) == 0 {
 			return m, func() tea.Msg { return errStatus(fmt.Errorf("add: needs a magnet, file or directory")) }
 		}
-		return m, addBatchCmd(m.client, args)
+		return m, addBatchCmd(m.client, expandPathArgs(args))
 
 	case "rm", "remove":
 		return m.removeTargets(m.visibleTorrents(), false)
@@ -95,7 +100,7 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		return m, moveCmd(m.client, t.ID, args[0])
+		return m, moveCmd(m.client, t.ID, expandPathArgs(args)[0])
 
 	case "theme":
 		// With no argument the picker opens, which is how you find out

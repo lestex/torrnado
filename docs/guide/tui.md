@@ -110,9 +110,20 @@ keeps the commands on screen at 24 rows.
 
 Arguments may be quoted with `'` or `"`, which is what makes an argument
 containing a space possible (`:move '/media/big disk'`). Quoting a magnet
-is unnecessary here - the palette is not a shell, so nothing expands -
-but harmless, which matters because quoting one *is* necessary in zsh and
-the habit follows you into the palette.
+is unnecessary here but harmless, which matters because quoting one *is*
+necessary in zsh and the habit follows you into the palette.
+
+**++tab++ completes paths** for `:add` and `:move`, the two commands that
+take one. It follows a shell's rules: a single match completes, a
+directory gains a trailing `/`, and several extend to their common prefix
+and list themselves beside the cursor. A name containing a space comes
+back quoted, so it survives as one argument. Dotfiles stay out of the way
+until you type the dot. A magnet or a URL is left alone - a stray ++tab++
+in the middle of one should not mangle it.
+
+A leading `~` is expanded, whether you completed the path or typed it
+out. Everything else is literal: the palette is not a shell, and nothing
+else expands.
 
 ### Batch add
 
