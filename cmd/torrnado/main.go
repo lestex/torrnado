@@ -40,6 +40,7 @@ func main() {
 		newPriorityCmd(),
 		newLimitCmd(),
 		newSeedLimitCmd(),
+		newLabelCmd(),
 		newMoveCmd(),
 		newListCmd(),
 		newPreviewCmd(),

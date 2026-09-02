@@ -246,6 +246,14 @@ func (c *Client) SetSeedLimit(id engine.TorrentID, ratio float64, seedTime time.
 	return err
 }
 
+// SetLabel files a torrent under a label, or clears it when label is
+// empty. There is no separate call to create one: a label exists while a
+// torrent carries it.
+func (c *Client) SetLabel(id engine.TorrentID, label string) error {
+	_, err := c.call(&Request{Method: MethodSetLabel, ID: string(id), Label: label})
+	return err
+}
+
 func (c *Client) MoveStorage(id engine.TorrentID, newDir string) error {
 	_, err := c.call(&Request{Method: MethodMoveStorage, ID: string(id), NewDir: newDir})
 	return err

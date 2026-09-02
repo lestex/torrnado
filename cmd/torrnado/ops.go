@@ -329,12 +329,33 @@ func newListCmd() *cobra.Command {
 // its --watch mode, so the two can't drift apart.
 func writeTorrentTable(out io.Writer, snaps []engine.TorrentSnapshot) error {
 	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS")
+
+	// The LABEL column appears only when something is filed under one.
+	// A column of empty cells on every other machine is worse than no
+	// column, and this table is narrow enough already.
+	labelled := false
 	for _, s := range snaps {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d\n",
+		if s.Label != "" {
+			labelled = true
+			break
+		}
+	}
+
+	header := "ID\tNAME\tSTATE\tPROGRESS\tDOWN\tUP\tRATIO\tPEERS"
+	if labelled {
+		header += "\tLABEL"
+	}
+	fmt.Fprintln(w, header)
+
+	for _, s := range snaps {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%.1f%%\t%s\t%s\t%s\t%d/%d",
 			s.ID, s.Name, s.StatusText(), s.Progress*100,
 			format.Rate(s.DownloadBPS), format.Rate(s.UploadBPS), format.Ratio(s.Ratio),
 			s.NumSeeds, s.NumPeers)
+		if labelled {
+			fmt.Fprintf(w, "\t%s", s.Label)
+		}
+		fmt.Fprintln(w)
 	}
 	return w.Flush()
 }

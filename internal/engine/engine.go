@@ -144,6 +144,12 @@ type tracked struct {
 	// must be closed when the torrent is removed.
 	ownStorage storage.ClientImplCloser
 
+	// label is the one free-text category this torrent is filed under,
+	// empty for most. There is no registry of labels: a label exists
+	// while a torrent carries it and stops existing when the last one
+	// drops it, so there is nothing to create and nothing to clean up.
+	label string
+
 	// chosenFiles holds the indices something has deliberately set a
 	// priority for, so marking a torrent's files wanted can leave those
 	// alone. The library cannot answer this: a file nobody has touched

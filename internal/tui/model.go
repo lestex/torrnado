@@ -164,8 +164,15 @@ type Model struct {
 	pendingDD bool
 	pendingAt time.Time
 
-	focus         paneFocus
+	focus paneFocus
+	// sidebarCursor indexes sidebarEntries, which is the status filters
+	// followed by the labels in use - not statusFilter, which it was
+	// while the sidebar held nothing else.
 	sidebarCursor int
+	// labelFilter narrows the list to one label. Empty means no label
+	// filter, which is not the same as "the empty label": a torrent with
+	// no label is only hidden while some label is selected.
+	labelFilter string
 
 	// detail always describes the torrent under the list cursor. The
 	// pane is docked rather than a separate view, so it is refetched
@@ -249,6 +256,9 @@ func (m Model) visibleTorrents() []engine.TorrentSnapshot {
 	q := strings.ToLower(strings.TrimSpace(m.searchQuery))
 	for _, t := range m.torrents {
 		if !m.filter.matches(t) {
+			continue
+		}
+		if m.labelFilter != "" && t.Label != m.labelFilter {
 			continue
 		}
 		if q == "" || strings.Contains(strings.ToLower(t.Name), q) {

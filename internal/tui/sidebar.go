@@ -73,25 +73,40 @@ func (m Model) renderSidebar(p panes) string {
 	// applied one, under the sidebar's cursor, or both. Drawing only the
 	// applied one hid the cursor exactly when it was on the filter you
 	// were already using.
-	for i, name := range filterNames {
-		active := statusFilter(i) == m.filter
-		underCursor := m.focus == focusSidebar && i == m.sidebarCursor
+	entries := m.sidebarEntries()
+	for i := range filterNames {
+		lines = append(lines, m.renderSidebarRow(entries[i], i, filterNames[i], w))
+	}
 
-		mark := " "
-		if underCursor {
-			mark = ">"
+	// Labels, when anything is filed under one. The heading is drawn only
+	// then: an empty "Labels" on every daemon would be three rows of the
+	// sidebar spent saying that a feature exists.
+	if labels := entries[len(filterNames):]; len(labels) > 0 {
+		// What is left after the status block above, the daemon block
+		// below, and this section's own blank line and heading. Labels
+		// are elided to fit rather than capped at some fixed number:
+		// how many fit is a property of the terminal, not of the user.
+		// The +1 is the blank row that separates the daemon block from
+		// what is above it; without reserving it, the block is dropped
+		// entirely rather than moving down.
+		room := p.sidebarContentH - len(lines) - (m.daemonBlockRows() + 1) - 2
+		shown := len(labels)
+		if room < shown {
+			// One row goes to saying how many are not being shown, so a
+			// filter that exists cannot be invisible with nothing to
+			// suggest looking for it.
+			shown = max(room-1, 0)
 		}
-
-		style := m.styles.SidebarItem
-		switch {
-		case active && underCursor:
-			style = m.styles.CursorSelectedRow
-		case active:
-			style = m.styles.SidebarItemActive
-		case underCursor:
-			style = m.styles.CursorRow
+		if shown > 0 {
+			lines = append(lines, "", m.styles.ColHeader.Render(truncate("Labels", w)))
+			for j, l := range labels[:shown] {
+				lines = append(lines, m.renderSidebarRow(l, len(filterNames)+j, l.label, w))
+			}
+			if hidden := len(labels) - shown; hidden > 0 {
+				lines = append(lines,
+					m.styles.Muted.Render(truncate(fmt.Sprintf(" +%d more", hidden), w)))
+			}
 		}
-		lines = append(lines, style.Render(padRight(mark+name, w)))
 	}
 
 	// Daemon-wide facts that used to live in the top stats bar; they sit
@@ -109,6 +124,9 @@ func (m Model) renderSidebar(p panes) string {
 
 	// Push the daemon block to the bottom when there's room, drop it when
 	// there isn't.
+	//
+	// The label section above has already reserved these rows, so the
+	// two cannot both claim the same space.
 	if gap := p.sidebarContentH - len(lines) - len(stats); gap >= 1 {
 		for range gap {
 			lines = append(lines, "")
@@ -117,6 +135,53 @@ func (m Model) renderSidebar(p panes) string {
 	}
 
 	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// renderSidebarRow draws one selectable row - a status filter or a label
+// - in whichever of the four states it is in.
+//
+// Two independent states again, as in the list: a row can be the applied
+// one, under the sidebar's cursor, or both. Drawing only the applied one
+// hid the cursor exactly when it was on the filter you were already
+// using.
+func (m Model) renderSidebarRow(e sidebarEntry, i int, name string, w int) string {
+	active := m.entryIsActive(e)
+	underCursor := m.focus == focusSidebar && i == m.sidebarCursor
+
+	mark := " "
+	if underCursor {
+		mark = ">"
+	}
+
+	style := m.styles.SidebarItem
+	switch {
+	case active && underCursor:
+		style = m.styles.CursorSelectedRow
+	case active:
+		style = m.styles.SidebarItemActive
+	case underCursor:
+		style = m.styles.CursorRow
+	}
+	return style.Render(padRight(mark+name, w))
+}
+
+// entryIsActive reports whether this row is the filter currently applied.
+func (m Model) entryIsActive(e sidebarEntry) bool {
+	if e.isLabel() {
+		return m.labelFilter == e.label
+	}
+	return m.labelFilter == "" && e.status == m.filter
+}
+
+// daemonBlockRows is how many rows the daemon block at the bottom wants,
+// so the label section can leave them alone rather than pushing the
+// port/dht/disk readings off the bottom of the pane.
+func (m Model) daemonBlockRows() int {
+	rows := 4 // heading, port, dht, disk
+	if _, ok := m.vpnLine(0); ok {
+		rows++
+	}
+	return rows
 }
 
 // diskLine reports free space, in the error style when the free-space

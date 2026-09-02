@@ -27,6 +27,7 @@ torrnado priority <id> <file-index> <none|low|normal|high|now>
 torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-torrent
 torrnado seed-limit <id...>           --ratio / --time; when this torrent stops seeding
 torrnado move <id> <new-directory>
+torrnado label <name> <id...>         file torrents under a label (--clear removes it)
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
@@ -34,6 +35,14 @@ torrnado open <id...>                 open the torrent's folder
 torrnado config                       where the config lives, and what is in effect
 torrnado init                         write a config file of the defaults to edit
 ```
+
+`torrnado label` files torrents under a label the interface can filter by.
+The label comes first so the ids can be a list, which is what makes
+`torrnado label tv $(...)` work; `--clear` takes the label off instead and
+so reads ids only. There is no step that creates a label and none that
+deletes one - a label exists while some torrent carries it - and a torrent
+has one at a time, so setting another replaces it. `torrnado list` grows a
+LABEL column when anything is labelled.
 
 `torrnado status` and `torrnado config` are the two commands that never
 start a daemon. That matters more than it sounds: every other subcommand

@@ -371,6 +371,13 @@ func (s *Server) dispatch(req *Request) *Response {
 		resp.OK = true
 		resp.URL = s.previewURL(id, req.FileIndex)
 
+	case MethodSetLabel:
+		if err := s.eng.SetLabel(engine.TorrentID(req.ID), req.Label); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
 	case MethodShutdown:
 		// Nothing to do here but agree. handleConn starts the shutdown
 		// once this reply is on the wire; see the call site.

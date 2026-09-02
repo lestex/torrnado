@@ -133,6 +133,35 @@ func setPausedCmd(c *ipc.Client, ids []engine.TorrentID, paused bool) tea.Cmd {
 	}
 }
 
+// setLabelCmd files torrents under a label, or clears it when label is
+// empty.
+func setLabelCmd(c *ipc.Client, ids []engine.TorrentID, label string) tea.Cmd {
+	return func() tea.Msg {
+		var failed int
+		var lastErr error
+		for _, id := range ids {
+			if err := c.SetLabel(id, label); err != nil {
+				failed++
+				lastErr = err
+			}
+		}
+		// The error itself when every one failed, because they all failed
+		// the same way and it is nearly always the label being rejected -
+		// "0/3 succeeded" would hide the one thing worth reading.
+		if failed == len(ids) && lastErr != nil {
+			return errStatus(lastErr)
+		}
+		if failed > 0 {
+			return errStatus(fmt.Errorf("labelled %d/%d torrents (%d failed)",
+				len(ids)-failed, len(ids), failed))
+		}
+		if label == "" {
+			return okStatus(fmt.Sprintf("cleared the label on %d torrent(s)", len(ids)))
+		}
+		return okStatus(fmt.Sprintf("labelled %d torrent(s) %q", len(ids), label))
+	}
+}
+
 func loadDetail(c *ipc.Client, id engine.TorrentID) tea.Cmd {
 	return func() tea.Msg {
 		d, err := c.Detail(id)
