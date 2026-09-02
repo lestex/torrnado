@@ -167,15 +167,21 @@ CLIFF_IMAGE := orhunp/git-cliff:2.13.1
 # under it instead of "Unreleased" - run it that way just before tagging:
 #
 #	make changelog TAG=v0.1.0
-CLIFF_ARGS := --config cliff.toml $(if $(TAG),--tag $(TAG)) --output CHANGELOG.md
+CLIFF_ARGS := --config cliff.toml $(if $(TAG),--tag $(TAG))
 
+# The container run takes the changelog on stdout rather than writing it
+# through the bind mount, so the file is created by this shell and owned
+# by whoever ran make. Passing --user instead fails on Docker Desktop:
+# the image drops privileges itself, and setpriv cannot when it starts
+# unprivileged. Via a temp file, so a failed run leaves CHANGELOG.md alone.
 changelog: ## Regenerate CHANGELOG.md (make changelog TAG=v0.1.0)
 	@if command -v git-cliff >/dev/null 2>&1; then \
-		git-cliff $(CLIFF_ARGS); \
+		git-cliff $(CLIFF_ARGS) --output CHANGELOG.md; \
 	else \
 		echo "git-cliff not on PATH; using $(CLIFF_IMAGE)"; \
-		docker run --rm --user "$$(id -u):$$(id -g)" \
-			-v "$(CURDIR)":/app -w /app $(CLIFF_IMAGE) $(CLIFF_ARGS); \
+		docker run --rm -v "$(CURDIR)":/app -w /app $(CLIFF_IMAGE) \
+			$(CLIFF_ARGS) > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md \
+			|| { rm -f CHANGELOG.md.tmp; exit 1; }; \
 	fi
 	@echo "wrote CHANGELOG.md"
 
