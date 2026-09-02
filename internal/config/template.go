@@ -40,6 +40,12 @@ func Template(c Config) []byte {
 		{"download", tomlString(rateLiteral(c.RateLimit.Download)), ""},
 	})
 
+	b.WriteString(templateSeedLimit)
+	writeRows(b, []row{
+		{"ratio", ratioLiteral(c.SeedLimit.Ratio), "stop seeding at this ratio; 0 = never"},
+		{"time", tomlString(c.SeedLimit.Time.String()), "stop seeding after this long; none = never"},
+	})
+
 	b.WriteString(templatePort)
 	writeRows(b, []row{
 		{"low", strconv.Itoa(c.Port.Low), ""},
@@ -91,6 +97,14 @@ const templateRateLimit = `
 # Client-wide, not per torrent. A bare byte count, "500k", "2M", "1.5G",
 # or "unlimited". Per-torrent limits are set at runtime with
 # ` + "`torrnado limit --torrent <id>`" + `.
+`
+
+const templateSeedLimit = `
+[seed_limit]
+# Applied only once a torrent has finished downloading, and they pause it
+# rather than holding it: this is a decision that the torrent is done, so
+# it survives a restart. Whichever comes first wins. Per-torrent limits
+# are set at runtime with ` + "`torrnado seed-limit`" + `.
 `
 
 const templatePort = `
@@ -198,6 +212,19 @@ func wrapList(items []string, width int) []string {
 		lines = append(lines, cur)
 	}
 	return lines
+}
+
+// ratioLiteral writes a ratio the way the decoder reads it back.
+//
+// The decimal point is not decoration: TOML types a bare 0 as an integer
+// and refuses to load it into a float field, so the generated config
+// would not parse - which the template tests catch, loudly.
+func ratioLiteral(r float64) string {
+	s := strconv.FormatFloat(r, 'f', -1, 64)
+	if !strings.Contains(s, ".") {
+		s += ".0"
+	}
+	return s
 }
 
 // rateLiteral writes a Rate the way the config parser reads it back.

@@ -47,6 +47,24 @@ storage, so it hashes what it just moved rather than trusting it. That is
 a read of the data already on disk, not a re-download, and the file
 priorities set before the move are put back afterwards.
 
+**Seeding limits stop a torrent, they do not hold it.** `[seed_limit]`
+pauses a torrent once it has finished downloading and then reaches a
+ratio or a seeding time, whichever comes first. That is deliberately a
+pause rather than the kind of hold the guards below use: a guard is a
+condition of the machine that comes and goes, while a seeding limit is a
+decision that this torrent is done, so it survives a restart instead of
+being undone by one. Resuming the torrent starts it seeding again.
+
+The ratio is over the torrent's life, not the current run - the totals
+are kept in the session file, because the library counts per instance and
+a limit that reset on every restart would never come due on the machine
+it is for. The seeding clock runs from completion, not from when the
+torrent was added.
+
+`torrnado seed-limit --ratio none <id>` seeds one torrent without a
+limit however the config is set, which is the only way to opt a single
+torrent out of a default.
+
 **A full disk stops transfers rather than filling it.** `min_free_space`
 holds every transfer while the download directory's filesystem is below
 the floor you set, and lets them go again by itself once space comes

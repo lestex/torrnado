@@ -236,6 +236,16 @@ func (c *Client) SetTorrentRateLimit(id engine.TorrentID, uploadBps, downloadBps
 	return err
 }
 
+// SetSeedLimit sets one torrent's seeding limits. Zero means "use the
+// configured default", negative means "no limit for this torrent".
+func (c *Client) SetSeedLimit(id engine.TorrentID, ratio float64, seedTime time.Duration) error {
+	_, err := c.call(&Request{
+		Method: MethodSetSeedLimit, ID: string(id),
+		SeedRatio: ratio, SeedTime: seedTime,
+	})
+	return err
+}
+
 func (c *Client) MoveStorage(id engine.TorrentID, newDir string) error {
 	_, err := c.call(&Request{Method: MethodMoveStorage, ID: string(id), NewDir: newDir})
 	return err

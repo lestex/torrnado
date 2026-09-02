@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -70,6 +71,8 @@ func runDaemon() error {
 		RequireVPN:        cfg.VPN.Required,
 		VPNCheck:          vpnChecker(cfg.VPN.Interfaces),
 		MinFreeSpace:      int64(cfg.MinFreeSpace),
+		SeedRatio:         cfg.SeedLimit.Ratio,
+		SeedTime:          time.Duration(cfg.SeedLimit.Time),
 		StateDir:          cfg.StateDir,
 		Version:           currentBuild().String(),
 		Logger:            lg.Logger,

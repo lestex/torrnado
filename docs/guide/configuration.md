@@ -25,6 +25,10 @@ opener        = "open"                                     # xdg-open on Linux; 
 upload   = "unlimited"   # or "500k", "2M", "1.5G", a bare byte count, "0"
 download = "unlimited"
 
+[seed_limit]
+ratio = 0.0      # stop seeding at this ratio; 0 = never
+time  = "none"   # stop seeding after this long ("48h", "7d"); none = never
+
 [port]
 low  = 51413   # 0/0 = let the OS pick a random port
 high = 51433   # a range is tried in order until one binds

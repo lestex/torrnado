@@ -51,6 +51,14 @@ type torrentRecord struct {
 	Uploaded   int64     `json:"uploaded,omitempty"`
 	Downloaded int64     `json:"downloaded,omitempty"`
 	AddedAt    time.Time `json:"added_at"`
+	// SeedRatio/SeedTime are this torrent's own limits, overriding the
+	// configured defaults; negative means "no limit for this one".
+	SeedRatio float64       `json:"seed_ratio,omitempty"`
+	SeedTime  time.Duration `json:"seed_time,omitempty"`
+	// CompletedAt is when the torrent was first seen finished, which a
+	// seeding-time limit counts from. Persisted so a restart does not
+	// restart the clock on a torrent that finished days ago.
+	CompletedAt time.Time `json:"completed_at,omitempty"`
 	// FilePriorities holds only the files that differ from normal, which
 	// is nearly all of them nearly all of the time.
 	FilePriorities []filePriorityRecord `json:"file_priorities,omitempty"`
@@ -154,6 +162,9 @@ func (e *Engine) recordLocked(id TorrentID, tr *tracked) torrentRecord {
 	st := tr.t.Stats()
 	rec.Downloaded = tr.baseDownloaded + st.BytesReadUsefulData.Int64()
 	rec.Uploaded = tr.baseUploaded + st.BytesWrittenData.Int64()
+	rec.SeedRatio = tr.seedRatio
+	rec.SeedTime = tr.seedTime
+	rec.CompletedAt = tr.completedAt
 
 	// Both of these read through metadata that a magnet may not have yet.
 	if tr.t.Info() != nil {
@@ -330,6 +341,9 @@ func (e *Engine) restoreOne(rec torrentRecord) error {
 		}
 		tr.baseDownloaded = rec.Downloaded
 		tr.baseUploaded = rec.Uploaded
+		tr.seedRatio = rec.SeedRatio
+		tr.seedTime = rec.SeedTime
+		tr.completedAt = rec.CompletedAt
 	}
 	e.mu.Unlock()
 	return nil
