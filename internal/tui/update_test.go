@@ -626,3 +626,32 @@ func TestHelpClosesOnTheKeyThatOpenedIt(t *testing.T) {
 		t.Error("pressing ? again left the help screen open")
 	}
 }
+
+// The detail tabs used to be matched as literal "1"/"2"/"3" before focus
+// dispatch ran, so a config that bound anything to a digit lost it with
+// nothing to say why. They are bindings now, which is what makes the
+// digit reachable for something else once the tab is moved off it.
+func TestADigitFreedFromItsTabReachesTheActionBoundToIt(t *testing.T) {
+	m := testModel("a", "b", "c")
+	m.keymap.TabPieces = "f1" // move the tab off the digit
+	m.keymap.Bottom = "1"     // and give the digit to something else
+
+	next := press(m, "1")
+
+	if next.cursor != 2 {
+		t.Errorf("cursor = %d, want 2: the digit never reached the action bound to it", next.cursor)
+	}
+	if next.detailTab == tabPieces && m.detailTab != tabPieces {
+		t.Error("the digit switched the detail tab it is no longer bound to")
+	}
+}
+
+// And the tab still follows its binding wherever it is moved to.
+func TestTheDetailTabFollowsItsBinding(t *testing.T) {
+	m := testModel("a")
+	m.keymap.TabPeers = "z"
+
+	if got := press(m, "z").detailTab; got != tabPeers {
+		t.Errorf("detailTab = %v, want tabPeers: the rebound key did nothing", got)
+	}
+}

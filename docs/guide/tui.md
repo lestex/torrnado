@@ -61,7 +61,7 @@ next rather than only that it is empty:
 | `j` / `k`          | down / up within the focused pane                  |
 | `g` / `G`          | top / bottom                                       |
 | `tab` / `shift+tab`| move focus between list, detail pane and sidebar   |
-| `]` / `[`, `1`-`3` | switch the detail pane's tab                       |
+| `]` / `[`, `1`/`2`/`3` | switch the detail pane's tab                    |
 | `}` / `{`          | cycle the sidebar's status filter                  |
 | `/`                | search / filter by name                            |
 | `space`            | toggle selection (for batch operations)            |

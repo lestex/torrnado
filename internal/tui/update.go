@@ -111,11 +111,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.setDetailTab(m.detailTab.next())
 	case km.TabPrev:
 		return m.setDetailTab(m.detailTab.prev())
-	case "1":
+	case km.TabPieces:
 		return m.setDetailTab(tabPieces)
-	case "2":
+	case km.TabPeers:
 		return m.setDetailTab(tabPeers)
-	case "3":
+	case km.TabFiles:
 		return m.setDetailTab(tabFiles)
 	}
 

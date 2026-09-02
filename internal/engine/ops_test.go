@@ -83,6 +83,46 @@ func TestAddPausedStartsPaused(t *testing.T) {
 	}
 }
 
+// Re-adding a running torrent as paused has to pause it. Adding again is
+// the obvious way to say "and hold this one", and the add reported
+// success while leaving it running, which read as the add having failed.
+func TestReAddingPausedPausesAnAlreadyTrackedTorrent(t *testing.T) {
+	e := newTestEngine(t)
+
+	id, _ := e.AddMagnet(testMagnet, AddOpts{})
+	if _, err := e.AddMagnet(testMagnet, AddOpts{Paused: true}); err != nil {
+		t.Fatalf("second AddMagnet: %v", err)
+	}
+
+	d, err := e.TorrentDetail(id)
+	if err != nil {
+		t.Fatalf("TorrentDetail: %v", err)
+	}
+	if !d.Snapshot.Paused {
+		t.Error("re-adding with Paused left the torrent running")
+	}
+}
+
+// And the other direction must not happen: a plain re-add is not a
+// resume, or `torrnado add` on a magnet list would quietly start
+// everything somebody had deliberately paused.
+func TestReAddingDoesNotResumeAPausedTorrent(t *testing.T) {
+	e := newTestEngine(t)
+
+	id, _ := e.AddMagnet(testMagnet, AddOpts{Paused: true})
+	if _, err := e.AddMagnet(testMagnet, AddOpts{}); err != nil {
+		t.Fatalf("second AddMagnet: %v", err)
+	}
+
+	d, err := e.TorrentDetail(id)
+	if err != nil {
+		t.Fatalf("TorrentDetail: %v", err)
+	}
+	if !d.Snapshot.Paused {
+		t.Error("a plain re-add resumed a paused torrent")
+	}
+}
+
 func TestSetPaused(t *testing.T) {
 	e := newTestEngine(t)
 	id, _ := e.AddMagnet(testMagnet, AddOpts{})
