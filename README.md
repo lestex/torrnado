@@ -16,6 +16,12 @@ separate architecture.
 ## Install
 
 ```sh
+brew install lestex/tap/torrnado
+```
+
+Or, without Homebrew:
+
+```sh
 curl -fsSL https://torrnado.dev/install.sh | sh
 ```
 
@@ -46,12 +52,11 @@ There is no install step beyond putting the binary on your `$PATH`.
 torrnado add 'magnet:?xt=urn:btih:...'   # spawns a daemon if none is running
 torrnado                                  # attach the TUI
 torrnado list --watch                     # or just watch from the shell
-torrnado init                             # a config file of the defaults, to edit
 ```
 
 Quitting the TUI (`q`) does not stop the daemon - your torrents keep
-running. Press `?` or `h` in the TUI for every key and every command, and
-`:` for the command palette.
+running. Press `h` in the TUI for every key, and `:` for the command
+palette.
 
 ## What it does
 
@@ -78,6 +83,7 @@ Everything else lives at **[torrnado.dev](https://torrnado.dev)**:
 | [Configuration](https://torrnado.dev/guide/configuration/) · [Themes](https://torrnado.dev/guide/themes/) | config schema, keybinds, palettes |
 | [Streaming preview](https://torrnado.dev/guide/streaming/) | play a file while it downloads |
 | [The daemon](https://torrnado.dev/server/daemon/) · [systemd](https://torrnado.dev/server/systemd/) · [Docker](https://torrnado.dev/server/docker/) | leave it running on a box |
+| [Library limitations](https://torrnado.dev/reference/limitations/) | the anacrolix/torrent traps this works around |
 | [Development](https://torrnado.dev/reference/development/) | layout, tests, how to work on it |
 
 ## Contributing
