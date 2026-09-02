@@ -4,6 +4,13 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.6.1 - 2026-09-02
+
+### Bug fixes
+
+- A label filter no longer hides a torrent you just added
+- Adding a torrent clears every filter that would hide it
+
 ## 0.6.0 - 2026-09-02
 
 ### Features
