@@ -64,6 +64,18 @@ type Config struct {
 
 	Seed bool
 
+	// OnComplete is called once, from the tick, the first time a torrent
+	// is seen finished. Nil disables it.
+	//
+	// A closure rather than a command string for the same reason VPNCheck
+	// is one: running a program means importing internal/launch, and this
+	// package deliberately depends on nothing internal. The daemon knows
+	// about both and does the wiring.
+	//
+	// Called with e.mu released, and expected not to block - it is on the
+	// tick's path.
+	OnComplete func(TorrentSnapshot)
+
 	// SeedRatio stops a completed torrent once uploaded/downloaded reaches
 	// it, and SeedTime once it has been seeding that long. Zero disables
 	// each. They are per-torrent defaults; a torrent may carry its own.
@@ -181,8 +193,13 @@ type tracked struct {
 	lastPeers   map[string]peerBytes
 	lastPeersAt time.Time
 
-	// completeLogged stops the completion message repeating on every
-	// tick once a torrent is done.
+	// completeLogged stops the completion message - and the completion
+	// hook - repeating once a torrent is done.
+	//
+	// Restored from the session's completedAt rather than kept only in
+	// memory: every completed torrent looks newly finished to a fresh
+	// process, so without that a restart would re-announce all of them
+	// and run the hook again for each.
 	completeLogged bool
 
 	// holdData stops data moving for the duration of an operation that is
@@ -635,6 +652,9 @@ func (e *Engine) tick() {
 	}
 	for _, s := range done {
 		e.log.Info("torrent complete", "id", s.ID, "name", s.Name, "size", s.TotalLength)
+		if e.cfg.OnComplete != nil {
+			e.cfg.OnComplete(s)
+		}
 	}
 	e.broadcast(ev)
 }

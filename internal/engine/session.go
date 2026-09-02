@@ -344,6 +344,8 @@ func (e *Engine) restoreOne(rec torrentRecord) error {
 		tr.seedRatio = rec.SeedRatio
 		tr.seedTime = rec.SeedTime
 		tr.completedAt = rec.CompletedAt
+		// Already finished in an earlier run, so it is not news now.
+		tr.completeLogged = !rec.CompletedAt.IsZero()
 	}
 	e.mu.Unlock()
 	return nil

@@ -321,22 +321,39 @@ func TestLifetimeTotalsSurviveARestart(t *testing.T) {
 	if err := e.SaveSession(); err != nil {
 		t.Fatalf("SaveSession: %v", err)
 	}
-	e.Close()
+	// Asserted before the restart, because a restore can only find this
+	// torrent through its saved metainfo - it was added from a file, so
+	// there is no magnet to fall back on. Checking here means a failure
+	// says which half broke.
+	if !fileExists(e.metainfoPath(id)) {
+		t.Fatalf("no metainfo saved at %s; a restore would have nothing to re-add from", e.metainfoPath(id))
+	}
+	if err := e.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
 	next, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New (restart): %v", err)
 	}
 	t.Cleanup(func() { next.Close() })
-	if _, err := next.RestoreSession(); err != nil {
+	n, err := next.RestoreSession()
+	if err != nil {
 		t.Fatalf("RestoreSession: %v", err)
 	}
+	if n != 1 {
+		t.Fatalf("restored %d torrents, want 1 - the totals cannot come back if the torrent did not", n)
+	}
 
+	var found bool
 	var snap TorrentSnapshot
 	for _, s := range next.ListTorrents() {
 		if s.ID == id {
-			snap = s
+			snap, found = s, true
 		}
+	}
+	if !found {
+		t.Fatalf("the restored session does not contain %s", id)
 	}
 	if snap.Uploaded < 3<<20 {
 		t.Errorf("uploaded = %d after restart, want at least %d", snap.Uploaded, 3<<20)
