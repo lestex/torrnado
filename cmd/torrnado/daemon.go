@@ -69,6 +69,7 @@ func runDaemon() error {
 		Seed:              cfg.Network.Seed,
 		RequireVPN:        cfg.VPN.Required,
 		VPNCheck:          vpnChecker(cfg.VPN.Interfaces),
+		MinFreeSpace:      int64(cfg.MinFreeSpace),
 		StateDir:          cfg.StateDir,
 		Version:           currentBuild().String(),
 		Logger:            lg.Logger,

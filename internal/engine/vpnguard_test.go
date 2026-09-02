@@ -44,7 +44,7 @@ func dataFlowOf(t *testing.T, e *Engine, id TorrentID) (down, up bool) {
 	if !ok {
 		t.Fatalf("no torrent %q", id)
 	}
-	return tr.dataFlow(e.blocked)
+	return tr.dataFlow(e.guardsLocked())
 }
 
 // The whole point: nothing transfers while the system is off-VPN.
@@ -232,6 +232,7 @@ func TestRateLimitAndGuardDoNotOverrideEachOther(t *testing.T) {
 		paused, blocked  bool
 		hold             bool
 		downLimit        int64
+		lowDisk          bool
 		lastDownBPS      float64
 		wantDown, wantUp bool
 	}{
@@ -241,15 +242,99 @@ func TestRateLimitAndGuardDoNotOverrideEachOther(t *testing.T) {
 		{name: "under its cap but off-VPN", downLimit: 1000, lastDownBPS: 500, blocked: true},
 		{name: "under its cap but paused", downLimit: 1000, lastDownBPS: 500, paused: true},
 		{name: "mid-move", hold: true},
+		{name: "disk below the floor", lowDisk: true},
+		{name: "under its cap but disk full", downLimit: 1000, lastDownBPS: 500, lowDisk: true},
+		// Every reason holds on its own, so any combination still holds -
+		// none of them is allowed to cancel another out.
+		{name: "off-VPN and disk full", blocked: true, lowDisk: true},
 	}
 	for _, c := range cases {
 		tr.paused, tr.holdData = c.paused, c.hold
 		tr.downLimit, tr.lastDownBPS = c.downLimit, c.lastDownBPS
 
-		down, up := tr.dataFlow(c.blocked)
+		down, up := tr.dataFlow(guards{vpnBlocked: c.blocked, lowDisk: c.lowDisk})
 		if down != c.wantDown || up != c.wantUp {
 			t.Errorf("%s: down=%v up=%v, want down=%v up=%v",
 				c.name, down, up, c.wantDown, c.wantUp)
 		}
+	}
+}
+
+// The free-space guard holds every transfer while the download directory
+// is below its floor, and lets them go again by itself - the same shape
+// as the VPN guard, and for the same reason: a full disk is a condition
+// of the machine, not something the user asked for, so it must never be
+// written into a torrent's own paused flag.
+func TestFreeSpaceGuardHoldsAndReleases(t *testing.T) {
+	cfg := testConfig(t)
+	// A floor no real filesystem clears, so the guard is certainly on.
+	cfg.MinFreeSpace = 1 << 62
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	tr, err := e.lookup(id)
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+
+	e.mu.Lock()
+	held := e.lowDisk
+	down, up := tr.dataFlow(e.guardsLocked())
+	snap := e.snapshotLocked(id, tr)
+	paused := tr.paused
+	e.mu.Unlock()
+
+	if !held {
+		t.Fatal("the guard did not notice a floor no filesystem can clear")
+	}
+	if down || up {
+		t.Errorf("transfers not held (down=%v up=%v)", down, up)
+	}
+	if snap.State != StateLowDisk {
+		t.Errorf("state = %s, want %s", snap.State, StateLowDisk)
+	}
+	// The distinction that matters: held, not paused. Conflating them
+	// would have a full disk rewrite the session with everything paused,
+	// and the torrents would stay that way after space came back.
+	if paused || snap.Paused {
+		t.Error("the guard paused the torrent instead of holding it")
+	}
+
+	// Dropping the floor is the same event as space coming back.
+	e.cfg.MinFreeSpace = 1
+	e.refreshDisk()
+
+	e.mu.Lock()
+	down, up = tr.dataFlow(e.guardsLocked())
+	snap = e.snapshotLocked(id, tr)
+	e.mu.Unlock()
+
+	if !down || !up {
+		t.Errorf("transfers still held after space came back (down=%v up=%v)", down, up)
+	}
+	if snap.State == StateLowDisk {
+		t.Error("still reporting low disk after space came back")
+	}
+}
+
+// Off by default: a guard nobody asked for that stops downloads is worse
+// than no guard at all.
+func TestFreeSpaceGuardIsOffByDefault(t *testing.T) {
+	e := newTestEngine(t)
+	e.refreshDisk()
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.lowDisk || e.diskChecked {
+		t.Error("the free-space guard ran without being configured")
 	}
 }

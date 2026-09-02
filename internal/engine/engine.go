@@ -64,6 +64,15 @@ type Config struct {
 
 	Seed bool
 
+	// MinFreeSpace holds every transfer while DataDir's filesystem has
+	// less than this many bytes free. Zero never holds anything.
+	//
+	// Checked on the same tick as everything else and released by itself
+	// once space comes back, the way the VPN guard is: it is a condition
+	// of the machine, not something the user asked for, so it must never
+	// be written into a torrent's paused flag.
+	MinFreeSpace int64
+
 	// StateDir is where the session file and saved metainfo live, so a
 	// restart can pick the torrent list back up. Empty disables
 	// persistence entirely.
@@ -210,6 +219,14 @@ type Engine struct {
 	blocked    bool
 	vpnChecked bool
 
+	// lowDisk is the free-space guard's verdict and diskFree the reading
+	// behind it. Guarded by mu, and separate from blocked for the same
+	// reason blocked is separate from paused: they are different reasons
+	// and a snapshot has to be able to say which one is holding things.
+	lowDisk     bool
+	diskFree    int64
+	diskChecked bool
+
 	lastTick  time.Time
 	startedAt time.Time
 	closeCh   chan struct{}
@@ -281,10 +298,63 @@ func New(cfg Config) (*Engine, error) {
 	// a daemon started off-VPN never has a torrent that is briefly
 	// allowed to transfer.
 	e.refreshVPN()
+	e.refreshDisk()
 
 	e.wg.Add(1)
 	go e.tickLoop()
 	return e, nil
+}
+
+// refreshDisk re-reads the free space on DataDir and records whether it
+// is below the configured floor, logging only the transitions.
+//
+// The check is one statfs and runs on the tick, so it costs nothing worth
+// measuring. It fails open: a filesystem that cannot be read is not
+// evidence that it is full, and holding every transfer over an unreadable
+// statfs would be a worse failure than the one being guarded against.
+func (e *Engine) refreshDisk() {
+	if e.cfg.MinFreeSpace <= 0 {
+		return // not asked for; nothing is ever held
+	}
+
+	free, _, err := diskUsage(e.cfg.DataDir)
+	if err != nil {
+		e.log.Warn("could not read free space; not holding transfers",
+			"dir", e.cfg.DataDir, "err", err)
+		return
+	}
+	low := free < e.cfg.MinFreeSpace
+
+	e.mu.Lock()
+	first := !e.diskChecked
+	changed := first || e.lowDisk != low
+	e.lowDisk = low
+	e.diskFree = free
+	e.diskChecked = true
+	e.mu.Unlock()
+
+	if !changed {
+		return
+	}
+	switch {
+	case low:
+		e.log.Warn("transfers held: not enough free disk",
+			"dir", e.cfg.DataDir, "free", free, "min", e.cfg.MinFreeSpace)
+	case first:
+		// Said once at startup so the guard is visibly on, and worded so
+		// it does not read as recovery from a problem that never happened.
+		e.log.Info("free space guard active",
+			"dir", e.cfg.DataDir, "free", free, "min", e.cfg.MinFreeSpace)
+	default:
+		e.log.Info("free disk recovered, transfers allowed",
+			"dir", e.cfg.DataDir, "free", free)
+	}
+}
+
+// guardsLocked is every engine-wide reason transfers are held right now.
+// Callers must hold e.mu.
+func (e *Engine) guardsLocked() guards {
+	return guards{vpnBlocked: e.blocked, lowDisk: e.lowDisk}
 }
 
 // refreshVPN re-runs the VPN check and records what it means, logging the
@@ -474,8 +544,9 @@ func (e *Engine) tickLoop() {
 func (e *Engine) tick() {
 	// Before the lock, and before the switches below are turned: a VPN
 	// that dropped a moment ago should stop transfers on this tick, not
-	// the next one.
+	// the next one. Same for a disk that just filled up.
 	e.refreshVPN()
+	e.refreshDisk()
 
 	e.mu.Lock()
 	now := time.Now()
@@ -493,7 +564,7 @@ func (e *Engine) tick() {
 	flows := make([]flow, 0, len(e.torrents))
 	for _, tr := range e.torrents {
 		tr.updateRates(elapsed)
-		t, down, up := tr.flowDecision(e.blocked)
+		t, down, up := tr.flowDecision(e.guardsLocked())
 		flows = append(flows, flow{t, down, up})
 	}
 	ev := e.eventLocked()
@@ -554,6 +625,8 @@ func (e *Engine) eventLocked() Event {
 	ev.Global.VPNRequired = e.cfg.RequireVPN
 	ev.Global.VPNActive = e.vpn.Active
 	ev.Global.VPNInterface = e.vpn.Interface
+	ev.Global.DiskLow = e.lowDisk
+	ev.Global.MinFreeSpace = e.cfg.MinFreeSpace
 	ev.Global.Version = e.cfg.Version
 	ev.Global.StartedAt = e.startedAt
 	if free, total, err := diskUsage(e.cfg.DataDir); err == nil {

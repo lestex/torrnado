@@ -28,6 +28,7 @@ func Template(c Config) []byte {
 		{"download_dir", tomlString(c.DownloadDir), "where torrents are saved"},
 		{"daemon_socket", tomlString(c.DaemonSocket), "the socket every client dials"},
 		{"state_dir", tomlString(c.StateDir), "session file + saved metainfo"},
+		{"min_free_space", tomlString(c.MinFreeSpace.String()), "hold every transfer below this much free disk; none = never"},
 		{"theme", tomlString(c.Theme), "a built-in, or a .toml in <config>/torrnado/themes"},
 		{"player", tomlString(c.Player), "preview command; %f places the URL"},
 		{"opener", tomlString(c.Opener), "folder command; %f places the path"},

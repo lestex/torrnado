@@ -76,6 +76,11 @@ const (
 	// up for a week talking to a freshly built client would report
 	// seeding torrents as errored.
 	StateBlocked
+	// StateLowDisk is a torrent held by the free-space guard. Appended for
+	// the same reason StateBlocked was: these go over the wire as
+	// gob-encoded ints, and inserting one would silently renumber every
+	// state above it.
+	StateLowDisk
 )
 
 func (s State) String() string {
@@ -94,6 +99,8 @@ func (s State) String() string {
 		return "error"
 	case StateBlocked:
 		return "blocked"
+	case StateLowDisk:
+		return "low disk"
 	default:
 		return "unknown"
 	}
@@ -268,6 +275,12 @@ type GlobalStats struct {
 	// otherwise.
 	VPNActive    bool
 	VPNInterface string
+	// DiskLow is whether the free-space guard is holding transfers, and
+	// MinFreeSpace the floor it is comparing against. Both only meaningful
+	// when MinFreeSpace is non-zero: without it the check is not run, and
+	// a client cannot tell "plenty of room" from "not looking".
+	DiskLow      bool
+	MinFreeSpace int64
 	// UploadLimit/DownloadLimit are the current global rate caps in
 	// bytes/sec (0 = unlimited).
 	UploadLimit   int64

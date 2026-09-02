@@ -15,6 +15,7 @@ overwrite an existing config unless you pass `--force`; `torrnado init
 download_dir  = "~/Downloads/torrnado"                     # default download directory
 daemon_socket = "~/.local/share/torrnado/daemon.sock"      # IPC socket path
 state_dir     = "~/.local/share/torrnado"                  # session file + saved metainfo
+min_free_space = "none"                                    # hold transfers below this much free disk
                                                            # (a second daemon needs its own)
 theme         = "dracula"                                  # see Themes below
 player        = "mpv"                                      # used by preview; may carry flags

@@ -47,6 +47,15 @@ storage, so it hashes what it just moved rather than trusting it. That is
 a read of the data already on disk, not a re-download, and the file
 priorities set before the move are put back afterwards.
 
+**A full disk stops transfers rather than filling it.** `min_free_space`
+holds every transfer while the download directory's filesystem is below
+the floor you set, and lets them go again by itself once space comes
+back. It is off by default. Like the VPN guard it is a condition of the
+machine rather than something you asked for, so it never touches a
+torrent's own paused flag - the torrents show as `low disk` and resume on
+their own. It fails open: a filesystem it cannot read is not treated as
+full.
+
 **There is no Local Service Discovery.** Peers on your own LAN are found
 the same way as any others - trackers, DHT, PEX - and not by multicast
 (BEP 14), which the torrent library does not implement. `network.lsd` was

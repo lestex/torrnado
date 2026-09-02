@@ -106,7 +106,7 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	// guard is holding, or added paused, must not get the second or so
 	// until the next tick as a head start. A library torrent is allowed
 	// both directions the moment it is added.
-	ft, fdown, fup := e.torrents[id].flowDecision(e.blocked)
+	ft, fdown, fup := e.torrents[id].flowDecision(e.guardsLocked())
 	e.mu.Unlock()
 	applyFlow(ft, fdown, fup)
 
@@ -346,7 +346,7 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 	// guard may be holding everything. The intent is what is persisted
 	// either way, so a resume during a VPN outage takes effect the moment
 	// the VPN returns rather than being forgotten.
-	t, down, up := tr.flowDecision(e.blocked)
+	t, down, up := tr.flowDecision(e.guardsLocked())
 	e.mu.Unlock()
 	applyFlow(t, down, up)
 
@@ -786,7 +786,7 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	// the window before the pause takes effect.
 	tr.paused = true
 	tr.holdData = true
-	fdt, fddown, fdup := tr.flowDecision(e.blocked)
+	fdt, fddown, fdup := tr.flowDecision(e.guardsLocked())
 	e.mu.Unlock()
 	applyFlow(fdt, fddown, fdup)
 
@@ -831,7 +831,7 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	tr.t = fresh
 	tr.ownStorage = newStorage
 	tr.holdData = false
-	ft, fdown, fup := tr.flowDecision(e.blocked) // still paused, so still off
+	ft, fdown, fup := tr.flowDecision(e.guardsLocked()) // still paused, so still off
 	e.mu.Unlock()
 	applyFlow(ft, fdown, fup)
 
@@ -902,7 +902,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	// Every path out from here goes through moveFailed, which is what
 	// takes the hold off again.
 	tr.holdData = true
-	ht, hdown, hup := tr.flowDecision(e.blocked)
+	ht, hdown, hup := tr.flowDecision(e.guardsLocked())
 	e.mu.Unlock()
 	applyFlow(ht, hdown, hup)
 
@@ -1018,7 +1018,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
 		}
 		tr.holdData = false
-		vt, vdown, vup := tr.flowDecision(e.blocked)
+		vt, vdown, vup := tr.flowDecision(e.guardsLocked())
 		e.mu.Unlock()
 		applyFlow(vt, vdown, vup)
 		e.snapshotAndBroadcastNow()
@@ -1043,7 +1043,7 @@ func (e *Engine) moveFailed(tr *tracked, id TorrentID, err error) error {
 	e.mu.Lock()
 	tr.lastErr = err.Error()
 	tr.holdData = false
-	ft, fdown, fup := tr.flowDecision(e.blocked)
+	ft, fdown, fup := tr.flowDecision(e.guardsLocked())
 	e.mu.Unlock()
 	applyFlow(ft, fdown, fup)
 
