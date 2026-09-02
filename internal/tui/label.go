@@ -1,6 +1,11 @@
 package tui
 
-import "sort"
+import (
+	"sort"
+	"strings"
+
+	"github.com/lestex/torrnado/internal/engine"
+)
 
 // labelUse is one label and how many torrents carry it.
 type labelUse struct {
@@ -125,4 +130,84 @@ func (m Model) dropVanishedLabelFilter() Model {
 	m.filter = filterAll
 	m.sidebarCursor = 0
 	return m
+}
+
+// revealJustAdded drops whichever filters are hiding a torrent that was
+// just added, and names the ones it dropped.
+//
+// Adding is the one action whose whole purpose is to put something in the
+// list, so reporting success while the list does not change is the wrong
+// answer however correct the filter was. The label case was the one that
+// could never resolve itself - a new torrent has no label and nothing was
+// going to give it one - but none of the three resolve *promptly*: a
+// torrent added under the Completed filter is hidden for as long as it
+// takes to download, and one that does not match the search is hidden
+// until the search is cleared by hand.
+//
+// This runs on a snapshot rather than on the add's reply because the
+// question needs the torrents themselves: the name decides the search,
+// the label decides the label filter, and the state decides the status
+// filter. Ids not in the snapshot yet are left pending for the next one.
+func (m Model) revealJustAdded() (Model, []string) {
+	if len(m.pendingReveal) == 0 {
+		return m, nil
+	}
+
+	byID := make(map[engine.TorrentID]engine.TorrentSnapshot, len(m.torrents))
+	for _, t := range m.torrents {
+		byID[t.ID] = t
+	}
+
+	var seen bool
+	var hiddenByStatus, hiddenByLabel, hiddenBySearch bool
+	query := strings.ToLower(strings.TrimSpace(m.searchQuery))
+	for _, id := range m.pendingReveal {
+		t, ok := byID[id]
+		if !ok {
+			continue
+		}
+		seen = true
+		if !m.filter.matches(t) {
+			hiddenByStatus = true
+		}
+		if m.labelFilter != "" && t.Label != m.labelFilter {
+			hiddenByLabel = true
+		}
+		if query != "" && !strings.Contains(strings.ToLower(t.Name), query) {
+			hiddenBySearch = true
+		}
+	}
+	if !seen {
+		return m, nil // not in this snapshot; ask again on the next one
+	}
+	m.pendingReveal = nil
+
+	var cleared []string
+	if hiddenByLabel {
+		cleared = append(cleared, "the "+m.labelFilter+" label")
+		m.labelFilter = ""
+	}
+	if hiddenByStatus {
+		cleared = append(cleared, "the "+strings.ToLower(filterNames[m.filter])+" filter")
+		m.filter = filterAll
+	}
+	if hiddenBySearch {
+		cleared = append(cleared, "the search")
+		m.searchQuery = ""
+	}
+	if len(cleared) > 0 {
+		m.sidebarCursor = m.currentSidebarIndex()
+	}
+	return m, cleared
+}
+
+// joinClauses renders a list as "a", "a and b", "a, b and c".
+func joinClauses(parts []string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
 }

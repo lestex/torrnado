@@ -28,10 +28,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.torrents = msg.Torrents
 		m.global = msg.Global
 		m = m.dropVanishedLabelFilter()
+		// Now that the torrents are in hand, drop whatever is hiding one
+		// that was just added, and say so - changing the view without a
+		// keypress is only acceptable if it explains itself.
+		m2, cleared := m.revealJustAdded()
+		m = m2
+		var revealCmd tea.Cmd
+		if len(cleared) > 0 {
+			revealCmd = m.setStatus(okStatus(m.status + " - cleared " +
+				joinClauses(cleared) + " to show them"))
+		}
 		m.clampCursor(len(m.visibleTorrents()))
 		// Cmds run once, so listening again is what keeps the stream
 		// flowing. The docked pane is refreshed on the same tick.
-		return m, tea.Batch(listenForEvents(m.events), m.syncDetail())
+		return m, tea.Batch(listenForEvents(m.events), m.syncDetail(), revealCmd)
 
 	case engineClosedMsg:
 		// Set directly, with no expiry: the daemon being gone is a
@@ -42,21 +52,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case torrentsAddedMsg:
-		// A label filter can never show a torrent that was just added -
-		// a new one carries no label, and nothing is going to give it
-		// one. Unlike a status filter, which a torrent moves into on its
-		// own as it starts working, this hides the result of the add for
-		// good: the add reports success, the count goes up, and the list
-		// does not change. So the filter gives way to the action, and
-		// says that it did rather than just doing it.
-		text := msg.text
-		if m.labelFilter != "" {
-			text += " - cleared the " + m.labelFilter + " filter to show them"
-			m.labelFilter = ""
-			m.filter = filterAll
-			m.sidebarCursor = 0
-		}
-		return m, m.setStatus(okStatus(text))
+		// Held until a snapshot carries them: which filters are hiding
+		// these cannot be answered without the torrents themselves. See
+		// revealJustAdded.
+		m.pendingReveal = msg.ids
+		return m, m.setStatus(okStatus(msg.text))
 
 	case statusMsg:
 		cmd := m.setStatus(msg)

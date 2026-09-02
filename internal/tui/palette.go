@@ -246,7 +246,10 @@ func addBatchCmd(c *ipc.Client, args []string) tea.Cmd {
 			return errStatus(fmt.Errorf("added %d, %d failed: %s",
 				len(ids), len(failures), failures[0]))
 		}
-		return torrentsAddedMsg{text: fmt.Sprintf("added %d torrent(s)", len(ids))}
+		return torrentsAddedMsg{
+			text: fmt.Sprintf("added %d torrent(s)", len(ids)),
+			ids:  ids,
+		}
 	}
 }
 
