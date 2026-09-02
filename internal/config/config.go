@@ -71,6 +71,14 @@ type Logging struct {
 type Config struct {
 	DownloadDir  string `toml:"download_dir"`
 	DaemonSocket string `toml:"daemon_socket"`
+	// MinFreeSpace holds every transfer while the download directory's
+	// filesystem has less than this free. Zero, the default, never holds
+	// anything.
+	//
+	// A guard rather than a per-torrent check because free space is a
+	// property of the disk, not of any one torrent: the torrent that
+	// fills it is rarely the one you would have chosen to stop.
+	MinFreeSpace Size `toml:"min_free_space"`
 	// StateDir is where the daemon keeps what it needs to come back after
 	// a restart: the session file and a copy of each torrent's metainfo.
 	StateDir string `toml:"state_dir"`
@@ -261,6 +269,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("log.library_level: %q is not one of %s", c.Log.LibraryLevel, strings.Join(LogLevels, ", "))
 	}
 
+	if c.MinFreeSpace < 0 {
+		return fmt.Errorf("min_free_space: must not be negative")
+	}
 	if c.RateLimit.Upload < 0 {
 		return fmt.Errorf("rate_limit.upload: must not be negative")
 	}

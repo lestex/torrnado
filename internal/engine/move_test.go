@@ -269,7 +269,7 @@ func TestFailedMoveReleasesTheHold(t *testing.T) {
 	}
 	e.mu.Lock()
 	hold := tr.holdData
-	down, up := tr.dataFlow(e.blocked)
+	down, up := tr.dataFlow(e.guardsLocked())
 	snap := e.snapshotLocked(id, tr)
 	e.mu.Unlock()
 

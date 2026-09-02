@@ -46,10 +46,11 @@ func (f statusFilter) matches(t engine.TorrentSnapshot) bool {
 	case filterStopped:
 		// Paused rather than State == StatePaused: a paused torrent that
 		// is being rechecked reports State as "checking", and it is still
-		// stopped. Blocked belongs here too - a torrent held by the VPN
-		// guard is not running, and this is the filter someone reaches for
-		// to find out what is not.
-		return t.Paused || t.State == engine.StateError || t.State == engine.StateBlocked
+		// stopped. The guards belong here too - a torrent held off-VPN or
+		// by a full disk is not running, and this is the filter someone
+		// reaches for to find out what is not.
+		return t.Paused || t.State == engine.StateError ||
+			t.State == engine.StateBlocked || t.State == engine.StateLowDisk
 	default:
 		return true
 	}
@@ -103,7 +104,7 @@ func (m Model) renderSidebar(p panes) string {
 	stats = append(stats,
 		m.styles.Muted.Render(truncate(fmt.Sprintf("port: %d", g.ListenPort), w)),
 		m.styles.Muted.Render(truncate(fmt.Sprintf("dht: %d", g.DhtNodes), w)),
-		m.styles.Muted.Render(truncate("free: "+formatBytes(g.DiskFreeBytes), w)),
+		m.diskLine(w),
 	)
 
 	// Push the daemon block to the bottom when there's room, drop it when
@@ -116,6 +117,22 @@ func (m Model) renderSidebar(p panes) string {
 	}
 
 	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// diskLine reports free space, in the error style when the free-space
+// guard is what is holding every transfer.
+//
+// Always drawn, unlike vpnLine: free space is worth knowing whether or
+// not a floor is configured, and a number on its own says nothing
+// alarming. What changes when the guard bites is the colour, so the
+// answer to "why is nothing moving" is in the same place as the reading
+// that explains it.
+func (m Model) diskLine(w int) string {
+	free := formatBytes(m.global.DiskFreeBytes)
+	if m.global.DiskLow {
+		return m.styles.Error.Render(truncate("free: "+free+" - held", w))
+	}
+	return m.styles.Muted.Render(truncate("free: "+free, w))
 }
 
 // vpnLine reports the VPN guard, and whether there is anything to report.

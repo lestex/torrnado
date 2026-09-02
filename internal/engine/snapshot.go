@@ -28,14 +28,25 @@ func (tr *tracked) updateRates(elapsed float64) {
 	tr.lastUploaded = uploaded
 }
 
+// guards are the reasons that come from the machine rather than from any
+// one torrent - the VPN check and the free-space check. Named together so
+// adding a third does not mean threading another bool through every call
+// site, and so a snapshot can say which one is holding transfers.
+type guards struct {
+	vpnBlocked bool
+	lowDisk    bool
+}
+
+func (g guards) any() bool { return g.vpnBlocked || g.lowDisk }
+
 // flowDecision reads what the switches should be; applyFlow turns them.
 //
 // Two parts because the library calls take the torrent client's lock, and
 // holding e.mu across them freezes every engine operation behind e.mu
 // whenever that lock is busy. Call flowDecision holding e.mu, applyFlow
 // not holding it.
-func (tr *tracked) flowDecision(blocked bool) (t *torrent.Torrent, down, up bool) {
-	down, up = tr.dataFlow(blocked)
+func (tr *tracked) flowDecision(g guards) (t *torrent.Torrent, down, up bool) {
+	down, up = tr.dataFlow(g)
 	return tr.t, down, up
 }
 
@@ -64,12 +75,12 @@ func applyFlow(t *torrent.Torrent, down, up bool) {
 //
 // This is also the only part a test can assert on: the library has no
 // accessor for either switch. Callers must hold e.mu.
-func (tr *tracked) dataFlow(blocked bool) (down, up bool) {
-	// blocked is the VPN guard and holdData a move in progress; both are
-	// conditions of the moment. paused is what the user asked for. None of
-	// them is allowed to overwrite another, which is why they are read
-	// together here rather than each turning the switches itself.
-	if tr.paused || blocked || tr.holdData {
+func (tr *tracked) dataFlow(g guards) (down, up bool) {
+	// The guards and holdData are conditions of the moment; paused is what
+	// the user asked for. None of them is allowed to overwrite another,
+	// which is why they are read together here rather than each turning
+	// the switches itself.
+	if tr.paused || g.any() || tr.holdData {
 		return false, false
 	}
 	down = tr.downLimit <= 0 || tr.lastDownBPS <= float64(tr.downLimit)
@@ -114,6 +125,8 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		state = StatePaused
 	case e.blocked:
 		state = StateBlocked
+	case e.lowDisk:
+		state = StateLowDisk
 	case total > 0 && completed >= total:
 		state = StateSeeding
 	}
