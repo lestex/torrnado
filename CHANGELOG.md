@@ -4,6 +4,21 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.4 - 2026-09-02
+
+### Features
+
+- Record the daemon's pid in its lock file
+- Report the daemon's build and uptime in global stats
+- Torrnado status
+- Torrnado stop
+- **BREAKING** Remove the network.lsd config key
+- **BREAKING** Seed is off by default
+
+### Bug fixes
+
+- Stop the daemon wedging when a torrent is dropped mid-verification
+
 ## 0.5.3 - 2026-09-01
 
 ### Bug fixes
