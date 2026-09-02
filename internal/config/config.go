@@ -114,6 +114,15 @@ type Config struct {
 	// user's file manager rather than one this program picked for them.
 	Opener string `toml:"opener"`
 
+	// OnComplete runs once when a torrent finishes, given its data
+	// directory the same way Player and Opener are given theirs: split on
+	// spaces, %f substituted, never through a shell. Empty runs nothing.
+	//
+	// The name, id and size also arrive as TORRNADO_* environment
+	// variables, so a notification script does not have to parse them
+	// back out of a path.
+	OnComplete string `toml:"on_complete"`
+
 	RateLimit RateLimits        `toml:"rate_limit"`
 	SeedLimit SeedLimits        `toml:"seed_limit"`
 	Port      PortRange         `toml:"port"`

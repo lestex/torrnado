@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -234,4 +235,77 @@ func TestTheSeedingClockIsPersistedWhenItStarts(t *testing.T) {
 	if rec.CompletedAt.IsZero() {
 		t.Error("the seeding clock was not written to disk when it started")
 	}
+}
+
+// The completion hook fires once per torrent, and must not fire again for
+// a torrent that was already finished when the daemon started - otherwise
+// every restart would re-run it for everything ever downloaded.
+func TestCompletionHookFiresOnceAndNotAgainAfterARestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+
+	var mu sync.Mutex
+	var fired []string
+	cfg.OnComplete = func(s TorrentSnapshot) {
+		mu.Lock()
+		defer mu.Unlock()
+		fired = append(fired, s.Name)
+	}
+
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	if _, err := e.AddTorrentFile(torrentPath, AddOpts{}); err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// Complete already, since the payload was built where it downloads to.
+	e.tick()
+	e.tick()
+
+	mu.Lock()
+	n := len(fired)
+	mu.Unlock()
+	if n != 1 {
+		t.Fatalf("hook fired %d times on the first run, want exactly 1", n)
+	}
+	if err := e.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// A fresh process sees every completed torrent as newly finished
+	// unless the session says otherwise.
+	next, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New (restart): %v", err)
+	}
+	t.Cleanup(func() { next.Close() })
+	if _, err := next.RestoreSession(); err != nil {
+		t.Fatalf("RestoreSession: %v", err)
+	}
+	next.tick()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(fired) != 1 {
+		t.Errorf("hook fired %d times across a restart, want 1 - a restart must not re-run it", len(fired))
+	}
+}
+
+// No hook configured must not mean a nil call on every completion.
+func TestNoCompletionHookIsSafe(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 128*1024)
+	if _, err := e.AddTorrentFile(torrentPath, AddOpts{}); err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+	e.tick() // would panic if a nil hook were called
 }
