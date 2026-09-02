@@ -71,7 +71,7 @@ next rather than only that it is empty:
 | `p`                | toggle pause/resume; also stops a running recheck   |
 | `r`                | force recheck on selected (or cursor row)          |
 | `enter`            | move focus into the detail pane                    |
-| `esc`              | focus back to the list, then clear selection / search / filter |
+| `esc`              | focus back to the list, then clear selection / search / label / status filter |
 | `:`                | open the command palette                           |
 | `v`                | stream to your player: the file under the cursor, or the torrent's biggest |
 | `o`                | open the torrent's folder in your file manager      |

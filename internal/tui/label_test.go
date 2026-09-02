@@ -282,3 +282,48 @@ func TestTheRevealWaitsForTheSnapshotThatCarriesTheTorrent(t *testing.T) {
 		t.Errorf("labelFilter = %q, want it cleared once the torrent arrived", got.labelFilter)
 	}
 }
+
+// Escape peels one layer at a time, and a label filter is a layer. It was
+// not in the chain, so with one applied and nothing else left to clear,
+// escape did nothing at all: the list stayed showing one label's worth of
+// torrents and there was no way back to All except the sidebar.
+func TestEscapeClearsALabelFilter(t *testing.T) {
+	m := labelled("a", "tv", "b", "films", "c", "")
+	m.labelFilter = "tv"
+	m.focus = focusList
+
+	if len(m.visibleTorrents()) != 1 {
+		t.Fatalf("setup: %d visible, want 1", len(m.visibleTorrents()))
+	}
+
+	m = press(m, "esc")
+
+	if m.labelFilter != "" {
+		t.Errorf("labelFilter = %q, want it cleared", m.labelFilter)
+	}
+	if n := len(m.visibleTorrents()); n != 3 {
+		t.Errorf("visible = %d, want all 3 back", n)
+	}
+}
+
+// And it stays one layer at a time: a selection is cleared first, so a
+// single escape must not throw away both.
+func TestEscapePeelsTheSelectionBeforeTheLabelFilter(t *testing.T) {
+	m := labelled("a", "tv", "b", "")
+	m.labelFilter = "tv"
+	m.focus = focusList
+	m.selected = map[engine.TorrentID]bool{"a": true}
+
+	m = press(m, "esc")
+	if m.labelFilter != "tv" {
+		t.Error("the label filter went with the selection; escape peels one layer")
+	}
+	if len(m.selected) != 0 {
+		t.Error("the selection was not cleared first")
+	}
+
+	m = press(m, "esc")
+	if m.labelFilter != "" {
+		t.Errorf("labelFilter = %q, want the second escape to clear it", m.labelFilter)
+	}
+}
