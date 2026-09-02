@@ -284,3 +284,12 @@ func (c *Client) Detail(id engine.TorrentID) (engine.TorrentDetail, error) {
 	}
 	return *resp.Detail, nil
 }
+
+// Shutdown asks the daemon to stop. It returns once the daemon has
+// accepted the request, not once it has finished: saving the session and
+// closing the engine take as long as they take, and the caller watches
+// the daemon lock to know when that is done.
+func (c *Client) Shutdown() error {
+	_, err := c.call(&Request{Method: MethodShutdown})
+	return err
+}

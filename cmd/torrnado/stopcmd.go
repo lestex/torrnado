@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -33,13 +34,12 @@ func newStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop",
 		Short: "Stop the running daemon and wait for it to shut down",
-		Long: "Sends SIGTERM to the daemon that owns the configured socket and waits\n" +
+		Long: "Asks the daemon that owns the configured socket to stop, and waits\n" +
 			"for it to exit, which is when it has saved its session and closed the\n" +
 			"torrent engine cleanly.\n\n" +
-			"The daemon is found by the lock it holds beside its socket, not by\n" +
-			"matching on a process name - so it works for a daemon running from a\n" +
-			"renamed binary, and it will never signal something that is not the\n" +
-			"daemon for this state directory.\n\n" +
+			"The request goes over the socket the daemon is already listening on,\n" +
+			"so it reaches the daemon for this state directory and nothing else -\n" +
+			"never a process that merely looks like one.\n\n" +
 			"Stopping is not something to do by reflex: a daemon that is still\n" +
 			"seeding is a normal state to leave a machine in.",
 		Args: cobra.NoArgs,
@@ -61,16 +61,30 @@ func newStopCmd() *cobra.Command {
 				fmt.Fprintf(out, "no daemon is running on %s\n", cfg.DaemonSocket)
 				return nil
 			}
-			if info.PID == 0 {
-				return fmt.Errorf("a daemon holds %s but did not record its pid "+
-					"(it predates `torrnado stop`); stop it with the pid from its "+
-					"`daemon starting` log line", info.LockPath)
+			// Dialed rather than dial-or-spawned: asking a daemon to stop
+			// must never be the thing that starts one.
+			c, err := ipc.Dial(cfg.DaemonSocket)
+			if err != nil {
+				return fmt.Errorf("connect to the daemon on %s: %w", cfg.DaemonSocket, err)
 			}
+			defer c.Close()
 
-			if err := signalStop(info.PID); err != nil {
-				return fmt.Errorf("signal daemon %d: %w", info.PID, err)
+			if err := c.Shutdown(); err != nil {
+				// A daemon older than this command answers "unknown
+				// method". Say what to do about it rather than leaving
+				// the raw protocol error to be puzzled over.
+				if strings.Contains(err.Error(), "unknown method") {
+					return fmt.Errorf("the running daemon predates `torrnado stop` "+
+						"and cannot be asked over the socket; send it SIGTERM instead "+
+						"(pid %d, from its `daemon starting` log line)", info.PID)
+				}
+				return fmt.Errorf("ask the daemon to stop: %w", err)
 			}
-			fmt.Fprintf(out, "asked daemon %d to stop\n", info.PID)
+			if info.PID != 0 {
+				fmt.Fprintf(out, "asked daemon %d to stop\n", info.PID)
+			} else {
+				fmt.Fprintln(out, "asked the daemon to stop")
+			}
 
 			if timeout <= 0 {
 				return nil // asked not to wait

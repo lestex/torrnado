@@ -35,6 +35,13 @@ type Server struct {
 	conns   map[net.Conn]struct{}
 	closing bool
 
+	// shutdown is closed when a client calls MethodShutdown. The daemon
+	// waits on it alongside the signals it already handles, so `torrnado
+	// stop` needs no way to signal a process - which is what makes it
+	// work on a platform that has no signals to send.
+	shutdown     chan struct{}
+	shutdownOnce sync.Once
+
 	wg sync.WaitGroup
 }
 
@@ -74,6 +81,7 @@ func Serve(socketPath string, eng *engine.Engine,
 		previewURL: previewURL,
 		lock:       lock,
 		conns:      map[net.Conn]struct{}{},
+		shutdown:   make(chan struct{}),
 	}
 	s.wg.Add(1)
 	go s.acceptLoop()
@@ -97,6 +105,16 @@ func (s *Server) Close() error {
 	os.Remove(s.socketPath)
 	releaseDaemonLock(s.lock)
 	return err
+}
+
+// ShutdownRequested is closed when a client has asked the daemon to stop.
+// The daemon selects on it the way it selects on SIGTERM; this package
+// does not shut anything down itself, because the engine, the stream
+// server and the log are the daemon's to tear down in order.
+func (s *Server) ShutdownRequested() <-chan struct{} { return s.shutdown }
+
+func (s *Server) requestShutdown() {
+	s.shutdownOnce.Do(func() { close(s.shutdown) })
 }
 
 // closeConns hangs up on every client being served and refuses any that
@@ -194,6 +212,14 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		resp := s.dispatch(msg.Req)
 		if send(message{Kind: kindReply, Resp: resp}) != nil {
+			return
+		}
+		// Asked after the reply has gone out, not inside dispatch: the
+		// daemon answers a shutdown by closing every connection, so
+		// triggering it first would race the write and leave the caller
+		// looking at a dropped connection instead of an OK.
+		if msg.Req.Method == MethodShutdown && resp.OK {
+			s.requestShutdown()
 			return
 		}
 	}
@@ -344,6 +370,11 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 		resp.URL = s.previewURL(id, req.FileIndex)
+
+	case MethodShutdown:
+		// Nothing to do here but agree. handleConn starts the shutdown
+		// once this reply is on the wire; see the call site.
+		resp.OK = true
 
 	default:
 		resp.Err = fmt.Sprintf("unknown method %q", req.Method)

@@ -29,23 +29,31 @@ To see whether one is running, and to stop it:
 
 ```sh
 torrnado status     # is a daemon running, which process, and what is it doing
-torrnado stop       # SIGTERM it, and wait until it has shut down cleanly
+torrnado stop       # ask it to stop, and wait until it has shut down cleanly
 ```
 
-Both find the daemon by the exclusive lock it holds on
+`torrnado status` finds the daemon by the exclusive lock it holds on
 `<state_dir>/daemon.sock.lock` for as long as it runs - the same lock
 that stops a second daemon claiming the socket. Whoever holds it *is* the
 daemon for this state directory, whatever the binary happens to be
 called, and the kernel releases it however the process dies. That is why
-neither command matches on a process name: `pkill -f "torrnado daemon"`
+it does not match on a process name: `pkill -f "torrnado daemon"`
 quietly finds nothing when the running copy was installed under another
 name, and can just as easily match a daemon belonging to a different
 state directory.
 
-`torrnado stop` waits rather than firing and forgetting, because SIGTERM
-is when the session is written - returning earlier would invite starting
-a new daemon while the old one is still saving. `--timeout 0` returns
-immediately if you would rather not wait.
+`torrnado stop` sends its request down the socket the daemon is already
+listening on, so it reaches the daemon for this state directory and
+nothing else - it needs no pid, and it can never signal a process that
+merely looks like the daemon. It waits rather than firing and forgetting,
+because shutting down is when the session is written: returning earlier
+would invite starting a new daemon while the old one is still saving.
+What it waits on is that same lock being released, which is exactly the
+moment a restart would succeed. `--timeout 0` returns immediately if you
+would rather not wait.
+
+A daemon still stops on SIGTERM exactly as it always did - that is how a
+service manager stops it, and none of this changes that.
 
 Stopping is still not something to do by reflex. A daemon that is
 seeding is doing its job, and leaving it running is the normal state for

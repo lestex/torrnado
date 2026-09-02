@@ -294,3 +294,79 @@ func TestDaemonInfoDoesNotBlockAStartingDaemon(t *testing.T) {
 	}
 	srv.Close()
 }
+
+// `torrnado stop` is one Shutdown call plus a wait on the daemon lock, so
+// the call has to come back OK. The daemon answers a shutdown by closing
+// every client connection, which is a race with writing this very reply:
+// the server must not start the shutdown until the reply is on the wire.
+// The goroutine below is the daemon - it does exactly what daemon.go does
+// when ShutdownRequested fires.
+func TestShutdownRepliesBeforeTheDaemonTearsDown(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+
+	srv, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	closed := make(chan struct{})
+	go func() {
+		<-srv.ShutdownRequested()
+		srv.Close()
+		close(closed)
+	}()
+
+	c, err := Dial(sock)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer c.Close()
+
+	if err := c.Shutdown(); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the daemon was never told to shut down")
+	}
+}
+
+// Nothing asks for a shutdown, so nothing should get one - a stray close
+// of that channel would stop the daemon on the next unrelated call.
+func TestShutdownIsNotRequestedByOtherCalls(t *testing.T) {
+	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	t.Cleanup(func() { eng.Close() })
+
+	sock := filepath.Join(shortTempDir(t), "d.sock")
+	srv, err := Serve(sock, eng, nil)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	defer srv.Close()
+
+	c, err := Dial(sock)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer c.Close()
+	if err := c.Ping(); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+
+	select {
+	case <-srv.ShutdownRequested():
+		t.Fatal("a ping asked the daemon to shut down")
+	default:
+	}
+}
