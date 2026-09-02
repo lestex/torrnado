@@ -117,7 +117,7 @@ func ExpandHome(path string) (string, error) {
 // the front of a path - and the thing they are pointed at is a binary on
 // $PATH far more often than a file in a home directory.
 func (c *Config) expandPaths() error {
-	for _, field := range []*string{&c.DownloadDir, &c.DaemonSocket, &c.StateDir, &c.Log.File} {
+	for _, field := range []*string{&c.DownloadDir, &c.DaemonSocket, &c.StateDir, &c.Log.File, &c.WatchDir} {
 		v, err := ExpandHome(*field)
 		if err != nil {
 			return err
