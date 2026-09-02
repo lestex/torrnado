@@ -165,7 +165,17 @@ func Default() (Config, error) {
 		Keybinds:     map[string]string{},
 		RateLimit:    RateLimits{Upload: 0, Download: 0},
 		Port:         PortRange{Low: 51413, High: 51433},
-		Network:      Network{DHT: true, PEX: true, Encryption: true, Seed: true},
+		// Seed off by default. It is the one network setting that keeps
+		// costing something after the work is done - bandwidth, an open
+		// port, and a continuing announcement of what this machine has -
+		// and a default should not commit someone to that indefinitely
+		// without their having asked.
+		//
+		// It is narrower than "do not upload": the library only treats
+		// this as altruistic seeding after a torrent completes. While
+		// downloading, peers are still uploaded to in order to encourage
+		// them to reciprocate, so turning it off is not leeching.
+		Network: Network{DHT: true, PEX: true, Encryption: true, Seed: false},
 		// Off, so installing torrnado never stops a download for a reason
 		// the user did not ask for. Turning it on is a deliberate act.
 		VPN: VPN{Required: false},

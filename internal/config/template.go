@@ -50,7 +50,7 @@ func Template(c Config) []byte {
 		{"dht", tomlBool(c.Network.DHT), ""},
 		{"pex", tomlBool(c.Network.PEX), ""},
 		{"encryption", tomlBool(c.Network.Encryption), ""},
-		{"seed", tomlBool(c.Network.Seed), "keep uploading after a torrent completes"},
+		{"seed", tomlBool(c.Network.Seed), "keep uploading after a torrent completes; while one is still downloading, peers are uploaded to either way"},
 	})
 
 	b.WriteString(templateVPN)
