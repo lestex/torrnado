@@ -144,12 +144,29 @@ then builds four archives with GoReleaser and creates the release, with
 notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`. The
 same tag publishes the documentation site - see Docs below.
 
+It also writes the Homebrew cask to
+[lestex/homebrew-tap](https://github.com/lestex/homebrew-tap), generated
+from the archives and checksums of that same tag. That commit lands in a
+different repository, which the workflow's automatic `GITHUB_TOKEN`
+cannot write to - it is scoped to this one - so it needs a PAT with
+`contents:write` on the tap, stored here as the `HOMEBREW_TAP_TOKEN`
+secret. Without it every other part of the release still runs and the
+cask step fails; add the secret and re-run the workflow from the same tag
+rather than moving the tag.
+
+A `-rc` or `-beta` tag is skipped (`skip_upload: auto`), so a pre-release
+never becomes what `brew install` hands people.
+
 To rehearse any of it locally:
 
 ```sh
 goreleaser check                       # validate .goreleaser.yaml
 goreleaser build --snapshot --clean    # build all four targets into dist/
 git cliff --latest --strip header      # exactly what the release page gets
+
+# The cask this tag would publish, written to dist/homebrew/Casks/ and
+# pushed nowhere:
+goreleaser release --snapshot --clean --skip=publish
 ```
 
 `make changelog` uses `git-cliff` from `PATH` and falls back to its

@@ -63,6 +63,52 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# `brew install lestex/tap/torrnado`, written into github.com/lestex/homebrew-tap
+# on every tag.
+#
+# A cask rather than a formula, though this is a CLI and formulas are what
+# CLIs usually are: GoReleaser's `brews` is hard-deprecated (its own
+# `check` fails on it now) because a formula that installs a pre-compiled
+# binary was always a fiction - it declares a build it does not do. Casks
+# are what Homebrew wants for shipped binaries.
+#
+# GoReleaser's deprecation notice calls casks macOS-only. That was true
+# and no longer is: Homebrew 6.0.0 takes `binary` casks on Linux, and the
+# generated file carries on_linux stanzas for both architectures. Linux
+# brew is not what install.sh exists for either way, so nothing here rests
+# on it working.
+homebrew_casks:
+  - name: torrnado
+    repository:
+      owner: lestex
+      name: homebrew-tap
+      # Not GITHUB_TOKEN: that one is scoped to this repository, and the
+      # tap is a different one. See docs/reference/development.md.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    # Trailing slash deliberately: `brew style` fails a cask homepage
+    # without one (Cask/HomepageUrlStyling).
+    homepage: https://torrnado.dev/
+    description: Terminal BitTorrent client with a vim-like interface and a background daemon
+    binaries: [torrnado]
+    # The same page the archives carry, so `man torrnado` works for a brew
+    # install too rather than only for the ones that unpack a tarball.
+    manpages: [torrnado.1]
+    # A -rc or -beta tag must not become what `brew install` hands people.
+    # `auto` reads the same prerelease detection the release above uses.
+    skip_upload: auto
+    # These binaries are not signed or notarized, so macOS quarantines
+    # anything downloaded and Gatekeeper refuses to run it - the failure
+    # reads as a corrupt binary rather than as a policy. Stripping the
+    # attribute is what every unsigned cask does; the OS.mac? guard is
+    # there because /usr/bin/xattr does not exist on Linux, where casks
+    # now also install.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/torrnado"]
+          end
+
 snapshot:
   version_template: "{{ incpatch .Version }}-snapshot"
 

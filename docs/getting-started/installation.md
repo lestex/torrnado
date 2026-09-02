@@ -1,11 +1,36 @@
 ---
 description: >-
-  Install torrnado on macOS or Linux: a one-line install script with a
-  checksum check, a release archive, a container image, or a build from
-  source.
+  Install torrnado on macOS or Linux: Homebrew, a one-line install script
+  with a checksum check, a release archive, a container image, or a build
+  from source.
 ---
 
 # Installation
+
+## Homebrew
+
+```sh
+brew install lestex/tap/torrnado
+```
+
+Or `brew tap lestex/tap` once and `brew install torrnado` after. Upgrades
+come with `brew upgrade` like anything else, and the man page is installed
+with the binary.
+
+The tap is written by the release itself - the cask for a tag is generated
+from the same archives and checksums that tag publishes, so it cannot
+point at a build that does not exist. It is a cask rather than a formula
+because these are pre-compiled binaries: a formula that installs one is
+declaring a build it never does. Homebrew takes binary casks on Linux as
+well as macOS.
+
+!!! note "The first run on macOS"
+
+    These binaries are not signed or notarized, so macOS quarantines them
+    and Gatekeeper refuses to start one - it reports a damaged binary,
+    which is not what happened. The cask clears the quarantine attribute
+    on install, so `brew install` needs nothing from you here. Unpacking
+    an archive by hand does: `xattr -dr com.apple.quarantine ./torrnado`.
 
 ## The one-liner
 
@@ -40,7 +65,7 @@ plus `checksums.txt`, on the [releases
 page](https://github.com/lestex/torrnado/releases):
 
 ```sh
-tar xzf torrnado_0.5.7_linux_amd64.tar.gz
+tar xzf torrnado_0.5.1_linux_amd64.tar.gz
 ./torrnado version
 ```
 

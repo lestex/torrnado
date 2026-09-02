@@ -56,8 +56,11 @@ jobs:
       # Written into the work tree because that is what the container has
       # mounted, then moved straight out of it: GoReleaser refuses to
       # release from a dirty tree, and an untracked RELEASE_NOTES.md counts
-      # as dirty. --user matches the Makefile's invocation so the file
-      # belongs to the runner rather than root and can be moved at all.
+      # as dirty. --user is what makes the file belong to the runner
+      # rather than to root, so it can be moved at all. (The Makefile
+      # takes the output on stdout instead: --user fails on Docker
+      # Desktop, where the container starts unprivileged and cannot drop
+      # privileges further. Both produce the same bytes.)
       - name: Release notes
         run: |
           docker run --rm --user "$(id -u):$(id -g)" \
@@ -72,6 +75,13 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The Homebrew cask is committed to lestex/homebrew-tap, which
+          # the automatic GITHUB_TOKEN cannot write to - it is scoped to
+          # this repository alone. A PAT with contents:write on the tap is
+          # the only way across that boundary; without it the cask step
+          # fails, and the fix is to add the secret and re-run this
+          # workflow from the same tag rather than to move the tag.
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
   # The container image, to ghcr.io/lestex/torrnado.
   #

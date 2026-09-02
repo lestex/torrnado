@@ -99,6 +99,15 @@ a tunnel, and lets them go again when it reconnects.
 
 <div class="tn-install" markdown>
 
+=== "Homebrew"
+
+    ```sh
+    brew install lestex/tap/torrnado
+    ```
+
+    The cask is written by the release itself, from the same archives
+    that tag publishes. [More](getting-started/installation.md#homebrew).
+
 === "Install script"
 
     ```sh
