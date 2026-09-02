@@ -132,8 +132,8 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 	}
 
 	stats := t.Stats()
-	downloaded := stats.BytesReadUsefulData.Int64()
-	uploaded := stats.BytesWrittenData.Int64()
+	downloaded := tr.baseDownloaded + stats.BytesReadUsefulData.Int64()
+	uploaded := tr.baseUploaded + stats.BytesWrittenData.Int64()
 
 	// A torrent that has uploaded without downloading anything has an
 	// infinite ratio - which is a real state (a torrent you seeded from

@@ -25,6 +25,7 @@ torrnado resume <id...>
 torrnado recheck <id...>
 torrnado priority <id> <file-index> <none|low|normal|high|now>
 torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-torrent
+torrnado seed-limit <id...>           --ratio / --time; when this torrent stops seeding
 torrnado move <id> <new-directory>
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)

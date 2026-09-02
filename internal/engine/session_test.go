@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -291,6 +292,195 @@ func TestWriteFileAtomicLeavesNoPartialFile(t *testing.T) {
 	for _, ent := range entries {
 		if strings.HasPrefix(ent.Name(), ".tmp-") {
 			t.Errorf("left a temporary file behind: %s", ent.Name())
+		}
+	}
+}
+
+// A ratio has to survive a restart, or a seed limit built on it would
+// never fire on the one machine it is for: the library counts bytes per
+// torrent instance, and a restart makes a new instance.
+func TestLifetimeTotalsSurviveARestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// Stand in for bytes moved: the test has no swarm, so the totals are
+	// set directly and then have to come back the same.
+	e.mu.Lock()
+	e.torrents[id].baseUploaded = 3 << 20
+	e.torrents[id].baseDownloaded = 1 << 20
+	e.mu.Unlock()
+	if err := e.SaveSession(); err != nil {
+		t.Fatalf("SaveSession: %v", err)
+	}
+	// Asserted before the restart, because a restore can only find this
+	// torrent through its saved metainfo - it was added from a file, so
+	// there is no magnet to fall back on. Checking here means a failure
+	// says which half broke.
+	if !fileExists(e.metainfoPath(id)) {
+		t.Fatalf("no metainfo saved at %s; a restore would have nothing to re-add from", e.metainfoPath(id))
+	}
+	if err := e.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	next, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New (restart): %v", err)
+	}
+	t.Cleanup(func() { next.Close() })
+	n, err := next.RestoreSession()
+	if err != nil {
+		t.Fatalf("RestoreSession: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("restored %d torrents, want 1 - the totals cannot come back if the torrent did not", n)
+	}
+
+	var found bool
+	var snap TorrentSnapshot
+	for _, s := range next.ListTorrents() {
+		if s.ID == id {
+			snap, found = s, true
+		}
+	}
+	if !found {
+		t.Fatalf("the restored session does not contain %s", id)
+	}
+	if snap.Uploaded < 3<<20 {
+		t.Errorf("uploaded = %d after restart, want at least %d", snap.Uploaded, 3<<20)
+	}
+	if snap.Downloaded < 1<<20 {
+		t.Errorf("downloaded = %d after restart, want at least %d", snap.Downloaded, 1<<20)
+	}
+	// 3 MiB up over 1 MiB down.
+	if snap.Ratio < 2.9 || snap.Ratio > 3.1 {
+		t.Errorf("ratio = %v after restart, want ~3", snap.Ratio)
+	}
+}
+
+// A move drops and re-adds the torrent, which resets the library's
+// counters. The totals must not go backwards.
+func TestLifetimeTotalsSurviveAMove(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	e.mu.Lock()
+	e.torrents[id].baseUploaded = 5 << 20
+	e.mu.Unlock()
+
+	if err := e.MoveStorage(id, filepath.Join(t.TempDir(), "dest")); err != nil {
+		t.Fatalf("MoveStorage: %v", err)
+	}
+
+	var snap TorrentSnapshot
+	for _, s := range e.ListTorrents() {
+		if s.ID == id {
+			snap = s
+		}
+	}
+	if snap.Uploaded < 5<<20 {
+		t.Errorf("uploaded = %d after a move, want at least %d", snap.Uploaded, 5<<20)
+	}
+}
+
+// Hammers SaveSession from several goroutines while the state it saves
+// changes underneath, and checks the file never ends up older than the
+// last value written.
+//
+// An honest note on what this is worth: it does not reproduce the
+// out-of-order write that saveMu exists to prevent - that window is
+// between one saver reading the records and writing them, and it has not
+// been made to lose a value on demand here. So this is a smoke test over
+// concurrent saves, not proof of the fix. It is kept because nothing else
+// calls SaveSession concurrently at all, and under -race it would catch a
+// worse class of mistake.
+func TestConcurrentSavesDoNotLoseUpdates(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 128*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// One goroutine keeps saving while the other raises the totals and
+	// saves after each change. Whatever order they run in, the file must
+	// never end up older than the last value written before the final
+	// save.
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	// Several, because the window is between one saver reading the
+	// records and writing them; one competitor rarely lands inside it.
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					e.SaveSession()
+				}
+			}
+		}()
+	}
+
+	var last int64
+	for i := 1; i <= 200; i++ {
+		last = int64(i) << 20
+		e.mu.Lock()
+		e.torrents[id].baseUploaded = last
+		e.mu.Unlock()
+		if err := e.SaveSession(); err != nil {
+			t.Fatalf("SaveSession: %v", err)
+		}
+	}
+	close(stop)
+	wg.Wait()
+
+	// A final save, so the comparison is against a settled file.
+	if err := e.SaveSession(); err != nil {
+		t.Fatalf("final SaveSession: %v", err)
+	}
+
+	data, err := os.ReadFile(e.sessionPath())
+	if err != nil {
+		t.Fatalf("read session: %v", err)
+	}
+	var sf sessionFile
+	if err := json.Unmarshal(data, &sf); err != nil {
+		t.Fatalf("parse session: %v", err)
+	}
+	for _, rec := range sf.Torrents {
+		if rec.InfoHash == string(id) && rec.Uploaded < last {
+			t.Errorf("session went backwards: uploaded = %d on disk, want at least %d", rec.Uploaded, last)
 		}
 	}
 }

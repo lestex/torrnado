@@ -39,6 +39,7 @@ func main() {
 		newRecheckCmd(),
 		newPriorityCmd(),
 		newLimitCmd(),
+		newSeedLimitCmd(),
 		newMoveCmd(),
 		newListCmd(),
 		newPreviewCmd(),

@@ -303,6 +303,13 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 
+	case MethodSetSeedLimit:
+		if err := s.eng.SetSeedLimit(engine.TorrentID(req.ID), req.SeedRatio, req.SeedTime); err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+
 	case MethodMoveStorage:
 		if err := s.eng.MoveStorage(engine.TorrentID(req.ID), req.NewDir); err != nil {
 			resp.Err = err.Error()

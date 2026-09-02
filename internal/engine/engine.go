@@ -64,6 +64,29 @@ type Config struct {
 
 	Seed bool
 
+	// OnComplete is called once, from the tick, the first time a torrent
+	// is seen finished. Nil disables it.
+	//
+	// A closure rather than a command string for the same reason VPNCheck
+	// is one: running a program means importing internal/launch, and this
+	// package deliberately depends on nothing internal. The daemon knows
+	// about both and does the wiring.
+	//
+	// Called with e.mu released, and expected not to block - it is on the
+	// tick's path.
+	OnComplete func(TorrentSnapshot)
+
+	// SeedRatio stops a completed torrent once uploaded/downloaded reaches
+	// it, and SeedTime once it has been seeding that long. Zero disables
+	// each. They are per-torrent defaults; a torrent may carry its own.
+	//
+	// Unlike the guards these pause the torrent. A guard is a condition of
+	// the machine that comes and goes; this is a decision that the torrent
+	// is finished, and it has to survive a restart rather than be undone
+	// by one.
+	SeedRatio float64
+	SeedTime  time.Duration
+
 	// MinFreeSpace holds every transfer while DataDir's filesystem has
 	// less than this many bytes free. Zero never holds anything.
 	//
@@ -128,6 +151,18 @@ type tracked struct {
 	// asking it which is which marks a deselected file wanted again.
 	chosenFiles map[int]bool
 
+	// baseDownloaded/baseUploaded are the bytes moved before this
+	// torrent's current library instance existed - carried over from the
+	// session file at startup, and folded in whenever a move or a purge
+	// drops and re-adds the torrent.
+	//
+	// The library counts per instance, so without these a ratio resets to
+	// zero every restart, which is exactly when a long-running box would
+	// be relying on it. Totals reported to callers are base plus the
+	// current instance's counters.
+	baseDownloaded int64
+	baseUploaded   int64
+
 	// The client reports cumulative byte counters, not speeds, so a rate
 	// is the change since the previous tick divided by the time between
 	// them. These hold the previous reading and the rate derived from it.
@@ -139,6 +174,17 @@ type tracked struct {
 	downLimit int64 // bytes/sec, 0 = unlimited (best-effort; see SetTorrentRateLimit)
 	upLimit   int64
 
+	// seedRatio and seedTime override the engine-wide defaults for this
+	// torrent. A negative value means "no limit for this one", which is
+	// how a torrent opts out of a default that would otherwise stop it;
+	// zero means "use the default", so an unset torrent follows config.
+	seedRatio float64
+	seedTime  time.Duration
+	// completedAt is when this torrent was first seen finished, which is
+	// what a seeding-time limit counts from. Zero until then, and
+	// persisted so a restart does not restart the clock.
+	completedAt time.Time
+
 	// lastPeers holds the previous per-peer byte counters, keyed by
 	// remote address, so a detail call can report instantaneous peer
 	// speeds. The library has no such rate: PeerStats.DownloadRate is a
@@ -147,8 +193,13 @@ type tracked struct {
 	lastPeers   map[string]peerBytes
 	lastPeersAt time.Time
 
-	// completeLogged stops the completion message repeating on every
-	// tick once a torrent is done.
+	// completeLogged stops the completion message - and the completion
+	// hook - repeating once a torrent is done.
+	//
+	// Restored from the session's completedAt rather than kept only in
+	// memory: every completed torrent looks newly finished to a fresh
+	// process, so without that a restart would re-announce all of them
+	// and run the hook again for each.
 	completeLogged bool
 
 	// holdData stops data moving for the duration of an operation that is
@@ -226,6 +277,9 @@ type Engine struct {
 	lowDisk     bool
 	diskFree    int64
 	diskChecked bool
+
+	// saveMu serializes SaveSession end to end. See SaveSession.
+	saveMu sync.Mutex
 
 	lastTick  time.Time
 	startedAt time.Time
@@ -571,15 +625,68 @@ func (e *Engine) tick() {
 	// Collected under the lock, logged outside it: the destination may be
 	// a file, and a slow write should not stall every other operation.
 	done := e.newlyCompleteLocked()
+	// The seeding clock starts here, and the limits are read off the same
+	// snapshots the event carries so the two cannot disagree about a
+	// torrent's ratio.
+	stop, clockStarted := e.seedLimitsReachedLocked(ev.Torrents, now)
 	e.mu.Unlock()
+
+	// The tick does not otherwise write to disk. A torrent that has just
+	// finished has to, or a restart would start its seeding clock again
+	// from zero and a time limit would never come due.
+	if clockStarted {
+		e.persist()
+	}
 
 	for _, f := range flows {
 		applyFlow(f.t, f.down, f.up)
 	}
+	// Paused outside the lock, and through SetPaused rather than by
+	// setting the flag: that is what persists the decision, marks the
+	// files unwanted and broadcasts it. A limit reached is a torrent
+	// finished, not a torrent held.
+	for _, s := range stop {
+		if err := e.SetPaused(s.id, true); err != nil {
+			e.log.Error("stopping a torrent at its seed limit failed", "id", s.id, "err", err)
+			continue
+		}
+		e.log.Info("seeding finished, torrent stopped",
+			"id", s.id, "name", s.name, "limit", s.why, "ratio", s.ratio)
+	}
 	for _, s := range done {
 		e.log.Info("torrent complete", "id", s.ID, "name", s.Name, "size", s.TotalLength)
+		if e.cfg.OnComplete != nil {
+			e.cfg.OnComplete(s)
+		}
 	}
 	e.broadcast(ev)
+}
+
+// seedLimitDecision is one torrent that has met a seeding limit.
+type seedLimitDecision struct {
+	id    TorrentID
+	name  string
+	why   string
+	ratio float64
+}
+
+// seedLimitsReachedLocked starts the seeding clock for anything newly
+// finished and returns the torrents that have met a limit. Callers hold
+// e.mu; the pausing happens outside it.
+func (e *Engine) seedLimitsReachedLocked(snaps []TorrentSnapshot, now time.Time) (out []seedLimitDecision, clockStarted bool) {
+	for _, snap := range snaps {
+		tr, ok := e.torrents[snap.ID]
+		if !ok {
+			continue
+		}
+		if markCompletedLocked(tr, snap, now) {
+			clockStarted = true
+		}
+		if why, reached := e.seedLimitReached(tr, snap, now); reached {
+			out = append(out, seedLimitDecision{snap.ID, snap.Name, why, snap.Ratio})
+		}
+	}
+	return out, clockStarted
 }
 
 // newlyCompleteLocked returns the torrents that finished since the last

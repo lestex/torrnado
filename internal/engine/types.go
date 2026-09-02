@@ -122,13 +122,16 @@ type TorrentSnapshot struct {
 	Progress    float64 // 0..1
 	DownloadBPS float64
 	UploadBPS   float64
-	Downloaded  int64 // cumulative, this session
-	Uploaded    int64 // cumulative, this session
-	Ratio       float64
-	NumPeers    int
-	NumSeeds    int
-	ETA         time.Duration // 0 if unknown/infinite
-	State       State
+	// Downloaded/Uploaded are cumulative for the life of the torrent, not
+	// just this run: the library counts per instance, so the engine keeps
+	// the earlier totals and adds them back. Ratio is derived from these.
+	Downloaded int64
+	Uploaded   int64
+	Ratio      float64
+	NumPeers   int
+	NumSeeds   int
+	ETA        time.Duration // 0 if unknown/infinite
+	State      State
 	// Paused is the authoritative pause flag. State can't stand in for it:
 	// State reports Checking (or Error) in preference to Paused, so a
 	// paused torrent being rechecked reads as "checking", and anything

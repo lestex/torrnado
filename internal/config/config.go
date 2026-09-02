@@ -33,6 +33,22 @@ type Network struct {
 	Seed       bool `toml:"seed"`
 }
 
+// SeedLimits stop seeding a torrent once it has given enough back.
+//
+// Both are off by default. They pause the torrent rather than holding it
+// the way the VPN and disk guards do: those are conditions of the machine
+// that come and go, this is a decision that a torrent is finished, and it
+// should survive a restart rather than being undone by one.
+type SeedLimits struct {
+	// Ratio stops a torrent once uploaded/downloaded reaches it. Zero is
+	// off. Only ever applied to a torrent that has finished downloading -
+	// a ratio means nothing while the denominator is still moving.
+	Ratio float64 `toml:"ratio"`
+	// Time stops a torrent once it has been seeding for this long,
+	// counted from when it completed. Zero is off.
+	Time Duration `toml:"time"`
+}
+
 // VPN gates transfers on the system being connected to a VPN.
 type VPN struct {
 	// Required holds every transfer - download and upload - while the
@@ -99,6 +115,7 @@ type Config struct {
 	Opener string `toml:"opener"`
 
 	RateLimit RateLimits        `toml:"rate_limit"`
+	SeedLimit SeedLimits        `toml:"seed_limit"`
 	Port      PortRange         `toml:"port"`
 	Network   Network           `toml:"network"`
 	VPN       VPN               `toml:"vpn"`
@@ -269,6 +286,12 @@ func (c Config) Validate() error {
 		return fmt.Errorf("log.library_level: %q is not one of %s", c.Log.LibraryLevel, strings.Join(LogLevels, ", "))
 	}
 
+	if c.SeedLimit.Ratio < 0 {
+		return fmt.Errorf("seed_limit.ratio: must not be negative")
+	}
+	if c.SeedLimit.Time < 0 {
+		return fmt.Errorf("seed_limit.time: must not be negative")
+	}
 	if c.MinFreeSpace < 0 {
 		return fmt.Errorf("min_free_space: must not be negative")
 	}

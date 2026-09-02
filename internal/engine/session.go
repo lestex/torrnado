@@ -40,12 +40,25 @@ type torrentRecord struct {
 	// Magnet is what the torrent was added from, when it was added from
 	// one. It is the only way back for a torrent whose metadata never
 	// arrived, since there is no metainfo file to re-add from.
-	Magnet    string    `json:"magnet,omitempty"`
-	SavePath  string    `json:"save_path"`
-	Paused    bool      `json:"paused"`
-	UpLimit   int64     `json:"upload_limit,omitempty"`
-	DownLimit int64     `json:"download_limit,omitempty"`
-	AddedAt   time.Time `json:"added_at"`
+	Magnet    string `json:"magnet,omitempty"`
+	SavePath  string `json:"save_path"`
+	Paused    bool   `json:"paused"`
+	UpLimit   int64  `json:"upload_limit,omitempty"`
+	DownLimit int64  `json:"download_limit,omitempty"`
+	// Uploaded/Downloaded are the lifetime totals, so a ratio survives a
+	// restart. Without them every restart would put a seeding torrent
+	// back at zero.
+	Uploaded   int64     `json:"uploaded,omitempty"`
+	Downloaded int64     `json:"downloaded,omitempty"`
+	AddedAt    time.Time `json:"added_at"`
+	// SeedRatio/SeedTime are this torrent's own limits, overriding the
+	// configured defaults; negative means "no limit for this one".
+	SeedRatio float64       `json:"seed_ratio,omitempty"`
+	SeedTime  time.Duration `json:"seed_time,omitempty"`
+	// CompletedAt is when the torrent was first seen finished, which a
+	// seeding-time limit counts from. Persisted so a restart does not
+	// restart the clock on a torrent that finished days ago.
+	CompletedAt time.Time `json:"completed_at,omitempty"`
 	// FilePriorities holds only the files that differ from normal, which
 	// is nearly all of them nearly all of the time.
 	FilePriorities []filePriorityRecord `json:"file_priorities,omitempty"`
@@ -108,6 +121,21 @@ func (e *Engine) SaveSession() error {
 		return nil
 	}
 
+	// Held across the whole of this, build and write both.
+	//
+	// The records are gathered under e.mu and written outside it, so two
+	// callers could otherwise interleave: both snapshot, then the one
+	// that snapshotted first writes last, and its stale records land on
+	// top of the fresher ones. The file goes backwards, and stays that
+	// way until the next save. Adding a torrent is enough to hit it - the
+	// goroutine waiting for metadata saves too - and what is lost is
+	// whatever changed in between.
+	//
+	// A separate mutex from e.mu because this holds through a disk write,
+	// and engine operations must not queue behind that.
+	e.saveMu.Lock()
+	defer e.saveMu.Unlock()
+
 	e.mu.Lock()
 	records := make([]torrentRecord, 0, len(e.torrents))
 	for id, tr := range e.torrents {
@@ -144,6 +172,15 @@ func (e *Engine) recordLocked(id TorrentID, tr *tracked) torrentRecord {
 		DownLimit: tr.downLimit,
 		AddedAt:   tr.addedAt,
 	}
+	// The library's counters plus what earlier instances moved, which is
+	// the same total snapshotLocked reports.
+	st := tr.t.Stats()
+	rec.Downloaded = tr.baseDownloaded + st.BytesReadUsefulData.Int64()
+	rec.Uploaded = tr.baseUploaded + st.BytesWrittenData.Int64()
+	rec.SeedRatio = tr.seedRatio
+	rec.SeedTime = tr.seedTime
+	rec.CompletedAt = tr.completedAt
+
 	// Both of these read through metadata that a magnet may not have yet.
 	if tr.t.Info() != nil {
 		rec.Name = tr.t.Name()
@@ -310,15 +347,22 @@ func (e *Engine) restoreOne(rec torrentRecord) error {
 		}
 	}
 
-	// The record's own timestamp, so an "added" column does not reset to
-	// the moment of the last restart.
-	if !rec.AddedAt.IsZero() {
-		e.mu.Lock()
-		if tr, ok := e.torrents[id]; ok {
+	// The record's own timestamp and totals, so neither an "added" column
+	// nor a ratio resets to the moment of the last restart.
+	e.mu.Lock()
+	if tr, ok := e.torrents[id]; ok {
+		if !rec.AddedAt.IsZero() {
 			tr.addedAt = rec.AddedAt
 		}
-		e.mu.Unlock()
+		tr.baseDownloaded = rec.Downloaded
+		tr.baseUploaded = rec.Uploaded
+		tr.seedRatio = rec.SeedRatio
+		tr.seedTime = rec.SeedTime
+		tr.completedAt = rec.CompletedAt
+		// Already finished in an earlier run, so it is not news now.
+		tr.completeLogged = !rec.CompletedAt.IsZero()
 	}
+	e.mu.Unlock()
 	return nil
 }
 

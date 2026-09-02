@@ -48,6 +48,15 @@ func newConfigCmd() *cobra.Command {
 // newReportWriter is the column layout the key/value reports share, so
 // `torrnado config` and `torrnado status` line up as one family rather
 // than two that happen to look similar.
+// ratioText renders a seed ratio, saying "none" for the zero that means
+// no limit rather than printing a bare 0 next to values that are real.
+func ratioText(r float64) string {
+	if r <= 0 {
+		return "none"
+	}
+	return strconv.FormatFloat(r, 'g', -1, 64)
+}
+
 func newReportWriter(out io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 }
@@ -81,6 +90,8 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintf(w, "  player\t%s\n", cfg.Player)
 	fmt.Fprintf(w, "  opener\t%s\n", cfg.Opener)
 	fmt.Fprintf(w, "  min_free_space\t%s\n", cfg.MinFreeSpace)
+	fmt.Fprintf(w, "  seed_limit.ratio\t%s\n", ratioText(cfg.SeedLimit.Ratio))
+	fmt.Fprintf(w, "  seed_limit.time\t%s\n", cfg.SeedLimit.Time)
 	fmt.Fprintf(w, "  rate_limit.upload\t%s\n", cfg.RateLimit.Upload)
 	fmt.Fprintf(w, "  rate_limit.download\t%s\n", cfg.RateLimit.Download)
 	fmt.Fprintf(w, "  port\t%s\n", portRangeText(cfg.Port))

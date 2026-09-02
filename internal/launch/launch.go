@@ -5,6 +5,7 @@ package launch
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -28,6 +29,17 @@ const PathPlaceholder = "%f"
 // something rendering into the terminal itself; here the point is to keep
 // the TUI usable alongside whatever was started.
 func Detached(command, path string) error {
+	return DetachedEnv(command, path, nil)
+}
+
+// DetachedEnv is Detached with extra environment variables for the child,
+// each "NAME=value".
+//
+// Separate from the path because a hook wants context the placeholder
+// cannot carry - a torrent's name and size alongside its directory - and
+// because a notification script should not have to parse them back out of
+// the one argument it was given.
+func DetachedEnv(command, path string, extraEnv []string) error {
 	name, args := parse(command)
 	if name == "" {
 		return fmt.Errorf("no command configured")
@@ -35,6 +47,11 @@ func Detached(command, path string) error {
 	args = withPath(args, path)
 
 	cmd := exec.Command(name, args...)
+	if len(extraEnv) > 0 {
+		// The parent's environment is kept: a hook is a user's own script
+		// and will expect PATH and HOME to be what they always are.
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	// A child inheriting the TUI's stdio would scribble over the rendered
 	// panes with its own output.
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil

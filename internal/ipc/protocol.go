@@ -30,6 +30,7 @@ const (
 	MethodSetGlobalUploadLimit   Method = "SetGlobalUploadLimit"
 	MethodSetGlobalDownloadLimit Method = "SetGlobalDownloadLimit"
 	MethodSetTorrentRateLimit    Method = "SetTorrentRateLimit"
+	MethodSetSeedLimit           Method = "SetSeedLimit"
 	MethodMoveStorage            Method = "MoveStorage"
 	MethodList                   Method = "List"
 	MethodDetail                 Method = "Detail"
@@ -59,6 +60,12 @@ type Request struct {
 
 	UploadBps   int64
 	DownloadBps int64
+	// SeedRatio/SeedTime carry a seeding limit. Zero means "use the
+	// configured default" and negative "no limit for this torrent", the
+	// same convention the engine uses - so the wire cannot express
+	// something the engine cannot.
+	SeedRatio float64
+	SeedTime  time.Duration
 
 	NewDir string
 }

@@ -114,7 +114,13 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	// from a peer first, and for a torrent with no peers it may never
 	// arrive. So wait for it in the background rather than making the
 	// caller wait an unbounded time.
+	//
+	// In the wait group because it writes: a save that lands after Close
+	// has returned puts files back in a state directory the caller
+	// believes it has finished with.
+	e.wg.Add(1)
 	go func() {
+		defer e.wg.Done()
 		select {
 		case <-t.GotInfo():
 		case <-e.closeCh:
@@ -794,6 +800,7 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	ih := t.InfoHash()
 	mi := t.Metainfo()
 
+	e.foldCounters(tr, t)
 	t.Drop()
 	if oldStorage != nil {
 		oldStorage.Close()
@@ -957,6 +964,7 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	newStorage := storage.NewFile(newDir)
 	spec.Storage = newStorage
 
+	e.foldCounters(tr, t)
 	t.Drop()
 	if oldStorage != nil {
 		oldStorage.Close()
@@ -1026,6 +1034,24 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 
 	e.snapshotAndBroadcastNow()
 	return nil
+}
+
+// foldCounters moves the current instance's byte counters into the
+// lifetime totals, for a torrent about to be dropped and re-added.
+//
+// Without this a move or a purge silently resets a torrent's ratio: the
+// library counts per instance, and the instance is about to be thrown
+// away. Stats is read before the lock is taken, since it goes through the
+// client's own lock.
+func (e *Engine) foldCounters(tr *tracked, t *torrent.Torrent) {
+	st := t.Stats()
+	e.mu.Lock()
+	tr.baseDownloaded += st.BytesReadUsefulData.Int64()
+	tr.baseUploaded += st.BytesWrittenData.Int64()
+	// The rate deltas are per instance too, and a fresh instance starts
+	// from zero.
+	tr.lastDownloaded, tr.lastUploaded = 0, 0
+	e.mu.Unlock()
 }
 
 // moveFailed records a move that could not finish and lets the torrent go
