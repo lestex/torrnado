@@ -4,6 +4,12 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.6 - 2026-09-02
+
+### Features
+
+- Complete paths with tab in the command palette
+
 ## 0.5.5 - 2026-09-02
 
 ### Features
