@@ -173,6 +173,10 @@ type Model struct {
 	// filter, which is not the same as "the empty label": a torrent with
 	// no label is only hidden while some label is selected.
 	labelFilter string
+	// pendingReveal holds torrents just added, until a snapshot carries
+	// them and the filters hiding them can be worked out. See
+	// revealJustAdded.
+	pendingReveal []engine.TorrentID
 
 	// detail always describes the torrent under the list cursor. The
 	// pane is docked rather than a separate view, so it is refetched

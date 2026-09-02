@@ -16,10 +16,16 @@ type statusMsg struct {
 }
 
 // torrentsAddedMsg reports a successful add, so the model can make sure
-// what was just added is actually going to be visible. It carries the
-// status text rather than being a statusMsg, because the model may want
-// to add to it.
-type torrentsAddedMsg struct{ text string }
+// what was just added is actually going to be visible.
+//
+// It carries the ids rather than only a count because which filters are
+// hiding them cannot be answered until the torrents themselves are in
+// hand: a name decides the search, a label decides the label filter, and
+// a state decides the status filter. They arrive on the next snapshot.
+type torrentsAddedMsg struct {
+	text string
+	ids  []engine.TorrentID
+}
 
 // statusExpiredMsg asks for the status bar to be cleared. It carries the
 // sequence number of the message it was scheduled for, so a stale timer

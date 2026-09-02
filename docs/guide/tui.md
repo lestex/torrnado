@@ -128,9 +128,18 @@ fit is a property of your terminal's height, not a fixed number.
 
 If the label you are filtering by stops existing - you relabelled or
 removed the last torrent carrying it - the filter falls back to **All**
-rather than leaving you in front of an empty list. Adding a torrent does
-the same, and says so: a new torrent carries no label, so a label filter
-would hide the thing you just asked for and would go on hiding it.
+rather than leaving you in front of an empty list.
+
+Adding a torrent clears whatever would hide it, and says which:
+
+```
+added 1 torrent(s) - cleared the tv label and the search to show them
+```
+
+Adding is the one action whose whole purpose is to put something in the
+list, so reporting success while the list does not change is the wrong
+answer however correct the filter was. Only the filters actually hiding
+the new torrent are cleared - a search it already matches is left alone.
 
 `torrnado label` does the same thing from a shell, and `torrnado list`
 grows a LABEL column when anything is labelled.

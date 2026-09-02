@@ -149,40 +149,136 @@ func TestALiveLabelFilterSurvivesASnapshot(t *testing.T) {
 	}
 }
 
-// Adding a torrent while a label filter is applied used to report success
-// and change nothing on screen: a new torrent carries no label, so the
-// filter hid it, and - unlike a status filter, which a torrent moves into
-// on its own - it would never stop hiding it. Restarting the interface
-// was the only way to see what had been added.
-func TestAddingClearsALabelFilterThatWouldHideTheResult(t *testing.T) {
-	m := labelled("a", "tv")
-	m.labelFilter = "tv"
+// addThenSnapshot performs the two halves of an add: the reply, then the
+// snapshot that carries the new torrent. The filters cannot be judged on
+// the reply alone - it is the torrent itself that decides which of them
+// hide it.
+func addThenSnapshot(m Model, added engine.TorrentSnapshot) Model {
+	next, _ := m.Update(torrentsAddedMsg{
+		text: "added 1 torrent(s)",
+		ids:  []engine.TorrentID{added.ID},
+	})
+	m = next.(Model)
+	next, _ = m.Update(engineEventMsg{Torrents: append(m.torrents, added)})
+	return next.(Model)
+}
 
-	next, _ := m.Update(torrentsAddedMsg{text: "added 1 torrent(s)"})
-	got := next.(Model)
+// Adding a torrent used to report success and change nothing on screen
+// whenever a filter was hiding it. Restarting the interface was the only
+// way to see what had been added.
+//
+// The label case could never resolve itself - a new torrent has no label
+// and nothing was going to give it one - but none of the three resolve
+// promptly: a torrent added under Completed is hidden until it finishes,
+// and one that does not match the search is hidden until the search is
+// cleared by hand.
+func TestAddingClearsWhicheverFilterHidesTheResult(t *testing.T) {
+	fresh := engine.TorrentSnapshot{
+		ID: "new", Name: "Something New", State: engine.StateChecking,
+	}
 
-	if got.labelFilter != "" {
-		t.Errorf("labelFilter = %q, want it cleared so the new torrent is visible", got.labelFilter)
+	t.Run("label", func(t *testing.T) {
+		m := labelled("a", "tv")
+		m.labelFilter = "tv"
+
+		got := addThenSnapshot(m, fresh)
+
+		if got.labelFilter != "" {
+			t.Errorf("labelFilter = %q, want it cleared", got.labelFilter)
+		}
+		if !strings.Contains(got.status, "tv") {
+			t.Errorf("status = %q, want it to name the label it cleared", got.status)
+		}
+	})
+
+	t.Run("status", func(t *testing.T) {
+		m := labelled("a", "")
+		m.filter = filterCompleted
+
+		got := addThenSnapshot(m, fresh)
+
+		if got.filter != filterAll {
+			t.Errorf("filter = %v, want filterAll", got.filter)
+		}
+		if !strings.Contains(got.status, "completed") {
+			t.Errorf("status = %q, want it to name the filter it cleared", got.status)
+		}
+	})
+
+	t.Run("search", func(t *testing.T) {
+		m := labelled("a", "")
+		m.searchQuery = "nothing like it"
+
+		got := addThenSnapshot(m, fresh)
+
+		if got.searchQuery != "" {
+			t.Errorf("searchQuery = %q, want it cleared", got.searchQuery)
+		}
+		if !strings.Contains(got.status, "search") {
+			t.Errorf("status = %q, want it to say the search was cleared", got.status)
+		}
+	})
+
+	t.Run("all three at once", func(t *testing.T) {
+		m := labelled("a", "tv")
+		m.labelFilter = "tv"
+		m.filter = filterCompleted
+		m.searchQuery = "nothing like it"
+
+		got := addThenSnapshot(m, fresh)
+
+		if got.labelFilter != "" || got.filter != filterAll || got.searchQuery != "" {
+			t.Errorf("not everything was cleared: label=%q filter=%v search=%q",
+				got.labelFilter, got.filter, got.searchQuery)
+		}
+		if len(got.visibleTorrents()) == 0 {
+			t.Error("the torrent that was just added is still not visible")
+		}
+	})
+}
+
+// A filter that is not hiding the new torrent must be left alone: an add
+// is not a reason to throw away a search that is working.
+func TestAddingKeepsFiltersThatAlreadyShowTheResult(t *testing.T) {
+	m := labelled("a", "")
+	m.searchQuery = "ubuntu"
+	m.filter = filterAll
+
+	got := addThenSnapshot(m, engine.TorrentSnapshot{
+		ID: "new", Name: "Ubuntu 26.04", State: engine.StateChecking,
+	})
+
+	if got.searchQuery != "ubuntu" {
+		t.Errorf("searchQuery = %q, want it kept - it already matched", got.searchQuery)
 	}
-	if got.filter != filterAll {
-		t.Errorf("filter = %v, want filterAll", got.filter)
-	}
-	// Changing the view without a keypress is only acceptable if it says
-	// so; silently resetting a filter is its own surprise.
-	if !strings.Contains(got.status, "tv") {
-		t.Errorf("status = %q, want it to say which filter was cleared", got.status)
+	if got.status != "added 1 torrent(s)" {
+		t.Errorf("status = %q, want it unchanged", got.status)
 	}
 }
 
-// With no label filter there is nothing to clear, and the message must
-// not grow an explanation of something that did not happen.
-func TestAddingLeavesTheStatusAloneWithNoLabelFilter(t *testing.T) {
+// The ids are held until a snapshot actually carries them, so an add is
+// not forgotten because the first tick arrived too early.
+func TestTheRevealWaitsForTheSnapshotThatCarriesTheTorrent(t *testing.T) {
 	m := labelled("a", "tv")
+	m.labelFilter = "tv"
 
-	next, _ := m.Update(torrentsAddedMsg{text: "added 1 torrent(s)"})
-	got := next.(Model)
+	next, _ := m.Update(torrentsAddedMsg{text: "added 1 torrent(s)", ids: []engine.TorrentID{"new"}})
+	m = next.(Model)
 
-	if got.status != "added 1 torrent(s)" {
-		t.Errorf("status = %q, want it unchanged", got.status)
+	// A snapshot without it changes nothing and keeps the id pending.
+	next, _ = m.Update(engineEventMsg{Torrents: m.torrents})
+	m = next.(Model)
+	if m.labelFilter != "tv" {
+		t.Error("the filter was cleared before the torrent had even arrived")
+	}
+	if len(m.pendingReveal) != 1 {
+		t.Fatalf("pendingReveal = %v, want the id still waiting", m.pendingReveal)
+	}
+
+	// And the one that carries it does the work.
+	next, _ = m.Update(engineEventMsg{Torrents: append(m.torrents,
+		engine.TorrentSnapshot{ID: "new", Name: "New", State: engine.StateChecking})})
+	if got := next.(Model); got.labelFilter != "" {
+		t.Errorf("labelFilter = %q, want it cleared once the torrent arrived", got.labelFilter)
 	}
 }
