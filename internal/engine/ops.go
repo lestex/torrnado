@@ -106,8 +106,9 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 	// guard is holding, or added paused, must not get the second or so
 	// until the next tick as a head start. A library torrent is allowed
 	// both directions the moment it is added.
-	e.torrents[id].applyDataFlow(e.blocked)
+	ft, fdown, fup := e.torrents[id].flowDecision(e.blocked)
 	e.mu.Unlock()
+	applyFlow(ft, fdown, fup)
 
 	// A magnet carries no file list - that metadata has to be fetched
 	// from a peer first, and for a torrent with no peers it may never
@@ -201,13 +202,21 @@ func (e *Engine) lookup(id TorrentID) (*tracked, error) {
 func (e *Engine) RemoveTorrent(id TorrentID, deleteData bool) error {
 	e.mu.Lock()
 	tr, ok := e.torrents[id]
+	e.mu.Unlock()
 	if !ok {
-		e.mu.Unlock()
 		return ErrNotFound
 	}
-	// Before the drop below, so a verification in flight stops rather
-	// than running on against a torrent that is being taken apart.
-	cancelCheckLocked(tr)
+	// The same structural change a move makes, so it waits for one rather
+	// than pulling the torrent out from under it.
+	tr.opMu.Lock()
+	defer tr.opMu.Unlock()
+	e.quiesceCheck(tr)
+
+	e.mu.Lock()
+	if _, ok := e.torrents[id]; !ok {
+		e.mu.Unlock()
+		return ErrNotFound // removed while this waited for the lock
+	}
 	delete(e.torrents, id)
 	e.mu.Unlock()
 
@@ -333,12 +342,13 @@ func (e *Engine) SetPaused(id TorrentID, paused bool) error {
 		cancelCheckLocked(tr)
 	}
 	// Resuming records the intent and asks for the switches to be turned;
-	// whether they actually turn is applyDataFlow's decision, since the
-	// VPN guard may be holding everything. The intent is what is
-	// persisted either way, so a resume during a VPN outage takes effect
-	// the moment the VPN returns rather than being forgotten.
-	tr.applyDataFlow(e.blocked)
+	// whether they actually turn is dataFlow's decision, since the VPN
+	// guard may be holding everything. The intent is what is persisted
+	// either way, so a resume during a VPN outage takes effect the moment
+	// the VPN returns rather than being forgotten.
+	t, down, up := tr.flowDecision(e.blocked)
 	e.mu.Unlock()
+	applyFlow(t, down, up)
 
 	if !paused {
 		// A torrent added paused never had its files marked wanted, and
@@ -623,6 +633,9 @@ func (e *Engine) verifyPieces(ctx context.Context, tr *tracked, total int) error
 func (e *Engine) beginCheck(tr *tracked, total int) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Before the goroutine starts, so a canceller cannot race the Add.
+	tr.checkWG.Add(1)
+
 	e.mu.Lock()
 	if tr.cancelCheck != nil {
 		tr.cancelCheck()
@@ -640,7 +653,23 @@ func (e *Engine) beginCheck(tr *tracked, total int) (context.Context, func()) {
 		tr.checking = false
 		tr.checkDone, tr.checkTotal = 0, 0
 		e.mu.Unlock()
+		tr.checkWG.Done()
 	}
+}
+
+// quiesceCheck stops any verification running against tr and waits for it
+// to unwind. Both halves matter: a cancel only sets a flag the loop reads
+// between pieces, and until it gets there the library is still hashing.
+// Dropping the torrent in that window leaves the client's write lock held
+// by nobody, and the whole process then blocks on it.
+//
+// Waits one piece's hash, not the whole verification. Call with tr.opMu
+// held and e.mu not held.
+func (e *Engine) quiesceCheck(tr *tracked) {
+	e.mu.Lock()
+	cancelCheckLocked(tr)
+	e.mu.Unlock()
+	tr.checkWG.Wait()
 }
 
 // cancelCheckLocked stops a torrent's verification if one is running.
@@ -732,6 +761,11 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	if err != nil {
 		return err
 	}
+	// Drops and re-adds the torrent the way a move does.
+	tr.opMu.Lock()
+	defer tr.opMu.Unlock()
+	e.quiesceCheck(tr)
+
 	// Read with the lock and used as locals from here on: everything below
 	// runs outside it, and a concurrent move or purge swaps these fields
 	// underneath - which is a data race, and one that would have this call
@@ -752,8 +786,9 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	// the window before the pause takes effect.
 	tr.paused = true
 	tr.holdData = true
-	tr.applyDataFlow(e.blocked)
+	fdt, fddown, fdup := tr.flowDecision(e.blocked)
 	e.mu.Unlock()
+	applyFlow(fdt, fddown, fdup)
 
 	paths := dataPaths(savePath, t)
 	ih := t.InfoHash()
@@ -796,8 +831,9 @@ func (e *Engine) PurgeData(id TorrentID) error {
 	tr.t = fresh
 	tr.ownStorage = newStorage
 	tr.holdData = false
-	tr.applyDataFlow(e.blocked) // still paused, so still off
+	ft, fdown, fup := tr.flowDecision(e.blocked) // still paused, so still off
 	e.mu.Unlock()
+	applyFlow(ft, fdown, fup)
 
 	e.log.Info("torrent data deleted", "id", id, "name", fresh.Name(), "save_path", savePath)
 	e.persist()
@@ -833,6 +869,11 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	if err != nil {
 		return err
 	}
+	// Both before e.mu is touched. Released when this returns, so the
+	// verification started below runs on without holding it.
+	tr.opMu.Lock()
+	defer tr.opMu.Unlock()
+	e.quiesceCheck(tr)
 
 	// Read with the lock and used as locals from here on: everything below
 	// runs outside it, and a concurrent move or purge swaps these fields
@@ -861,8 +902,9 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 	// Every path out from here goes through moveFailed, which is what
 	// takes the hold off again.
 	tr.holdData = true
-	tr.applyDataFlow(e.blocked)
+	ht, hdown, hup := tr.flowDecision(e.blocked)
 	e.mu.Unlock()
+	applyFlow(ht, hdown, hup)
 
 	// Captured before the drop below: the re-added torrent is a fresh
 	// instance with no priority history, and this is the last moment the
@@ -976,8 +1018,9 @@ func (e *Engine) MoveStorage(id TorrentID, newDir string) error {
 			tr.lastErr = fmt.Sprintf("verify after move failed: %v", verifyErr)
 		}
 		tr.holdData = false
-		tr.applyDataFlow(e.blocked)
+		vt, vdown, vup := tr.flowDecision(e.blocked)
 		e.mu.Unlock()
+		applyFlow(vt, vdown, vup)
 		e.snapshotAndBroadcastNow()
 	}()
 
@@ -1000,8 +1043,9 @@ func (e *Engine) moveFailed(tr *tracked, id TorrentID, err error) error {
 	e.mu.Lock()
 	tr.lastErr = err.Error()
 	tr.holdData = false
-	tr.applyDataFlow(e.blocked)
+	ft, fdown, fup := tr.flowDecision(e.blocked)
 	e.mu.Unlock()
+	applyFlow(ft, fdown, fup)
 
 	e.log.Error("move failed", "id", id, "err", err)
 	e.snapshotAndBroadcastNow()

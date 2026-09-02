@@ -89,6 +89,16 @@ const tickInterval = time.Second
 // tracked is one torrent's bookkeeping, private to the engine. Callers
 // only ever see the immutable TorrentSnapshot built from it.
 type tracked struct {
+	// opMu serializes move, purge and remove, which each drop the
+	// library's Torrent and add a fresh one. Two interleaving on one
+	// infohash wedge the client's lock. Nothing else serializes them: each
+	// IPC connection dispatches inline, so two clients are enough.
+	//
+	// Held for an operation's synchronous part only, never across the
+	// background verification a move starts - that runs for hours. Always
+	// taken before e.mu, never while holding it.
+	opMu sync.Mutex
+
 	t        *torrent.Torrent
 	addedAt  time.Time
 	paused   bool
@@ -137,6 +147,10 @@ type tracked struct {
 	// the next tick would happily allow transfers again halfway through,
 	// since nothing else about the torrent says it is busy.
 	holdData bool
+
+	// checkWG is done once a cancelled verification has actually unwound.
+	// See quiesceCheck for why waiting matters.
+	checkWG sync.WaitGroup
 
 	// cancelCheck stops the verification loop in checking, if one is
 	// running. Held here rather than passed around because the things
@@ -471,9 +485,16 @@ func (e *Engine) tick() {
 	}
 	e.lastTick = now
 
+	// Decided here, applied after the lock is dropped - see flowDecision.
+	type flow struct {
+		t        *torrent.Torrent
+		down, up bool
+	}
+	flows := make([]flow, 0, len(e.torrents))
 	for _, tr := range e.torrents {
 		tr.updateRates(elapsed)
-		tr.applyDataFlow(e.blocked)
+		t, down, up := tr.flowDecision(e.blocked)
+		flows = append(flows, flow{t, down, up})
 	}
 	ev := e.eventLocked()
 	// Collected under the lock, logged outside it: the destination may be
@@ -481,6 +502,9 @@ func (e *Engine) tick() {
 	done := e.newlyCompleteLocked()
 	e.mu.Unlock()
 
+	for _, f := range flows {
+		applyFlow(f.t, f.down, f.up)
+	}
 	for _, s := range done {
 		e.log.Info("torrent complete", "id", s.ID, "name", s.Name, "size", s.TotalLength)
 	}

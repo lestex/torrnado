@@ -3,6 +3,8 @@ package engine
 import (
 	"math"
 	"time"
+
+	"github.com/anacrolix/torrent"
 )
 
 // updateRates turns the client's cumulative byte counters into speeds.
@@ -26,44 +28,42 @@ func (tr *tracked) updateRates(elapsed float64) {
 	tr.lastUploaded = uploaded
 }
 
-// applyDataFlow turns the two switches that decide whether a torrent may
-// move piece data, from every reason it might not be allowed to.
+// flowDecision reads what the switches should be; applyFlow turns them.
 //
-// One funnel, because the reasons are independent and each was setting
-// the switches on its own: the tick's rate limiting used to call
-// AllowDataDownload unconditionally whenever a torrent was under its cap,
-// which would have turned any other reason back on a second after it was
-// applied. Anything that wants to stop or start data goes through here.
-//
-// The rate-limit half is an approximation. The library's limiters are
-// client-wide, with no hook to throttle a single torrent's network I/O,
-// so a torrent over its cap is forbidden from moving data until it falls
-// back under. That averages out near the limit over a second or so, but
-// it is bursty - a real token bucket it is not.
-//
-// Callers must hold e.mu.
-func (tr *tracked) applyDataFlow(blocked bool) {
-	down, up := tr.dataFlow(blocked)
+// Two parts because the library calls take the torrent client's lock, and
+// holding e.mu across them freezes every engine operation behind e.mu
+// whenever that lock is busy. Call flowDecision holding e.mu, applyFlow
+// not holding it.
+func (tr *tracked) flowDecision(blocked bool) (t *torrent.Torrent, down, up bool) {
+	down, up = tr.dataFlow(blocked)
+	return tr.t, down, up
+}
 
+func applyFlow(t *torrent.Torrent, down, up bool) {
 	if down {
-		tr.t.AllowDataDownload()
+		t.AllowDataDownload()
 	} else {
-		tr.t.DisallowDataDownload()
+		t.DisallowDataDownload()
 	}
 
 	if up {
-		tr.t.AllowDataUpload()
+		t.AllowDataUpload()
 	} else {
-		tr.t.DisallowDataUpload()
+		t.DisallowDataUpload()
 	}
 }
 
-// dataFlow is applyDataFlow's decision, without the library calls - which
-// is the whole of the logic and the only part that can be asserted on:
-// anacrolix/torrent has no accessor for either switch, so a test can set
-// one and never read it back.
+// dataFlow is every reason a torrent might not be allowed to move data,
+// gathered in one place: each used to turn the switches itself, and the
+// tick's rate limiting would undo any other reason a second after it was
+// applied.
 //
-// Callers must hold e.mu.
+// The rate-limit half is an approximation - the library's limiters are
+// client-wide, so a torrent over its cap is simply forbidden until it
+// falls back under. It averages out, but it is bursty.
+//
+// This is also the only part a test can assert on: the library has no
+// accessor for either switch. Callers must hold e.mu.
 func (tr *tracked) dataFlow(blocked bool) (down, up bool) {
 	// blocked is the VPN guard and holdData a move in progress; both are
 	// conditions of the moment. paused is what the user asked for. None of
