@@ -128,6 +128,18 @@ type tracked struct {
 	// asking it which is which marks a deselected file wanted again.
 	chosenFiles map[int]bool
 
+	// baseDownloaded/baseUploaded are the bytes moved before this
+	// torrent's current library instance existed - carried over from the
+	// session file at startup, and folded in whenever a move or a purge
+	// drops and re-adds the torrent.
+	//
+	// The library counts per instance, so without these a ratio resets to
+	// zero every restart, which is exactly when a long-running box would
+	// be relying on it. Totals reported to callers are base plus the
+	// current instance's counters.
+	baseDownloaded int64
+	baseUploaded   int64
+
 	// The client reports cumulative byte counters, not speeds, so a rate
 	// is the change since the previous tick divided by the time between
 	// them. These hold the previous reading and the rate derived from it.

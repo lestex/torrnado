@@ -40,12 +40,17 @@ type torrentRecord struct {
 	// Magnet is what the torrent was added from, when it was added from
 	// one. It is the only way back for a torrent whose metadata never
 	// arrived, since there is no metainfo file to re-add from.
-	Magnet    string    `json:"magnet,omitempty"`
-	SavePath  string    `json:"save_path"`
-	Paused    bool      `json:"paused"`
-	UpLimit   int64     `json:"upload_limit,omitempty"`
-	DownLimit int64     `json:"download_limit,omitempty"`
-	AddedAt   time.Time `json:"added_at"`
+	Magnet    string `json:"magnet,omitempty"`
+	SavePath  string `json:"save_path"`
+	Paused    bool   `json:"paused"`
+	UpLimit   int64  `json:"upload_limit,omitempty"`
+	DownLimit int64  `json:"download_limit,omitempty"`
+	// Uploaded/Downloaded are the lifetime totals, so a ratio survives a
+	// restart. Without them every restart would put a seeding torrent
+	// back at zero.
+	Uploaded   int64     `json:"uploaded,omitempty"`
+	Downloaded int64     `json:"downloaded,omitempty"`
+	AddedAt    time.Time `json:"added_at"`
 	// FilePriorities holds only the files that differ from normal, which
 	// is nearly all of them nearly all of the time.
 	FilePriorities []filePriorityRecord `json:"file_priorities,omitempty"`
@@ -144,6 +149,12 @@ func (e *Engine) recordLocked(id TorrentID, tr *tracked) torrentRecord {
 		DownLimit: tr.downLimit,
 		AddedAt:   tr.addedAt,
 	}
+	// The library's counters plus what earlier instances moved, which is
+	// the same total snapshotLocked reports.
+	st := tr.t.Stats()
+	rec.Downloaded = tr.baseDownloaded + st.BytesReadUsefulData.Int64()
+	rec.Uploaded = tr.baseUploaded + st.BytesWrittenData.Int64()
+
 	// Both of these read through metadata that a magnet may not have yet.
 	if tr.t.Info() != nil {
 		rec.Name = tr.t.Name()
@@ -310,15 +321,17 @@ func (e *Engine) restoreOne(rec torrentRecord) error {
 		}
 	}
 
-	// The record's own timestamp, so an "added" column does not reset to
-	// the moment of the last restart.
-	if !rec.AddedAt.IsZero() {
-		e.mu.Lock()
-		if tr, ok := e.torrents[id]; ok {
+	// The record's own timestamp and totals, so neither an "added" column
+	// nor a ratio resets to the moment of the last restart.
+	e.mu.Lock()
+	if tr, ok := e.torrents[id]; ok {
+		if !rec.AddedAt.IsZero() {
 			tr.addedAt = rec.AddedAt
 		}
-		e.mu.Unlock()
+		tr.baseDownloaded = rec.Downloaded
+		tr.baseUploaded = rec.Uploaded
 	}
+	e.mu.Unlock()
 	return nil
 }
 

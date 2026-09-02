@@ -294,3 +294,93 @@ func TestWriteFileAtomicLeavesNoPartialFile(t *testing.T) {
 		}
 	}
 }
+
+// A ratio has to survive a restart, or a seed limit built on it would
+// never fire on the one machine it is for: the library counts bytes per
+// torrent instance, and a restart makes a new instance.
+func TestLifetimeTotalsSurviveARestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.StateDir = t.TempDir()
+
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	// Stand in for bytes moved: the test has no swarm, so the totals are
+	// set directly and then have to come back the same.
+	e.mu.Lock()
+	e.torrents[id].baseUploaded = 3 << 20
+	e.torrents[id].baseDownloaded = 1 << 20
+	e.mu.Unlock()
+	if err := e.SaveSession(); err != nil {
+		t.Fatalf("SaveSession: %v", err)
+	}
+	e.Close()
+
+	next, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New (restart): %v", err)
+	}
+	t.Cleanup(func() { next.Close() })
+	if _, err := next.RestoreSession(); err != nil {
+		t.Fatalf("RestoreSession: %v", err)
+	}
+
+	var snap TorrentSnapshot
+	for _, s := range next.ListTorrents() {
+		if s.ID == id {
+			snap = s
+		}
+	}
+	if snap.Uploaded < 3<<20 {
+		t.Errorf("uploaded = %d after restart, want at least %d", snap.Uploaded, 3<<20)
+	}
+	if snap.Downloaded < 1<<20 {
+		t.Errorf("downloaded = %d after restart, want at least %d", snap.Downloaded, 1<<20)
+	}
+	// 3 MiB up over 1 MiB down.
+	if snap.Ratio < 2.9 || snap.Ratio > 3.1 {
+		t.Errorf("ratio = %v after restart, want ~3", snap.Ratio)
+	}
+}
+
+// A move drops and re-adds the torrent, which resets the library's
+// counters. The totals must not go backwards.
+func TestLifetimeTotalsSurviveAMove(t *testing.T) {
+	cfg := testConfig(t)
+	e, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { e.Close() })
+
+	torrentPath := writeTestTorrent(t, cfg.DataDir, 256*1024)
+	id, err := e.AddTorrentFile(torrentPath, AddOpts{})
+	if err != nil {
+		t.Fatalf("AddTorrentFile: %v", err)
+	}
+
+	e.mu.Lock()
+	e.torrents[id].baseUploaded = 5 << 20
+	e.mu.Unlock()
+
+	if err := e.MoveStorage(id, filepath.Join(t.TempDir(), "dest")); err != nil {
+		t.Fatalf("MoveStorage: %v", err)
+	}
+
+	var snap TorrentSnapshot
+	for _, s := range e.ListTorrents() {
+		if s.ID == id {
+			snap = s
+		}
+	}
+	if snap.Uploaded < 5<<20 {
+		t.Errorf("uploaded = %d after a move, want at least %d", snap.Uploaded, 5<<20)
+	}
+}
