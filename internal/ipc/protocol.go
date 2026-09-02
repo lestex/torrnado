@@ -35,6 +35,7 @@ const (
 	MethodList                   Method = "List"
 	MethodDetail                 Method = "Detail"
 	MethodPreviewURL             Method = "PreviewURL"
+	MethodSetLabel               Method = "SetLabel"
 	MethodShutdown               Method = "Shutdown"
 )
 
@@ -67,6 +68,8 @@ type Request struct {
 	// something the engine cannot.
 	SeedRatio float64
 	SeedTime  time.Duration
+	// Label is the category to file a torrent under; empty clears it.
+	Label string
 
 	NewDir string
 }

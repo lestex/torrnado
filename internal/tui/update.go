@@ -27,6 +27,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case engineEventMsg:
 		m.torrents = msg.Torrents
 		m.global = msg.Global
+		m = m.dropVanishedLabelFilter()
 		m.clampCursor(len(m.visibleTorrents()))
 		// Cmds run once, so listening again is what keeps the stream
 		// flowing. The docked pane is refreshed on the same tick.
@@ -111,6 +112,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.setDetailTab(m.detailTab.next())
 	case km.TabPrev:
 		return m.setDetailTab(m.detailTab.prev())
+	// Cycling the filter from wherever focus happens to be, which is what
+	// these are for: moving into the sidebar to change filter and back
+	// out again is three keys for one decision.
+	case km.FilterNext:
+		return m.selectSidebar(m.currentSidebarIndex() + 1)
+	case km.FilterPrev:
+		return m.selectSidebar(m.currentSidebarIndex() - 1)
 	case km.TabPieces:
 		return m.setDetailTab(tabPieces)
 	case km.TabPeers:
@@ -138,8 +146,24 @@ func (m Model) setDetailTab(t detailTab) (tea.Model, tea.Cmd) {
 // cycle rather than dead-ending.
 func (m Model) setFilter(f statusFilter) (tea.Model, tea.Cmd) {
 	n := statusFilter(len(filterNames))
-	m.filter = (f%n + n) % n
-	m.sidebarCursor = int(m.filter)
+	return m.selectSidebar(int((f%n + n) % n))
+}
+
+// selectSidebar moves to one sidebar row and applies it, wrapping at the
+// ends so the keys cycle rather than dead-ending.
+//
+// Wrapping over the whole list, statuses and labels together: they are
+// one column of rows on screen, and a cursor that stopped at the last
+// status would strand every label below it.
+func (m Model) selectSidebar(i int) (tea.Model, tea.Cmd) {
+	entries := m.sidebarEntries()
+	n := len(entries)
+	if n == 0 {
+		return m, nil
+	}
+	i = (i%n + n) % n
+	m = m.applyEntry(entries[i])
+	m.sidebarCursor = i
 	m.clampCursor(len(m.visibleTorrents()))
 	return m, m.syncDetail()
 }
@@ -153,13 +177,13 @@ func (m Model) handleSidebarKey(key string) (tea.Model, tea.Cmd) {
 	km := m.keymap
 	switch {
 	case key == km.Up, key == "up":
-		return m.setFilter(m.filter - 1)
+		return m.selectSidebar(m.currentSidebarIndex() - 1)
 	case key == km.Down, key == "down":
-		return m.setFilter(m.filter + 1)
+		return m.selectSidebar(m.currentSidebarIndex() + 1)
 	case key == km.Top:
-		return m.setFilter(filterAll)
+		return m.selectSidebar(0)
 	case key == km.Bottom:
-		return m.setFilter(statusFilter(len(filterNames) - 1))
+		return m.selectSidebar(len(m.sidebarEntries()) - 1)
 	}
 	return m.handleListKey(key)
 }

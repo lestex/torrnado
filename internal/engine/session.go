@@ -59,6 +59,10 @@ type torrentRecord struct {
 	// seeding-time limit counts from. Persisted so a restart does not
 	// restart the clock on a torrent that finished days ago.
 	CompletedAt time.Time `json:"completed_at,omitempty"`
+	// Label is the category this torrent is filed under. omitempty
+	// because most torrents have none, and a session file full of empty
+	// strings is harder to read for no gain.
+	Label string `json:"label,omitempty"`
 	// FilePriorities holds only the files that differ from normal, which
 	// is nearly all of them nearly all of the time.
 	FilePriorities []filePriorityRecord `json:"file_priorities,omitempty"`
@@ -171,6 +175,7 @@ func (e *Engine) recordLocked(id TorrentID, tr *tracked) torrentRecord {
 		UpLimit:   tr.upLimit,
 		DownLimit: tr.downLimit,
 		AddedAt:   tr.addedAt,
+		Label:     tr.label,
 	}
 	// The library's counters plus what earlier instances moved, which is
 	// the same total snapshotLocked reports.
@@ -359,6 +364,7 @@ func (e *Engine) restoreOne(rec torrentRecord) error {
 		tr.seedRatio = rec.SeedRatio
 		tr.seedTime = rec.SeedTime
 		tr.completedAt = rec.CompletedAt
+		tr.label = rec.Label
 		// Already finished in an earlier run, so it is not news now.
 		tr.completeLogged = !rec.CompletedAt.IsZero()
 	}

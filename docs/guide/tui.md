@@ -28,8 +28,8 @@ highlighted border, and it's where `j`/`k` go:
  ↓ 21.4MiB/s  ↑ 0B/s  │  2 torrents                     ? help
 ```
 
-- **Sidebar** filters the list by status. It intersects with `/` search
-  rather than replacing it.
+- **Sidebar** filters the list, by status and by label. Whichever is
+  selected intersects with `/` search rather than replacing it.
 - **List** shows one torrent per line. Progress is a column - a bar
   followed by its percentage - rather than an underline beneath the name.
   A wide enough pane also shows size, status, both speeds and the ETA; a
@@ -62,7 +62,7 @@ next rather than only that it is empty:
 | `g` / `G`          | top / bottom                                       |
 | `tab` / `shift+tab`| move focus between list, detail pane and sidebar   |
 | `]` / `[`, `1`/`2`/`3` | switch the detail pane's tab                    |
-| `}` / `{`          | cycle the sidebar's status filter                  |
+| `}` / `{`          | cycle the sidebar's filter, statuses and labels    |
 | `/`                | search / filter by name                            |
 | `space`            | toggle selection (for batch operations)            |
 | `x`, `dd`          | remove selected (or cursor row), keep data on disk |
@@ -97,10 +97,41 @@ always apply to the list's selection or cursor row.
 | `:recheck`                                             | force recheck on selection or cursor row  |
 | `:limit-up <rate>` / `:limit-down <rate>`               | set the *global* rate limit (`500k`, `2M`, `unlimited`) |
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
+| `:label [name]`                                         | file the selection (or cursor row) under a label; no name clears it |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
 | `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
 | `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
+
+## Labels
+
+A torrent can be filed under one label, and the sidebar grows a **Labels**
+section listing the ones in use, most-used first. Selecting one filters
+the list to it, exactly as a status does.
+
+```
+:label tv shows      # the selection, or the row under the cursor
+:label               # no name clears it
+```
+
+There is deliberately no step that creates a label and none that deletes
+one. A label exists exactly while some torrent carries it: applying one to
+the first torrent brings it into being, and clearing it from the last
+takes it away again. So there is nothing to tidy up, nothing to
+accumulate, and the sidebar can only ever list labels something is
+actually filed under - which is also why there is no limit on how many you
+may have.
+
+More labels than the sidebar has room for are elided to a `+3 more` line
+rather than clipped, so a filter that exists is never invisible. How many
+fit is a property of your terminal's height, not a fixed number.
+
+If the label you are filtering by stops existing - you relabelled or
+removed the last torrent carrying it - the filter falls back to **All**
+rather than leaving you in front of an empty list.
+
+`torrnado label` does the same thing from a shell, and `torrnado list`
+grows a LABEL column when anything is labelled.
 
 The reference screen lists this table too, generated from the same
 definitions the palette reads, so it cannot describe a command that isn't

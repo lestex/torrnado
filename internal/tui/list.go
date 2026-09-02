@@ -152,7 +152,15 @@ func (m Model) renderListBody(p panes, visible []engine.TorrentSnapshot, paneH i
 		return m.renderEmptyList(p.listContentW, height)
 	}
 	if len(visible) == 0 {
-		return m.styles.Muted.Render(" nothing matches status " + filterNames[m.filter])
+		// Named rather than just "nothing here": on a short terminal the
+		// label section may not have fitted in the sidebar, so the filter
+		// hiding everything can be one there is nothing on screen to
+		// point at.
+		what := "status " + filterNames[m.filter]
+		if m.labelFilter != "" {
+			what = "label " + m.labelFilter
+		}
+		return m.styles.Muted.Render(" nothing matches " + what)
 	}
 
 	// scrollWindow counts torrents, but each draws rowLines of them.

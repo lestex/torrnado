@@ -154,6 +154,10 @@ type TorrentSnapshot struct {
 	Error         string
 	DownloadLimit int64 // bytes/sec, 0 = unlimited
 	UploadLimit   int64 // bytes/sec, 0 = unlimited
+	// Label is the category this torrent is filed under, or empty. A
+	// daemon older than this field leaves it empty, which reads as
+	// unlabelled - the right answer rather than a wrong one.
+	Label string
 }
 
 // StatusText is the state as a user should see it, with hash-check

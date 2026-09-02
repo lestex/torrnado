@@ -183,5 +183,6 @@ func (e *Engine) snapshotLocked(id TorrentID, tr *tracked) TorrentSnapshot {
 		CheckProgress: checkProgress,
 		DownloadLimit: tr.downLimit,
 		UploadLimit:   tr.upLimit,
+		Label:         tr.label,
 	}
 }
