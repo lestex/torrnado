@@ -153,24 +153,33 @@ func runDaemon() error {
 	// send SIGTERM. Without this the function would return immediately
 	// and the deferred shutdown would tear everything down.
 	//
+	// `torrnado stop` arrives on the other case instead of as a signal,
+	// so it needs no pid and no way to send one - which is what lets it
+	// work where there are no signals to send.
+	//
 	// SIGHUP is the convention for "reopen your log file", which is how
 	// logrotate finishes a rotation: it renames the file away, and a
 	// process that keeps writing to the same handle is writing to an
 	// unlinked inode - the log goes nowhere and the disk never gets the
 	// space back.
-	for sig := range sigCh {
-		if sig == syscall.SIGHUP {
-			if err := lg.Reopen(); err != nil {
-				lg.Error("reopening the log file failed", "err", err)
+	for {
+		select {
+		case <-srv.ShutdownRequested():
+			lg.Info("daemon shutting down", "reason", "asked over the socket")
+			return nil
+		case sig := <-sigCh:
+			if sig == syscall.SIGHUP {
+				if err := lg.Reopen(); err != nil {
+					lg.Error("reopening the log file failed", "err", err)
+					continue
+				}
+				lg.Info("log file reopened")
 				continue
 			}
-			lg.Info("log file reopened")
-			continue
+			lg.Info("daemon shutting down", "signal", sig.String())
+			return nil
 		}
-		lg.Info("daemon shutting down", "signal", sig.String())
-		return nil
 	}
-	return nil
 }
 
 // completionHook adapts a configured command to the closure the engine

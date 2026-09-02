@@ -35,6 +35,7 @@ const (
 	MethodList                   Method = "List"
 	MethodDetail                 Method = "Detail"
 	MethodPreviewURL             Method = "PreviewURL"
+	MethodShutdown               Method = "Shutdown"
 )
 
 // Request is a kitchen-sink call envelope: only the fields relevant to

@@ -50,9 +50,9 @@ which is worth knowing precisely because mistaking it for a dead one is
 how two engines end up on a single data directory. `--quiet` prints
 nothing and reports the answer as its exit status, for shell conditions.
 
-`torrnado stop` sends SIGTERM to that same daemon and waits for it to
-exit, which is when it has saved its session and closed the engine
-cleanly. `--timeout 0` returns without waiting. It is deliberately not a
+`torrnado stop` asks that same daemon to shut down - over the socket it
+is already listening on - and waits for it to exit, which is when it has
+saved its session and closed the engine cleanly. `--timeout 0` returns without waiting. It is deliberately not a
 thing to run out of habit: a daemon that is still seeding is doing its
 job.
 
