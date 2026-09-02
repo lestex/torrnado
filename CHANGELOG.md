@@ -4,6 +4,19 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.5 - 2026-09-02
+
+### Features
+
+- Hold transfers when the disk is nearly full
+- Stop seeding at a ratio or after a time
+- Run a command when a torrent finishes
+
+### Bug fixes
+
+- A torrent's ratio survives a restart
+- A save cannot land stale, and none can outlive Close
+
 ## 0.5.4 - 2026-09-02
 
 ### Features
