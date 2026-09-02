@@ -29,7 +29,10 @@ highlighted border, and it's where `j`/`k` go:
 ```
 
 - **Sidebar** filters the list, by status and by label. Whichever is
-  selected intersects with `/` search rather than replacing it.
+  selected intersects with `/` search rather than replacing it. Changing
+  the filter clears any selection: the batch operations act on what is
+  marked rather than on what is drawn, so a mark left armed under a
+  filter that hides it would reach a torrent that is not on screen.
 - **List** shows one torrent per line. Progress is a column - a bar
   followed by its percentage - rather than an underline beneath the name.
   A wide enough pane also shows size, status, both speeds and the ETA; a

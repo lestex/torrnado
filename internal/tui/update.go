@@ -179,7 +179,21 @@ func (m Model) selectSidebar(i int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	i = (i%n + n) % n
+
+	// Marks belong to the view they were made in. A filter change can
+	// hide a marked row while leaving it armed, and the batch operations
+	// act on the selection rather than on what is drawn - so x or D
+	// would reach torrents that are not on screen. Clearing on a real
+	// change keeps what you see and what you would act on the same set.
+	//
+	// Only on a change: re-picking the filter already applied is not a
+	// reason to throw a selection away.
+	before, beforeLabel := m.filter, m.labelFilter
 	m = m.applyEntry(entries[i])
+	if m.filter != before || m.labelFilter != beforeLabel {
+		m.selected = map[engine.TorrentID]bool{}
+	}
+
 	m.sidebarCursor = i
 	m.clampCursor(len(m.visibleTorrents()))
 	return m, m.syncDetail()
