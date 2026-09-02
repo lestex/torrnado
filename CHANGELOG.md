@@ -4,6 +4,13 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.8 - 2026-09-02
+
+### Features
+
+- Stop the daemon over the socket instead of by signal
+- **release:** Publish a Homebrew cask to lestex/homebrew-tap
+
 ## 0.5.7 - 2026-09-02
 
 ### Features
