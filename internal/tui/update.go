@@ -302,8 +302,17 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		} else if m.searchQuery != "" {
 			m.searchQuery = ""
 			m.clampCursor(len(m.visibleTorrents()))
+		} else if m.labelFilter != "" {
+			// A label filter is a layer like any other, and it was the
+			// one escape could not peel: with it applied and nothing
+			// else left to clear, escape did nothing at all and the list
+			// stayed showing one label's worth of torrents.
+			m.labelFilter = ""
+			m.sidebarCursor = m.currentSidebarIndex()
+			m.clampCursor(len(m.visibleTorrents()))
 		} else if m.filter != filterAll {
 			m.filter = filterAll
+			m.sidebarCursor = m.currentSidebarIndex()
 			m.clampCursor(len(m.visibleTorrents()))
 		}
 
