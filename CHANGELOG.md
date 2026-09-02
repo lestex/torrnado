@@ -4,6 +4,12 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.5.7 - 2026-09-02
+
+### Features
+
+- Add torrents dropped into a watched directory
+
 ## 0.5.6 - 2026-09-02
 
 ### Features
