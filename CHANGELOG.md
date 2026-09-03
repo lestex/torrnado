@@ -4,6 +4,19 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.7.0 - 2026-09-03
+
+### Features
+
+- Pick which files to download when adding a torrent
+
+### Bug fixes
+
+- Escape can clear a label filter
+- Changing the filter clears the selection
+- Log a label change, with the value it replaced
+- Changing the search clears the selection too
+
 ## 0.6.1 - 2026-09-02
 
 ### Bug fixes
