@@ -1,6 +1,9 @@
 package engine
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestSetLabelShowsUpInTheSnapshot(t *testing.T) {
 	e := newTestEngine(t)
@@ -58,5 +61,46 @@ func TestSetLabelRejectsAnUnknownTorrent(t *testing.T) {
 	e := newTestEngine(t)
 	if err := e.SetLabel("nope", "tv"); err == nil {
 		t.Error("labelling an unknown torrent should fail")
+	}
+}
+
+// Every other mutating operation writes a line; labelling did not, which
+// left "where did that label go" answerable only by inferring it from the
+// timestamps of unrelated events.
+func TestLabelChangesAreLogged(t *testing.T) {
+	e, logs := newLoggingEngine(t)
+	id, _ := e.AddMagnet(testMagnet, AddOpts{})
+
+	if err := e.SetLabel(id, "tv"); err != nil {
+		t.Fatalf("SetLabel: %v", err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "torrent labelled") || !strings.Contains(out, string(id)) {
+		t.Errorf("the label was not logged:\n%s", out)
+	}
+
+	// The value it replaced is the point: a label that changed under you
+	// is exactly what the log has to be able to show.
+	if err := e.SetLabel(id, "films"); err != nil {
+		t.Fatalf("SetLabel: %v", err)
+	}
+	if out := logs.String(); !strings.Contains(out, `was=tv`) {
+		t.Errorf("the previous label was not recorded:\n%s", out)
+	}
+}
+
+// Setting the label it already has is not a change, and a log full of
+// lines saying nothing happened is how a log stops being read.
+func TestSettingTheSameLabelIsNotLogged(t *testing.T) {
+	e, logs := newLoggingEngine(t)
+	id, _ := e.AddMagnet(testMagnet, AddOpts{})
+	e.SetLabel(id, "tv")
+
+	before := strings.Count(logs.String(), "torrent labelled")
+	if err := e.SetLabel(id, "tv"); err != nil {
+		t.Fatalf("SetLabel: %v", err)
+	}
+	if after := strings.Count(logs.String(), "torrent labelled"); after != before {
+		t.Errorf("logged %d times, want %d - setting the same label is not a change", after, before)
 	}
 }
