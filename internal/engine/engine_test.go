@@ -77,8 +77,28 @@ func TestUnsubscribeIsIdempotent(t *testing.T) {
 	unsubscribe()
 	unsubscribe() // a second call must not panic on an already-closed channel
 
-	if _, open := <-events; open {
-		t.Error("channel should be closed after unsubscribe")
+	assertClosed(t, events)
+}
+
+// assertClosed drains whatever is buffered and fails unless the channel
+// is closed.
+//
+// Draining rather than reading once: Subscribe primes a new subscriber
+// with the state as it stands, so there is an event waiting ahead of the
+// close. Reading a single value would see that one and conclude the
+// channel was still open.
+func assertClosed(t *testing.T, events <-chan Event) {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case _, open := <-events:
+			if !open {
+				return
+			}
+		case <-deadline:
+			t.Fatal("the channel was never closed")
+		}
 	}
 }
 
@@ -92,8 +112,28 @@ func TestCloseClosesSubscribers(t *testing.T) {
 	if err := e.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	if _, open := <-events; open {
-		t.Error("Close should close subscriber channels")
+	assertClosed(t, events)
+}
+
+// A client that has to wait for the next tick shows an empty list for up
+// to a second after attaching: the interface looks like it found no
+// torrents, and then they appear.
+func TestSubscribePrimesWithTheCurrentState(t *testing.T) {
+	e := newTestEngine(t)
+	if _, err := e.AddMagnet(testMagnet, AddOpts{}); err != nil {
+		t.Fatalf("AddMagnet: %v", err)
+	}
+
+	events, unsubscribe := e.Subscribe()
+	defer unsubscribe()
+
+	select {
+	case ev := <-events:
+		if len(ev.Torrents) != 1 {
+			t.Errorf("primed with %d torrents, want the 1 already added", len(ev.Torrents))
+		}
+	case <-time.After(tickInterval / 2):
+		t.Fatal("nothing arrived before the next tick would have")
 	}
 }
 

@@ -119,18 +119,25 @@ func TestClientReceivesPushedEvents(t *testing.T) {
 		t.Fatalf("AddMagnet: %v", err)
 	}
 
-	// Adding broadcasts immediately, so an event should arrive without
-	// waiting for the engine's next tick.
-	select {
-	case ev, ok := <-c.Events():
-		if !ok {
-			t.Fatal("event channel closed")
+	// Adding broadcasts immediately, so an event carrying it should
+	// arrive without waiting for the engine's next tick.
+	//
+	// Read until it does rather than checking the first one: attaching
+	// primes a subscriber with the state as it stands, so there is an
+	// event describing the empty daemon ahead of this one.
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case ev, ok := <-c.Events():
+			if !ok {
+				t.Fatal("event channel closed")
+			}
+			if len(ev.Torrents) == 1 {
+				return
+			}
+		case <-deadline:
+			t.Fatal("no event carrying the added torrent was pushed")
 		}
-		if len(ev.Torrents) != 1 {
-			t.Errorf("event carried %d torrents, want 1", len(ev.Torrents))
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no event pushed by the daemon")
 	}
 }
 
