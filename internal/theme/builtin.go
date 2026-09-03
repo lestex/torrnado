@@ -10,7 +10,7 @@ func init() {
 		Success:    "#50fa7b",
 		Warning:    "#f1fa8c",
 		Error:      "#ff5555",
-		Border:     "#44475a",
+		Border:     "#6272a4",
 		SelectedBg: "#44475a",
 		SelectedFg: "#f8f8f2",
 	})
@@ -25,7 +25,7 @@ func init() {
 		Success:    "#14710a",
 		Warning:    "#846e15",
 		Error:      "#cb3a2a",
-		Border:     "#cfcfde",
+		Border:     "#6c664b",
 		SelectedBg: "#cfcfde",
 		SelectedFg: "#1f1f1f",
 	})
@@ -39,7 +39,7 @@ func init() {
 		Success:    "#a3be8c",
 		Warning:    "#ebcb8b",
 		Error:      "#bf616a",
-		Border:     "#3b4252",
+		Border:     "#4c566a",
 		SelectedBg: "#434c5e",
 		SelectedFg: "#eceff4",
 	})
@@ -53,7 +53,7 @@ func init() {
 		Success:    "#b8bb26",
 		Warning:    "#fabd2f",
 		Error:      "#fb4934",
-		Border:     "#3c3836",
+		Border:     "#928374",
 		SelectedBg: "#3c3836",
 		SelectedFg: "#fbf1c7",
 	})
@@ -67,7 +67,7 @@ func init() {
 		Success:    "#859900",
 		Warning:    "#b58900",
 		Error:      "#dc322f",
-		Border:     "#073642",
+		Border:     "#586e75",
 		SelectedBg: "#073642",
 		SelectedFg: "#eee8d5",
 	})
@@ -81,7 +81,7 @@ func init() {
 		Success:    "#859900",
 		Warning:    "#b58900",
 		Error:      "#dc322f",
-		Border:     "#eee8d5",
+		Border:     "#93a1a1",
 		SelectedBg: "#eee8d5",
 		SelectedFg: "#586e75",
 	})
@@ -95,7 +95,7 @@ func init() {
 		Success:    "#a6e3a1",
 		Warning:    "#f9e2af",
 		Error:      "#f38ba8",
-		Border:     "#313244",
+		Border:     "#a6adc8",
 		SelectedBg: "#45475a",
 		SelectedFg: "#cdd6f4",
 	})
@@ -109,10 +109,23 @@ func init() {
 		Success:    "#9ece6a",
 		Warning:    "#e0af68",
 		Error:      "#f7768e",
-		Border:     "#292e42",
+		Border:     "#565f89",
 		SelectedBg: "#292e42",
 		SelectedFg: "#c0caf5",
 	})
+
+	// Border is each theme's own muted colour throughout.
+	//
+	// The palettes these are drawn from name a "surface" or "current line"
+	// shade, and taking it for the border is the obvious reading - but that
+	// shade is meant to fill a panel, not to draw a line. One cell wide
+	// against the background it sits on, it came out at 1.1-1.6:1: the panes
+	// had no visible outline at all, and only the focused one showed up
+	// because its border is drawn in Accent instead.
+	//
+	// Muted is the tone each palette already reserves for something present
+	// but unimportant, which is exactly what an unfocused pane's edge is.
+	// The plain theme was already built this way.
 
 	// plain is a 16-color-safe fallback using bare ANSI codes instead of
 	// hex, for terminals with no usable color profile at all.

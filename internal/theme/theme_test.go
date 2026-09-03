@@ -212,6 +212,34 @@ func TestEveryThemeSelectionIsReadable(t *testing.T) {
 	}
 }
 
+// A pane border is drawn as a line one cell wide, so it needs a colour
+// meant to be seen rather than one meant to fill a panel.
+//
+// Every built-in used its palette's "surface" or "current line" shade,
+// which came out at 1.1-1.6:1 against the background it sits on: the
+// panes had no visible outline, and only the focused one showed up
+// because its border is drawn in Accent instead. Muted is the tone each
+// palette already reserves for something present but unimportant, which
+// is what an unfocused pane's edge is.
+//
+// Checked as an equality rather than a contrast floor because that is the
+// rule that was chosen: the palettes disagree about how strong their
+// muted is (1.7:1 in nord, 7.4:1 in catppuccin) and holding all of them
+// to one number would mean overriding colours their authors picked.
+func TestBuiltinBordersUseTheMutedColor(t *testing.T) {
+	for _, name := range Names() {
+		th, err := Load(name, t.TempDir())
+		if err != nil {
+			t.Fatalf("Load(%s): %v", name, err)
+		}
+		if th.Border != th.Muted {
+			t.Errorf("%s: border %s is not the muted colour %s - a border drawn in a "+
+				"panel-fill shade has no visible outline",
+				name, th.Border, th.Muted)
+		}
+	}
+}
+
 // writeTheme puts a theme file in dir and returns dir.
 func writeTheme(t *testing.T, name, body string) string {
 	t.Helper()

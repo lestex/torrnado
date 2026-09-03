@@ -28,6 +28,13 @@ selected_fg = "#c0caf5"
 
 A file matching a built-in theme's name overrides that built-in.
 
+`border` draws the panes' outlines, one cell wide, and every built-in
+uses the same colour for it as for `muted`. The palettes these come from
+name a "surface" or "current line" shade that looks like the obvious
+choice, but it is meant to fill a panel rather than draw a line - as a
+border it disappears into the background. Only the focused pane escapes
+that, because its border is drawn in `accent`.
+
 `accent` is the one worth choosing carefully. It marks the row under the
 cursor, the focused pane's border, the active tab and the progress fill,
 and it does all of that as a foreground colour with nothing behind it -
