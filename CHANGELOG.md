@@ -4,6 +4,18 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.8.0 - 2026-09-03
+
+### Features
+
+- Mouse support in the TUI
+- Skip files from the Files tab
+- Hand the mouse back to the terminal with m
+
+### Bug fixes
+
+- Attach shows the torrent list at once
+
 ## 0.7.0 - 2026-09-03
 
 ### Features
