@@ -327,3 +327,62 @@ func TestEscapePeelsTheSelectionBeforeTheLabelFilter(t *testing.T) {
 		t.Errorf("labelFilter = %q, want the second escape to clear it", m.labelFilter)
 	}
 }
+
+// Marks belong to the view they were made in. The batch operations act on
+// the selection rather than on what is drawn, so a mark left armed under
+// a filter that hides it means x or D reaching torrents that are not on
+// screen.
+func TestChangingTheFilterClearsTheSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		to   int
+	}{
+		{"to a status", int(filterDownloading)},
+		{"to a label", len(filterNames)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := labelled("a", "tv", "b", "films", "c", "")
+			m.selected = map[engine.TorrentID]bool{"a": true, "b": true}
+
+			next, _ := m.selectSidebar(tc.to)
+			got := next.(Model)
+
+			if len(got.selected) != 0 {
+				t.Errorf("selected = %v, want it cleared with the filter change", got.selected)
+			}
+		})
+	}
+}
+
+// Re-picking the filter already applied is not a reason to throw a
+// selection away - moving the cursor back onto All and pressing nothing
+// else should not undo the marks you just made.
+func TestReselectingTheSameFilterKeepsTheSelection(t *testing.T) {
+	m := labelled("a", "tv", "b", "")
+	m.selected = map[engine.TorrentID]bool{"a": true}
+	m.filter = filterAll
+	m.labelFilter = ""
+
+	next, _ := m.selectSidebar(int(filterAll))
+	got := next.(Model)
+
+	if len(got.selected) != 1 {
+		t.Errorf("selected = %v, want it kept - the filter did not change", got.selected)
+	}
+}
+
+// Widening on its own is not a filter change the user made, and it cannot
+// hide anything: the reveal after an add and the fallback when a label
+// stops existing both leave a selection alone.
+func TestAWideningFallbackKeepsTheSelection(t *testing.T) {
+	m := labelled("a", "tv", "b", "films")
+	m.labelFilter = "tv"
+	m.selected = map[engine.TorrentID]bool{"a": true}
+
+	m.torrents[0].Label = "films" // nothing is filed under tv any more
+	m = m.dropVanishedLabelFilter()
+
+	if len(m.selected) != 1 {
+		t.Errorf("selected = %v, want it kept: widening hides nothing", m.selected)
+	}
+}
