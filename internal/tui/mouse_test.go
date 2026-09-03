@@ -219,3 +219,46 @@ func TestAMouseEventBeforeTheFirstResizeIsIgnored(t *testing.T) {
 		t.Error("a click with no layout yet should do nothing")
 	}
 }
+
+// The Files tab's body is a list, so a click has to pick the file that
+// was under the pointer.
+func TestClickingAFileRowMovesTheFileCursor(t *testing.T) {
+	m := mouseModel("a")
+	m.detailTab = tabFiles
+	m.detailLoaded = true
+	m.detail = engine.TorrentDetail{
+		Snapshot: engine.TorrentSnapshot{ID: "a"},
+		Files: []engine.FileInfo{
+			{Index: 0, Path: "one.mkv"}, {Index: 1, Path: "two.mkv"}, {Index: 2, Path: "three.mkv"},
+		},
+	}
+	p := layout(120, 40)
+
+	// Detail content row 0 is the tab strip and row 1 the Files header,
+	// so the first file is content row 2 and the second is row 3 - and a
+	// content row sits one below the pane's top edge.
+	next, _ := m.Update(click(40, p.listH+1+3))
+	got := next.(Model)
+
+	if got.detailCursor != 1 {
+		t.Errorf("detailCursor = %d, want 1 (the second file)", got.detailCursor)
+	}
+	if got.focus != focusDetail {
+		t.Errorf("focus = %v, want the detail pane", got.focus)
+	}
+}
+
+// The other tabs are prose and a bitmap - nothing to land on, and a
+// click must not move a cursor that is not being shown.
+func TestClickingThePiecesBodyDoesNotMoveTheFileCursor(t *testing.T) {
+	m := mouseModel("a")
+	m.detailTab = tabPieces
+	m.detailCursor = 2
+	m.detail = engine.TorrentDetail{Files: []engine.FileInfo{{}, {}, {}}}
+	p := layout(120, 40)
+
+	next, _ := m.Update(click(40, p.listH+3))
+	if got := next.(Model); got.detailCursor != 2 {
+		t.Errorf("detailCursor = %d, want it untouched", got.detailCursor)
+	}
+}

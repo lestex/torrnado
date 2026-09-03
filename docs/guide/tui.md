@@ -68,7 +68,7 @@ next rather than only that it is empty:
 | `]` / `[`, `1`/`2`/`3` | switch the detail pane's tab                    |
 | `}` / `{`          | cycle the sidebar's filter, statuses and labels    |
 | `/`                | search / filter by name                            |
-| `space`            | toggle selection (for batch operations)            |
+| `space`            | mark a torrent for batch operations; on the Files tab, skip that file |
 | `x`, `dd`          | remove selected (or cursor row), keep data on disk |
 | `D`                | remove selected (or cursor row), delete data too   |
 | `X`                | delete the data, keep the torrent in the list      |
@@ -107,13 +107,31 @@ always apply to the list's selection or cursor row.
 | `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
 
+## Choosing which files to download
+
+On the **Files** tab, ++space++ turns the file under the cursor off and
+on - a checkbox, not a step through the five-level priority scale that
+++plus++ and ++minus++ walk. The cursor advances afterwards, the same as
+marking a torrent in the list, so a run of episodes or extras can be
+turned off by holding one key.
+
+A file that is off is dimmed as well as reading `none` in its Priority
+column, so which ones you have skipped is answerable at a glance in a
+torrent of fifty rather than by reading every row. Turning one back on
+lands at `normal`.
+
+The choice is saved and restored, so skipping something is not undone by
+a restart. To decide before the download even starts, `torrnado add
+--files` takes the same decision as glob patterns - see
+[Command line](cli.md#picking-files-at-add-time).
+
 ## The mouse
 
 The wheel scrolls whatever pane the pointer is over - the list, the
 sidebar, the detail pane - without clicking into it first. A left click
 moves the cursor and the focus together: a torrent row selects that
-torrent, a sidebar entry applies that filter, and a tab in the detail
-pane switches to it.
+torrent, a sidebar entry applies that filter, a tab in the detail pane
+switches to it, and a row on the Files tab picks that file.
 
 !!! warning "Selecting text needs ++shift++"
 

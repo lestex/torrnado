@@ -64,7 +64,7 @@ func (m Model) renderHelp(width, height int) string {
 			displayKey(km.TabPieces) + "/" + displayKey(km.TabPeers) + "/" + displayKey(km.TabFiles),
 			"switch the detail pane's tab"},
 		{km.Search, "search torrents by name"},
-		{displayKey(km.Select), "mark the row under the cursor"},
+		{displayKey(km.Select), "mark the torrent under the cursor; on the Files tab, skip that file"},
 		{km.Detail, "move focus into the detail pane"},
 		{km.Back, "focus back to the list, then clear selection, search, filter"},
 	}
@@ -75,6 +75,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Purge, "delete their data, keeping the torrents in the list"},
 		{km.Pause, "pause or resume"},
 		{km.Recheck, "re-verify the data on disk"},
+		{"+ / -", "raise or lower the priority of the file under the cursor"},
 		{km.Command, "open the command palette"},
 		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},

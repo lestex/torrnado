@@ -145,6 +145,17 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 	case targetDetailBody:
 		m.focus = focusDetail
+		// On the Files tab the body is a list, so a click picks a file
+		// the same way it picks a torrent. The other tabs are prose and a
+		// bitmap; there is nothing in them to land on.
+		if m.detailTab == tabFiles && len(m.detail.Files) > 0 && row > 0 {
+			// The window filesTab drew with: its own height is the body
+			// less the tab strip, and it spends one row on the header.
+			start, _ := scrollWindow(m.detailCursor, len(m.detail.Files), p.detailContentH-2)
+			if i := start + row - 1; i < len(m.detail.Files) {
+				m.detailCursor = i
+			}
+		}
 		return m, nil
 	}
 	return m, nil

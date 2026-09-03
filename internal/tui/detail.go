@@ -67,6 +67,17 @@ func (m Model) handleDetailKey(key string) (tea.Model, tea.Cmd) {
 		m.detailScroll++
 		return m, nil
 
+	case key == km.Select && m.detailTab == tabFiles:
+		// A checkbox, not a step through the five-level scale that + and
+		// - walk: "do I want this file" is the question a torrent full of
+		// episodes and extras actually asks, and answering it should not
+		// require knowing where `none` sits relative to `normal`.
+		//
+		// The cursor advances afterwards, the same as marking a torrent
+		// in the list, so a run of files can be turned off by holding one
+		// key rather than alternating two.
+		return m.toggleFileWanted()
+
 	case key == "+" || key == "=":
 		return m.adjustFilePriority(1)
 
@@ -178,6 +189,12 @@ func (m Model) filesTab(p panes, height int) []string {
 		f := d.Files[i]
 		mark := " "
 		style := m.styles.Row
+		// A skipped file is dimmed whole rather than only saying "none"
+		// in its last column: in a torrent of fifty files, which ones are
+		// off has to be answerable at a glance, not by reading a column.
+		if f.Priority == engine.PriorityNone {
+			style = m.styles.Muted
+		}
 		if i == m.detailCursor && m.focus == focusDetail {
 			mark, style = ">", m.styles.CursorRow
 		}
@@ -244,6 +261,30 @@ func largestFile(files []engine.FileInfo) engine.FileInfo {
 		}
 	}
 	return largest
+}
+
+// toggleFileWanted turns the file under the cursor off, or back on.
+//
+// Back on is `normal` rather than whatever it was before: the library has
+// nothing between "not wanted" and "wanted normally" anyway (see the
+// caveats on `priority low`), so remembering a previous level would be
+// remembering a distinction that does not exist. A file deliberately set
+// to high keeps that, because toggling it off and on again is not
+// something anybody does to a file they raised.
+func (m Model) toggleFileWanted() (tea.Model, tea.Cmd) {
+	if m.detailCursor >= len(m.detail.Files) {
+		return m, nil
+	}
+	f := m.detail.Files[m.detailCursor]
+
+	want := engine.PriorityNone
+	if f.Priority == engine.PriorityNone {
+		want = engine.PriorityNormal
+	}
+	if m.detailCursor < len(m.detail.Files)-1 {
+		m.detailCursor++
+	}
+	return m, setPriorityCmd(m.client, m.detail.Snapshot.ID, f.Index, want)
 }
 
 func (m Model) adjustFilePriority(delta int) (tea.Model, tea.Cmd) {
