@@ -173,6 +173,10 @@ type Model struct {
 	// filter, which is not the same as "the empty label": a torrent with
 	// no label is only hidden while some label is selected.
 	labelFilter string
+	// mouseOff is set while the mouse has been handed back to the
+	// terminal, so the footer can say so and the toggle knows which way
+	// to go. The program starts with the mouse captured.
+	mouseOff bool
 	// pendingReveal holds torrents just added, until a snapshot carries
 	// them and the filters hiding them can be worked out. See
 	// revealJustAdded.

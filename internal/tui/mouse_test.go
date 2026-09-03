@@ -262,3 +262,85 @@ func TestClickingThePiecesBodyDoesNotMoveTheFileCursor(t *testing.T) {
 		t.Errorf("detailCursor = %d, want it untouched", got.detailCursor)
 	}
 }
+
+// A terminal only does its own click-drag selection for programs that
+// have not asked for mouse events, so copying a name off the screen means
+// handing the mouse back. Both halves matter: the command that actually
+// releases it, and saying so - whether the mouse is captured is invisible
+// until you try to drag and get nothing.
+func TestTheMouseToggleReleasesAndRetakesIt(t *testing.T) {
+	m := mouseModel("a")
+
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(m.keymap.ToggleMouse)})
+	off := next.(Model)
+	if !off.mouseOff {
+		t.Fatal("the first press did not hand the mouse back")
+	}
+	if cmd == nil {
+		t.Fatal("no command issued, so the terminal was never told")
+	}
+	if !strings.Contains(off.status, "mouse off") {
+		t.Errorf("status = %q, want it to say the mouse was released", off.status)
+	}
+
+	next, cmd = off.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(m.keymap.ToggleMouse)})
+	on := next.(Model)
+	if on.mouseOff {
+		t.Error("the second press did not take the mouse back")
+	}
+	if cmd == nil {
+		t.Fatal("no command issued on the way back")
+	}
+}
+
+// The footer is the only place that can carry a standing condition, and
+// with nothing else on screen saying the mouse is off, the way out has to
+// be visible.
+func TestTheFooterSaysWhenTheMouseIsOff(t *testing.T) {
+	m := mouseModel("a")
+	p := layout(120, 40)
+
+	if strings.Contains(m.renderFooter(p), "mouse off") {
+		t.Error("the footer claims the mouse is off when it is not")
+	}
+
+	m.mouseOff = true
+	foot := m.renderFooter(p)
+	if !strings.Contains(foot, "mouse off") {
+		t.Errorf("footer = %q, want it to report the mouse is off", foot)
+	}
+	if !strings.Contains(foot, m.keymap.ToggleMouse) {
+		t.Errorf("footer = %q, want it to name the key that switches back", foot)
+	}
+}
+
+// A real message takes that corner back - the standing note must not
+// outrank something the user just did.
+func TestAStatusMessageOutranksTheMouseNote(t *testing.T) {
+	m := mouseModel("a")
+	m.mouseOff = true
+	m.status = "labelled 1 torrent(s)"
+
+	if foot := m.renderFooter(layout(120, 40)); strings.Contains(foot, "mouse off") {
+		t.Errorf("footer = %q, want the status message instead", foot)
+	}
+}
+
+// Asking the terminal to stop reporting is what gives click-drag back,
+// but nothing guarantees it stops - a multiplexer with its own mouse mode
+// can keep forwarding events, and then a drag would both select text and
+// move the cursor. The flag has to be what the state actually is.
+func TestEventsArrivingWhileTheMouseIsOffAreIgnored(t *testing.T) {
+	m := mouseModel("a", "b", "c")
+	m.mouseOff = true
+
+	next, _ := m.Update(click(40, 4))
+	if got := next.(Model); got.cursor != 0 {
+		t.Errorf("cursor = %d, want 0: a click must not act while the mouse is released", got.cursor)
+	}
+
+	next, _ = m.Update(wheel(40, 4, false))
+	if got := next.(Model); got.cursor != 0 {
+		t.Errorf("cursor = %d, want 0: the wheel must not act either", got.cursor)
+	}
+}

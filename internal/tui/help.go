@@ -77,6 +77,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Recheck, "re-verify the data on disk"},
 		{"+ / -", "raise or lower the priority of the file under the cursor"},
 		{km.Command, "open the command palette"},
+		{km.ToggleMouse, "hand the mouse back to the terminal, to select and copy text"},
 		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},
 		{keyPair(km.Help, km.HelpAlt), "show this screen"},

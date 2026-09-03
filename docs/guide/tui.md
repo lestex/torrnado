@@ -75,6 +75,7 @@ next rather than only that it is empty:
 | `p`                | toggle pause/resume; also stops a running recheck   |
 | `r`                | force recheck on selected (or cursor row)          |
 | `enter`            | move focus into the detail pane                    |
+| `m`                | hand the mouse back to the terminal, to select and copy text |
 | `esc`              | focus back to the list, then clear selection / search / label / status filter |
 | `:`                | open the command palette                           |
 | `v`                | stream to your player: the file under the cursor, or the torrent's biggest |
@@ -133,16 +134,28 @@ moves the cursor and the focus together: a torrent row selects that
 torrent, a sidebar entry applies that filter, a tab in the detail pane
 switches to it, and a row on the Files tab picks that file.
 
-!!! warning "Selecting text needs ++shift++"
+### Copying text off the screen
 
-    A terminal hands mouse events to the program that asks for them, so
-    while torrnado is running, click-drag no longer selects text for
-    copying - hold ++shift++ and drag instead. That works in most
-    terminals (iTerm2, GNOME Terminal, Konsole, Windows Terminal, xterm);
-    under tmux it needs `set -g mouse on` and the same ++shift++.
+A terminal only does its own click-drag selection for programs that have
+not asked for mouse events, so while torrnado holds the mouse there is no
+way to select a torrent name and copy it.
 
-    Worth knowing before you go looking for an infohash to copy, because
-    the first time it happens it reads as the terminal having broken.
+Press ++m++ to hand the mouse back. Drag over what you want, copy it the
+way you normally would, and press ++m++ again to take the mouse back.
+While it is released the footer says so, and names the key that switches
+it back. `:mouse` does the same thing from the palette.
+
+++shift++ and drag also works in most terminals (iTerm2, GNOME Terminal,
+Konsole, Windows Terminal, xterm) without releasing anything - under tmux
+it needs `set -g mouse on`. ++m++ is the one that works everywhere,
+because it takes torrnado out of the way entirely.
+
+!!! note "What you copy is what is on screen"
+
+    Selection copies the rendered text, so a long torrent name that the
+    list has truncated to fit its column copies truncated. Widen the
+    window, or read the full name from the detail pane, before selecting
+    one that matters.
 
 ## Labels
 
