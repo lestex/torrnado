@@ -43,6 +43,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// flowing. The docked pane is refreshed on the same tick.
 		return m, tea.Batch(listenForEvents(m.events), m.syncDetail(), revealCmd)
 
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
+
 	case engineClosedMsg:
 		// Set directly, with no expiry: the daemon being gone is a
 		// standing condition, not an event that has passed.

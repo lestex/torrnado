@@ -45,7 +45,16 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		Player:    cfg.Player,
 		Opener:    cfg.Opener,
 	})
-	if _, err := tea.NewProgram(model, tea.WithAltScreen()).Run(); err != nil {
+	// WithMouseCellMotion gives clicks, releases and the wheel; "all
+	// motion" would add hover, which nothing here uses and which fewer
+	// terminals support.
+	//
+	// The cost is that the terminal stops handling click-drag itself, so
+	// selecting text to copy needs shift held down. That is the usual
+	// bargain for a mouse-aware TUI, and it is said out loud in the docs
+	// because the first time it happens it looks like the terminal broke.
+	if _, err := tea.NewProgram(model,
+		tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)
 	}
 	return nil
