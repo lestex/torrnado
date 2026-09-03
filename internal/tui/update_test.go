@@ -655,3 +655,52 @@ func TestTheDetailTabFollowsItsBinding(t *testing.T) {
 		t.Errorf("detailTab = %v, want tabPeers: the rebound key did nothing", got)
 	}
 }
+
+// Search hides rows the same way a filter does, and the batch operations
+// act on what is marked rather than on what is drawn - so a mark left
+// armed under a search that hides it would let x or D reach a torrent
+// that is not on screen.
+func TestTypingASearchClearsTheSelection(t *testing.T) {
+	m := testModel("alpha", "beta")
+	m.selected = map[engine.TorrentID]bool{"alpha": true}
+	m.mode = modeSearch
+
+	next, _ := m.handleSearchKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("z")})
+	got := next.(Model)
+
+	if len(got.selected) != 0 {
+		t.Errorf("selected = %v, want it cleared with the search", got.selected)
+	}
+}
+
+// Cancelling a search changes what is listed too, so it is a view change
+// like any other - the mark did not survive the search that hid it.
+func TestCancellingASearchClearsTheSelection(t *testing.T) {
+	m := testModel("alpha", "beta")
+	m.searchQuery = "alpha"
+	m.selected = map[engine.TorrentID]bool{"alpha": true}
+	m.mode = modeSearch
+
+	next, _ := m.handleSearchKey(tea.KeyMsg{Type: tea.KeyEsc})
+	got := next.(Model)
+
+	if len(got.selected) != 0 {
+		t.Errorf("selected = %v, want it cleared", got.selected)
+	}
+}
+
+// Confirming leaves the query alone, so it is not a view change and the
+// marks made while the search was open must survive it.
+func TestConfirmingASearchKeepsTheSelection(t *testing.T) {
+	m := testModel("alpha", "beta")
+	m.searchQuery = "alpha"
+	m.selected = map[engine.TorrentID]bool{"alpha": true}
+	m.mode = modeSearch
+
+	next, _ := m.handleSearchKey(tea.KeyMsg{Type: tea.KeyEnter})
+	got := next.(Model)
+
+	if len(got.selected) != 1 {
+		t.Errorf("selected = %v, want it kept - enter changes nothing", got.selected)
+	}
+}

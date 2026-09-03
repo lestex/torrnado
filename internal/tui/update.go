@@ -457,6 +457,8 @@ func (m Model) recheckTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.
 // method or a paste can deliver several runes in one message, and
 // anything filtering on "exactly one rune" silently drops the rest.
 func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	before := m.searchQuery
+
 	switch msg.Type {
 	case tea.KeyEnter:
 		m.mode = modeNormal
@@ -474,6 +476,19 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.searchQuery += " "
 	case tea.KeyRunes:
 		m.searchQuery += string(msg.Runes)
+	}
+
+	// Marks belong to the view they were made in, the same as for the
+	// sidebar's filters: the batch operations act on what is marked
+	// rather than on what is drawn, so a mark left armed under a search
+	// that hides it would let x or D reach a torrent off screen.
+	//
+	// On any change, widening included. Narrowing is what can hide a
+	// mark, but "typing clears it and backspacing does not" is a rule
+	// nobody could predict from the outside, and one that would leave the
+	// selection surviving a round trip through a search that did hide it.
+	if m.searchQuery != before {
+		m.selected = map[engine.TorrentID]bool{}
 	}
 
 	// The list narrows on every keystroke, so the cursor has to follow.
