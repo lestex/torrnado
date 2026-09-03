@@ -17,7 +17,7 @@ torrnado                              attach the TUI (spawns a daemon if needed)
 torrnado daemon                       run the engine in the foreground
 torrnado status                       is a daemon running, and what is it doing; --quiet
 torrnado stop                         shut the running daemon down; --timeout
-torrnado add <sources...>             add torrent(s); --save-path, --paused
+torrnado add <sources...>             add torrent(s); --save-path, --paused, --files
 torrnado remove <id...>               remove; --delete-data
 torrnado purge <id...>                delete the data, keep the torrent
 torrnado pause <id...>
@@ -117,3 +117,36 @@ torrnado add ~/torrents/*.torrent
 torrnado add ~/torrents/            # every .torrent file in the directory
 torrnado add magnets.txt            # one magnet uri per line
 ```
+
+### Picking files at add time
+
+`--files` says which files inside a torrent to download; everything else
+is marked not wanted. Without it a season pack starts pulling the extras
+and the sample immediately, and fixing that by hand afterwards is a race
+you have already lost.
+
+```sh
+torrnado add --files '*.mkv' <magnet>              # videos, at any depth
+torrnado add --files '*.mkv,*.srt' <magnet>        # or repeat the flag
+torrnado add --files 'Season 1/*' <magnet>         # one folder, not the rest
+```
+
+A pattern containing a slash is matched against a file's whole path
+inside the torrent; one without is matched against its base name. That is
+what makes `*.mkv` find videos in subfolders - the `*` in a glob does not
+cross a `/`, so matched against full paths it would find nothing in a
+torrent with any folder structure at all.
+
+The choice is applied when the torrent's file list arrives, which for a
+magnet is after a peer supplies it - there is nothing to pick from before
+that, which is why this is a pattern rather than a picker. It survives a
+restart, and the daemon logs what it did:
+
+```
+msg="files selected" name="Season 1" selected=3 of=4 patterns=*.mkv
+```
+
+If nothing matches, nothing is downloaded and the log says so at warning
+level. Widening it back to everything would defeat the point of asking,
+and a torrent quietly fetching what you excluded is worse than one that
+fetches nothing and tells you.

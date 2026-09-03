@@ -12,6 +12,7 @@ import (
 
 func newAddCmd() *cobra.Command {
 	var savePath string
+	var files []string
 	var paused bool
 
 	cmd := &cobra.Command{
@@ -19,7 +20,17 @@ func newAddCmd() *cobra.Command {
 		Short: "Add one or more torrents",
 		Long: "Adds torrents from anything that names them: a magnet URI, a\n" +
 			".torrent file, an http(s) URL to one, a directory of them, a glob\n" +
-			"pattern, or a text file listing one magnet per line.",
+			"pattern, or a text file listing one magnet per line.\n\n" +
+			"--files picks which files inside the torrent to download, so a\n" +
+			"season pack does not start pulling the extras before you can say\n" +
+			"otherwise. A pattern with a slash in it is matched against a file's\n" +
+			"whole path inside the torrent, one without against its base name -\n" +
+			"so '*.mkv' finds videos at any depth, and 'Season 1/*' finds a\n" +
+			"folder.\n\n" +
+			"The choice is applied when the torrent's file list arrives, which\n" +
+			"for a magnet means after a peer supplies it. If nothing matches,\n" +
+			"nothing is downloaded and the daemon log says so - widening it back\n" +
+			"to everything would defeat the point of asking.",
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Arguments are resolved here rather than in the daemon so
@@ -30,7 +41,7 @@ func newAddCmd() *cobra.Command {
 				return err
 			}
 
-			opts := engine.AddOpts{SavePath: savePath, Paused: paused}
+			opts := engine.AddOpts{SavePath: savePath, Paused: paused, Files: files}
 			return withClient(func(c *ipc.Client) error {
 				ids, failures, err := c.AddBatch(sources, opts)
 				if err != nil {
@@ -52,5 +63,7 @@ func newAddCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&savePath, "save-path", "", "download into this directory instead of the default")
 	cmd.Flags().BoolVar(&paused, "paused", false, "add the torrents but leave them paused")
+	cmd.Flags().StringSliceVar(&files, "files", nil,
+		"download only files matching these glob patterns, e.g. '*.mkv' (repeatable, or comma-separated)")
 	return cmd
 }

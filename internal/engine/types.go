@@ -338,4 +338,13 @@ type AddOpts struct {
 	SavePath string
 	// Paused adds the torrent but leaves it paused (no download/upload).
 	Paused bool
+	// Files, when set, names the files to download as glob patterns;
+	// everything else in the torrent is marked not wanted. A pattern
+	// with a slash in it is matched against a file's whole path inside
+	// the torrent, one without against its base name.
+	//
+	// Applied when the metadata arrives rather than at add time, because
+	// a magnet has no file list until a peer supplies one - which is the
+	// whole reason this cannot be a picker.
+	Files []string
 }
