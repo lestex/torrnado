@@ -537,6 +537,16 @@ func (e *Engine) Subscribe() (events <-chan Event, unsubscribe func()) {
 
 	e.mu.Lock()
 	e.subs[ch] = struct{}{}
+	// Primed with the state as it stands, rather than left waiting for
+	// the next tick. A subscriber that has to wait shows an empty list
+	// for up to a second after attaching - the interface looks like it
+	// found no torrents, and then they appear.
+	//
+	// Into the buffer, under the same lock that registered the channel:
+	// nobody else can be sending yet, so the single slot is free, and a
+	// tick landing a moment later replaces this rather than queueing
+	// behind it.
+	ch <- e.eventLocked()
 	e.mu.Unlock()
 
 	var once sync.Once
