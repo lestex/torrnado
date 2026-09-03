@@ -26,6 +26,11 @@ type KeyMap struct {
 	TabNext, TabPrev       string
 	FilterNext, FilterPrev string
 
+	// ToggleMouse hands the mouse back to the terminal and takes it
+	// again. While torrnado holds it, click-drag no longer selects text,
+	// so this is how you copy something off the screen.
+	ToggleMouse string
+
 	// The detail tabs by name, as a shortcut past stepping through them.
 	// Bindings rather than hardcoded digits: they used to be matched
 	// before focus dispatch ever ran, so binding any action to "1" left
@@ -76,6 +81,8 @@ func DefaultKeyMap() KeyMap {
 		FilterNext: "}",
 		FilterPrev: "{",
 
+		ToggleMouse: "m",
+
 		TabPieces: "1",
 		TabPeers:  "2",
 		TabFiles:  "3",
@@ -118,6 +125,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.TabPrev, "tab_prev")
 	apply(&k.FilterNext, "filter_next")
 	apply(&k.FilterPrev, "filter_prev")
+	apply(&k.ToggleMouse, "toggle_mouse")
 	apply(&k.TabPieces, "tab_pieces")
 	apply(&k.TabPeers, "tab_peers")
 	apply(&k.TabFiles, "tab_files")

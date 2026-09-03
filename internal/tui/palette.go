@@ -48,6 +48,7 @@ var paletteCommands = []paletteCommand{
 	{[]string{"limit-up"}, ":limit-up <rate>", "global upload cap: 500k, 2M, unlimited", false},
 	{[]string{"limit-down"}, ":limit-down <rate>", "global download cap", false},
 	{[]string{"move"}, ":move <dir>", "move the torrent under the cursor", true},
+	{[]string{"mouse"}, ":mouse", "hand the mouse back to the terminal, so drag-select works; again to take it", false},
 	{[]string{"label"}, ":label [name]", "file the marked torrents under a label; no name clears it", false},
 	{[]string{"sort"}, ":sort <column> [desc]", "name, size, progress, ratio, eta, added, down, up", false},
 	{[]string{"theme"}, ":theme [name]", "open the theme picker, or apply one by name", false},
@@ -102,6 +103,9 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, moveCmd(m.client, t.ID, expandPathArgs(args)[0])
+
+	case "mouse":
+		return m.toggleMouse()
 
 	case "label":
 		// Joined rather than requiring quotes: a label is a human name

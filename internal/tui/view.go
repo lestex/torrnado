@@ -176,6 +176,12 @@ func (m Model) renderFooter(p panes) string {
 	// they have to already know the key for. Any real message takes the
 	// space back.
 	right, rightStyle := m.status, statusStyle
+	if right == "" && m.mouseOff {
+		// A standing condition, not a message that has passed: with the
+		// mouse handed back there is nothing else on screen to say so,
+		// and the way out is the same key that got you here.
+		right, rightStyle = "mouse off ("+displayKey(m.keymap.ToggleMouse)+")", m.styles.Muted
+	}
 	if right == "" {
 		right, rightStyle = m.helpHint(), m.styles.Muted
 	}

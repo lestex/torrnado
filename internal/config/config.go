@@ -168,6 +168,7 @@ var KnownActions = []string{
 	"focus_next", "focus_prev",
 	"tab_next", "tab_prev",
 	"tab_pieces", "tab_peers", "tab_files",
+	"toggle_mouse",
 	"filter_next", "filter_prev",
 }
 

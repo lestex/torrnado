@@ -139,6 +139,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.selectSidebar(m.currentSidebarIndex() + 1)
 	case km.FilterPrev:
 		return m.selectSidebar(m.currentSidebarIndex() - 1)
+	case km.ToggleMouse:
+		return m.toggleMouse()
+
 	case km.TabPieces:
 		return m.setDetailTab(tabPieces)
 	case km.TabPeers:

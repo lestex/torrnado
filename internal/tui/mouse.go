@@ -90,6 +90,14 @@ func detailTabAt(col int) (detailTab, bool) {
 // without clicking first. A click moves focus as well as acting, so the
 // keyboard carries on from where the pointer left off.
 func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	// Off means off. Asking the terminal to stop reporting is the part
+	// that gives click-drag back, but nothing guarantees it stops:
+	// a multiplexer with its own mouse mode can keep forwarding events,
+	// and then a drag would both select text and move the cursor. The
+	// flag is what the state actually is.
+	if m.mouseOff {
+		return m, nil
+	}
 	if m.width == 0 || m.height == 0 {
 		return m, nil // no layout yet
 	}
@@ -145,6 +153,17 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 	case targetDetailBody:
 		m.focus = focusDetail
+		// On the Files tab the body is a list, so a click picks a file
+		// the same way it picks a torrent. The other tabs are prose and a
+		// bitmap; there is nothing in them to land on.
+		if m.detailTab == tabFiles && len(m.detail.Files) > 0 && row > 0 {
+			// The window filesTab drew with: its own height is the body
+			// less the tab strip, and it spends one row on the header.
+			start, _ := scrollWindow(m.detailCursor, len(m.detail.Files), p.detailContentH-2)
+			if i := start + row - 1; i < len(m.detail.Files) {
+				m.detailCursor = i
+			}
+		}
 		return m, nil
 	}
 	return m, nil
@@ -168,4 +187,31 @@ func (m Model) scrollTarget(target mouseTarget, delta int) (tea.Model, tea.Cmd) 
 		return m, nil
 	}
 	return m, nil
+}
+
+// toggleMouse hands the mouse back to the terminal, or takes it again.
+//
+// A terminal only does its own click-drag selection for programs that
+// have not asked for mouse events, so while torrnado holds the mouse
+// there is no way to select a name and copy it. Rather than choose
+// between the two, this switches: press it, drag over what you want,
+// press it again.
+//
+// It says which way it went, because nothing else on screen would.
+// Whether the mouse is captured is invisible until you try to use it,
+// and finding out by dragging and getting nothing is the failure this
+// exists to remove.
+func (m Model) toggleMouse() (tea.Model, tea.Cmd) {
+	m.mouseOff = !m.mouseOff
+	if m.mouseOff {
+		return m, tea.Batch(
+			tea.DisableMouse,
+			m.setStatus(okStatus("mouse off - drag to select and copy, "+
+				displayKey(m.keymap.ToggleMouse)+" to switch back")),
+		)
+	}
+	return m, tea.Batch(
+		tea.EnableMouseCellMotion,
+		m.setStatus(okStatus("mouse on")),
+	)
 }
