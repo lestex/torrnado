@@ -57,13 +57,37 @@ func (f statusFilter) matches(t engine.TorrentSnapshot) bool {
 }
 
 func (m Model) renderSidebar(p panes) string {
+	lines, _ := m.buildSidebar(p)
+	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+}
+
+// buildSidebar draws the sidebar and, alongside it, says which selectable
+// entry each row belongs to: an index into sidebarEntries, or -1 for a
+// heading, a blank, the overflow count or the daemon block.
+//
+// One function produces both because a click has to land on the row it
+// looks like it landed on. Working the mapping out separately would mean
+// two descriptions of the same layout - and the label section is elided
+// to fit, so the mapping is not a fixed table that could simply be kept
+// in step by hand.
+func (m Model) buildSidebar(p panes) (lines []string, rowEntry []int) {
 	w := p.sidebarContentW
 
-	var lines []string
+	// chrome appends rows that nothing selects.
+	chrome := func(l ...string) {
+		for _, one := range l {
+			lines = append(lines, one)
+			rowEntry = append(rowEntry, -1)
+		}
+	}
+	selectable := func(l string, entry int) {
+		lines = append(lines, l)
+		rowEntry = append(rowEntry, entry)
+	}
 
 	// No mark here: the sidebar is 20 columns that torrent names and
 	// filters compete for, and the help screen already carries it.
-	lines = append(lines,
+	chrome(
 		m.styles.SidebarTitle.Render(truncate("torrnado", w)),
 		"",
 		m.styles.ColHeader.Render(truncate("Status", w)),
@@ -75,7 +99,7 @@ func (m Model) renderSidebar(p panes) string {
 	// were already using.
 	entries := m.sidebarEntries()
 	for i := range filterNames {
-		lines = append(lines, m.renderSidebarRow(entries[i], i, filterNames[i], w))
+		selectable(m.renderSidebarRow(entries[i], i, filterNames[i], w), i)
 	}
 
 	// Labels, when anything is filed under one. The heading is drawn only
@@ -98,13 +122,12 @@ func (m Model) renderSidebar(p panes) string {
 			shown = max(room-1, 0)
 		}
 		if shown > 0 {
-			lines = append(lines, "", m.styles.ColHeader.Render(truncate("Labels", w)))
+			chrome("", m.styles.ColHeader.Render(truncate("Labels", w)))
 			for j, l := range labels[:shown] {
-				lines = append(lines, m.renderSidebarRow(l, len(filterNames)+j, l.label, w))
+				selectable(m.renderSidebarRow(l, len(filterNames)+j, l.label, w), len(filterNames)+j)
 			}
 			if hidden := len(labels) - shown; hidden > 0 {
-				lines = append(lines,
-					m.styles.Muted.Render(truncate(fmt.Sprintf(" +%d more", hidden), w)))
+				chrome(m.styles.Muted.Render(truncate(fmt.Sprintf(" +%d more", hidden), w)))
 			}
 		}
 	}
@@ -129,12 +152,12 @@ func (m Model) renderSidebar(p panes) string {
 	// two cannot both claim the same space.
 	if gap := p.sidebarContentH - len(lines) - len(stats); gap >= 1 {
 		for range gap {
-			lines = append(lines, "")
+			chrome("")
 		}
-		lines = append(lines, stats...)
+		chrome(stats...)
 	}
 
-	return strings.Join(clampLines(lines, p.sidebarContentH), "\n")
+	return lines, rowEntry
 }
 
 // renderSidebarRow draws one selectable row - a status filter or a label

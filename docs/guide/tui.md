@@ -107,6 +107,25 @@ always apply to the list's selection or cursor row.
 | `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
 
+## The mouse
+
+The wheel scrolls whatever pane the pointer is over - the list, the
+sidebar, the detail pane - without clicking into it first. A left click
+moves the cursor and the focus together: a torrent row selects that
+torrent, a sidebar entry applies that filter, and a tab in the detail
+pane switches to it.
+
+!!! warning "Selecting text needs ++shift++"
+
+    A terminal hands mouse events to the program that asks for them, so
+    while torrnado is running, click-drag no longer selects text for
+    copying - hold ++shift++ and drag instead. That works in most
+    terminals (iTerm2, GNOME Terminal, Konsole, Windows Terminal, xterm);
+    under tmux it needs `set -g mouse on` and the same ++shift++.
+
+    Worth knowing before you go looking for an infohash to copy, because
+    the first time it happens it reads as the terminal having broken.
+
 ## Labels
 
 A torrent can be filed under one label, and the sidebar grows a **Labels**
