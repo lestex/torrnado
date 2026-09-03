@@ -32,8 +32,18 @@ func (e *Engine) SetLabel(id TorrentID, label string) error {
 		return err
 	}
 	e.mu.Lock()
+	was := tr.label
 	tr.label = label
+	name := tr.t.Name()
 	e.mu.Unlock()
+
+	// Logged like every other mutating operation, and with the value it
+	// replaced: "the label is gone" is a question the log could not
+	// answer before, which left removal timestamps as the only way to
+	// work out what had happened to one.
+	if was != label {
+		e.log.Info("torrent labelled", "id", id, "name", name, "label", label, "was", was)
+	}
 
 	e.persist()
 	e.snapshotAndBroadcastNow()
