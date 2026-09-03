@@ -1,10 +1,12 @@
 package theme
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -73,6 +75,139 @@ func TestPlainThemeAvoidsHexColors(t *testing.T) {
 	} {
 		if strings.HasPrefix(c, "#") {
 			t.Errorf("plain theme uses a hex color %q", c)
+		}
+	}
+}
+
+// xtermPalette is the classic 16-colour palette, used to give the ANSI
+// codes a concrete value so they can be measured.
+//
+// A terminal may render these however it likes, and most render the
+// bright half lighter than this. That makes these numbers the pessimistic
+// case, which is the useful one: a colour that reads here reads anywhere.
+var xtermPalette = [16]string{
+	"#000000", "#800000", "#008000", "#808000",
+	"#000080", "#800080", "#008080", "#c0c0c0",
+	"#808080", "#ff0000", "#00ff00", "#ffff00",
+	"#0000ff", "#ff00ff", "#00ffff", "#ffffff",
+}
+
+// relativeLuminance is WCAG's, so contrastRatio below means what it means
+// everywhere else.
+func relativeLuminance(hex string) float64 {
+	h := strings.TrimPrefix(hex, "#")
+	if len(h) != 6 {
+		return -1
+	}
+	channel := func(i int) float64 {
+		v, err := strconv.ParseInt(h[i:i+2], 16, 0)
+		if err != nil {
+			return 0
+		}
+		c := float64(v) / 255
+		if c <= 0.03928 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(0) + 0.7152*channel(2) + 0.0722*channel(4)
+}
+
+func contrastRatio(a, b string) float64 {
+	la, lb := relativeLuminance(a), relativeLuminance(b)
+	hi, lo := math.Max(la, lb), math.Min(la, lb)
+	return (hi + 0.05) / (lo + 0.05)
+}
+
+// resolveColor turns a theme colour into a hex value, looking an ANSI
+// code up in the palette above.
+func resolveColor(c string) string {
+	if strings.HasPrefix(c, "#") {
+		return c
+	}
+	n, err := strconv.Atoi(c)
+	if err != nil || n < 0 || n > 15 {
+		return ""
+	}
+	return xtermPalette[n]
+}
+
+// Accent marks the row under the cursor, the focused pane's border and
+// the active tab, and draws all of them as a foreground colour with
+// nothing behind it - unlike SelectedBg, which brings its own contrast.
+// So it has to read against the background the theme is written for.
+//
+// 3:1 is WCAG's floor for a interface element you are meant to pick out.
+// The plain theme sat at 1.3:1 with ANSI 4 and the cursor row came out
+// darker than the ordinary rows around it, which is the bug this guards.
+//
+// Measured against the theme's declared background, which is the author's
+// stated assumption about the terminal: nothing paints it (see the note
+// on Background), so the real backdrop is whatever the terminal is set
+// to, and that is the only stated intent there is.
+func TestEveryThemeAccentReadsAgainstItsBackground(t *testing.T) {
+	const floor = 3.0
+
+	for _, name := range Names() {
+		th, err := Load(name, t.TempDir())
+		if err != nil {
+			t.Fatalf("Load(%s): %v", name, err)
+		}
+		bg, accent := resolveColor(string(th.Background)), resolveColor(string(th.Accent))
+		if bg == "" || accent == "" {
+			t.Errorf("%s: cannot resolve background %q or accent %q", name, th.Background, th.Accent)
+			continue
+		}
+		if got := contrastRatio(accent, bg); got < floor {
+			t.Errorf("%s: accent %s on background %s is %.2f:1, want at least %.1f:1 - "+
+				"the row under the cursor would be harder to see than the rest",
+				name, th.Accent, th.Background, got, floor)
+		}
+	}
+}
+
+// The ordinary text has to be readable too, and by a wider margin: it is
+// every row, not the one being pointed at.
+//
+// The floor is 4.0 rather than WCAG AA's 4.5, and solarized-light is why:
+// it reproduces a published palette that is deliberately low contrast -
+// #657b83 on #fdf6e3 is 4.13:1, and those are Solarized's own values.
+// Holding it to 4.5 would mean shipping something that is not Solarized,
+// which is a worse answer than a theme that is faint on purpose. This
+// still catches a theme whose text has become genuinely hard to read.
+func TestEveryThemeForegroundReadsAgainstItsBackground(t *testing.T) {
+	const floor = 4.0
+
+	for _, name := range Names() {
+		th, err := Load(name, t.TempDir())
+		if err != nil {
+			t.Fatalf("Load(%s): %v", name, err)
+		}
+		fg, bg := resolveColor(string(th.Foreground)), resolveColor(string(th.Background))
+		if got := contrastRatio(fg, bg); got < floor {
+			t.Errorf("%s: foreground %s on background %s is %.2f:1, want at least %.1f:1",
+				name, th.Foreground, th.Background, got, floor)
+		}
+	}
+}
+
+// A marked row is drawn as selected_fg on selected_bg, which is the one
+// pair that brings its own background - so it stands alone.
+//
+// Same floor and the same reason: solarized-light's selection sits at
+// 4.39:1 out of its own palette.
+func TestEveryThemeSelectionIsReadable(t *testing.T) {
+	const floor = 4.0
+
+	for _, name := range Names() {
+		th, err := Load(name, t.TempDir())
+		if err != nil {
+			t.Fatalf("Load(%s): %v", name, err)
+		}
+		fg, bg := resolveColor(string(th.SelectedFg)), resolveColor(string(th.SelectedBg))
+		if got := contrastRatio(fg, bg); got < floor {
+			t.Errorf("%s: selected_fg %s on selected_bg %s is %.2f:1, want at least %.1f:1",
+				name, th.SelectedFg, th.SelectedBg, got, floor)
 		}
 	}
 }

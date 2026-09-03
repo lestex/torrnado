@@ -116,12 +116,31 @@ func init() {
 
 	// plain is a 16-color-safe fallback using bare ANSI codes instead of
 	// hex, for terminals with no usable color profile at all.
+	//
+	// Accent is bright cyan (14), and the choice matters more here than
+	// in any other theme: Accent marks the row under the cursor, the
+	// focused pane's border and the active tab, and draws all of them as
+	// a foreground colour with nothing behind it.
+	//
+	// It was ANSI 4, the normal blue, which against a black terminal is
+	// 1.3:1 - the cursor row came out darker than the ordinary rows
+	// around it, so the one row you were meant to be looking at was the
+	// hardest to see. Bright blue (12) only reaches 2.4:1 on a terminal
+	// using the literal xterm palette, still under the 3:1 wanted for
+	// something you have to pick out. Cyan is 16.8:1.
+	//
+	// Cyan sits close to white in *luminance*, so it separates from the
+	// ordinary rows by hue rather than brightness - which is enough here
+	// because the cursor row is bold and already carries a ">" marker.
+	// Being readable is the part that was missing.
+	//
+	// The other themes pick hex colours and never meet any of this.
 	register(Theme{
 		Name:       "plain",
 		Background: "0",
 		Foreground: "7",
 		Muted:      "8",
-		Accent:     "4",
+		Accent:     "14",
 		Success:    "2",
 		Warning:    "3",
 		Error:      "1",

@@ -28,6 +28,13 @@ selected_fg = "#c0caf5"
 
 A file matching a built-in theme's name overrides that built-in.
 
+`accent` is the one worth choosing carefully. It marks the row under the
+cursor, the focused pane's border, the active tab and the progress fill,
+and it does all of that as a foreground colour with nothing behind it -
+unlike `selected_bg`, which brings its own contrast. Pick something that
+reads clearly against `background`, or the one row you are meant to be
+looking at ends up harder to see than the rest.
+
 ## Switching themes at runtime
 
 `:theme` opens a floating picker over the panes. Moving through it
