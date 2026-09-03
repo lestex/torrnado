@@ -139,7 +139,25 @@ func (e *Engine) addSpec(spec *torrent.TorrentSpec, opts AddOpts, magnetURI stri
 		// priority set right after the add - by a script, or by the
 		// session restore - lands in the window this would otherwise
 		// overwrite.
-		if !opts.Paused {
+		switch {
+		case len(opts.Files) > 0:
+			// Applied whether or not the torrent is paused: the selection
+			// says which files, pausing says when - and a paused torrent
+			// resumed later has to start on the right ones.
+			n := e.applyFileSelection(id, t, opts.Files)
+			if n == 0 {
+				// Honoured rather than widened to everything: the whole
+				// point of the flag is not to fetch what was not asked
+				// for. Said out loud, because a torrent that downloads
+				// nothing otherwise looks like a stall.
+				e.log.Warn("no files matched the selection; nothing will be downloaded",
+					"id", id, "name", t.Name(), "patterns", strings.Join(opts.Files, ","))
+			} else {
+				e.log.Info("files selected", "id", id, "name", t.Name(),
+					"selected", n, "of", len(filesOrNil(t)),
+					"patterns", strings.Join(opts.Files, ","))
+			}
+		case !opts.Paused:
 			downloadUnchosenFiles(t, e.chosenFilesOf(id))
 		}
 		// Now there is a metainfo to save, which is what makes the next
