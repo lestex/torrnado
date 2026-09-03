@@ -4,6 +4,13 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.8.1 - 2026-09-03
+
+### Bug fixes
+
+- The plain theme's cursor row was the hardest row to see
+- Pane borders were invisible in every hex theme
+
 ## 0.8.0 - 2026-09-03
 
 ### Features
