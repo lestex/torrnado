@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "lestex.torrnado",
+  "name": "Torrnado",
+  "version": "1.0.0",
+  "author": "lestex",
+  "description": "Torrnado daemon transfer stats, click to open the TUI",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Torrnado.qml"
+  },
+  "barWidget": {
+    "displayName": "Torrnado",
+    "description": "Download/upload rate and torrent count from the torrnado daemon",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
