@@ -27,15 +27,30 @@ Panel {
   property string upRate: "0B/s"
   property string diskFree: ""
   property var torrents: []
+  property bool actionBusy: false
+  property bool listRefreshPending: false
 
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property color urgent: bar ? bar.urgent : Color.urgent
 
+  // A fixed-width bar icon needs a narrow, predictable range of text
+  // widths - the full "26.7MiB/s" form swings from ~4 chars idle to
+  // 10+ chars at real download speed, which either leaves a big gap
+  // (sized for the long case) or overflows into the next widget (sized
+  // for the short case). Rounding to a whole number with a single-letter
+  // unit keeps every realistic value within a couple characters of "0B/s".
+  function shortRate(rateStr) {
+    var m = String(rateStr || "").match(/^(-?[0-9.]+)([A-Za-z]*)\/s$/)
+    if (!m) return rateStr
+    var unit = m[2].charAt(0) || "B"
+    return Math.round(parseFloat(m[1])) + unit + "/s"
+  }
+
   readonly property string summaryText: root.daemonRunning
-    ? (" " + root.downRate + "   " + root.upRate)
-    : " --"
+    ? ("↓" + root.shortRate(root.downRate) + " ↑" + root.shortRate(root.upRate))
+    : "↓--"
 
   readonly property string tooltip: root.daemonRunning
     ? (root.torrentCount + " torrent" + (root.torrentCount === 1 ? "" : "s")
@@ -50,8 +65,51 @@ Panel {
     if (!statusProc.running) statusProc.running = true
   }
 
+  // A refresh requested while `list` is already in flight (e.g. the
+  // periodic timer racing a pause/resume-triggered refresh) is queued
+  // rather than dropped, so the row reflects the new state within one
+  // process round-trip instead of waiting out the rest of the poll
+  // interval - that stale window was reading as "unresponsive," and a
+  // click landing in it looked like it silently did nothing.
   function refreshList() {
-    if (root.daemonRunning && !listProc.running) listProc.running = true
+    if (!root.daemonRunning) return
+    if (listProc.running) {
+      root.listRefreshPending = true
+      return
+    }
+    listProc.running = true
+  }
+
+  function torrentsEqual(a, b) {
+    if (a.length !== b.length) return false
+    for (var i = 0; i < a.length; i++) {
+      var x = a[i], y = b[i]
+      if (x.id !== y.id || x.name !== y.name || x.state !== y.state || x.progress !== y.progress
+          || x.down !== y.down || x.up !== y.up || x.ratio !== y.ratio
+          || x.peers !== y.peers || x.label !== y.label) return false
+    }
+    return true
+  }
+
+  function pauseTorrent(id) {
+    if (root.actionBusy || !id || actionProc.running) return
+    root.actionBusy = true
+    actionProc.command = ["torrnado", "pause", id]
+    actionProc.running = true
+  }
+
+  function resumeTorrent(id) {
+    if (root.actionBusy || !id || actionProc.running) return
+    root.actionBusy = true
+    actionProc.command = ["torrnado", "resume", id]
+    actionProc.running = true
+  }
+
+  // torrnado prints progress with one decimal ("32.1%"); round to a plain
+  // whole-number percentage for the row.
+  function formatProgress(value) {
+    var n = parseFloat(value)
+    return isNaN(n) ? value : Math.round(n) + "%"
   }
 
   // `torrnado list` prints a left-aligned tabwriter table (ID NAME STATE
@@ -68,7 +126,7 @@ Panel {
         id: cols[0],
         name: cols[1],
         state: cols[2],
-        progress: cols[3],
+        progress: root.formatProgress(cols[3]),
         down: cols[4],
         up: cols[5],
         ratio: cols[6],
@@ -76,6 +134,16 @@ Panel {
         label: cols.length > 8 ? cols.slice(8).join(" ") : ""
       })
     }
+    // The daemon's own iteration order isn't stable between calls (two
+    // separate `torrnado list` invocations can come back with torrents
+    // swapped even with nothing changed), so rows would randomly flip
+    // position on every poll unless sorted here into a fixed order.
+    rows.sort(function(a, b) {
+      var an = a.name.toLowerCase(), bn = b.name.toLowerCase()
+      if (an < bn) return -1
+      if (an > bn) return 1
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0)
+    })
     return rows
   }
 
@@ -113,7 +181,24 @@ Panel {
     command: ["torrnado", "list"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.torrents = root.parseList(text)
+      onStreamFinished: {
+        var parsed = root.parseList(text)
+        if (!root.torrentsEqual(root.torrents, parsed)) root.torrents = parsed
+      }
+    }
+    onExited: {
+      if (root.listRefreshPending) {
+        root.listRefreshPending = false
+        root.refreshList()
+      }
+    }
+  }
+
+  Process {
+    id: actionProc
+    onExited: {
+      root.actionBusy = false
+      root.refreshList()
     }
   }
 
@@ -137,6 +222,15 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
+    // Fixed so the rate text's varying length never resizes the slot -
+    // that shifted this icon's x in the bar's right section on every
+    // poll, and since the popup is anchored to this item, the whole
+    // panel (and every button in it) jumped with it. clip is a safety
+    // net for the rare value wider than this budget (shortRate keeps
+    // the common range close to it either way) - it truncates instead
+    // of painting over the next widget.
+    fixedWidth: Style.space(82)
+    clip: true
     fontFamily: root.fontFamily
     fontSize: Style.font.caption
     text: root.summaryText
@@ -260,7 +354,8 @@ Panel {
     id: row
     property var torrent: null
     readonly property string state: torrent ? String(torrent.state || "") : ""
-    readonly property color stateColor: state === "error" ? root.urgent : (state === "paused" ? root.dim : root.foreground)
+    readonly property bool paused: state === "paused"
+    readonly property color stateColor: state === "error" ? root.urgent : (paused ? root.dim : root.foreground)
 
     implicitHeight: content.implicitHeight
 
@@ -290,6 +385,31 @@ Panel {
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
+        }
+
+        PanelActionButton {
+          iconText: row.paused ? "" : ""
+          tooltipText: row.paused ? "Resume" : "Pause"
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+          fontSize: Style.font.bodySmall
+          size: Style.space(22)
+          bordered: true
+          // RowLayout stretches children to its cross-axis size by default;
+          // without pinning these, the button's hit area (always
+          // anchors.fill'd to its own bounds) grew taller to match the
+          // row's height while staying `size` wide, so only a thin strip
+          // near the glyph still lined up with where it visually looked
+          // clickable.
+          Layout.preferredWidth: size
+          Layout.preferredHeight: size
+          Layout.alignment: Qt.AlignVCenter
+          enabled: !root.actionBusy && row.torrent !== null
+          onClicked: {
+            if (!row.torrent) return
+            if (row.paused) root.resumeTorrent(row.torrent.id)
+            else root.pauseTorrent(row.torrent.id)
+          }
         }
       }
 
