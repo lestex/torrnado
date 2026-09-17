@@ -131,3 +131,74 @@ torrnado add <magnet> # a one-shot command against a running daemon
 There is nothing to install beyond putting that binary on your `$PATH`,
 and nothing to configure before the first run - a missing config file is
 not an error, only an invalid one.
+
+## Uninstalling
+
+Stop the daemon first:
+
+```sh
+torrnado stop
+```
+
+Removing the binary does not stop a daemon already running from it - the
+system keeps the file alive for as long as the process has it open - so
+skipping this leaves torrnado seeding from a binary that no longer exists,
+until you reboot or kill it. `torrnado stop` asks the daemon over its
+socket, waits for it to save the session and exit, and does nothing when
+none is running. The same goes before an upgrade: a daemon started by the
+old version keeps serving the new CLI until it is stopped.
+
+Then remove what the install put in place:
+
+=== "Homebrew"
+
+    ```sh
+    brew uninstall torrnado         # binary and man page
+    brew uninstall --zap torrnado   # ...and the config and daemon state
+    ```
+
+    Homebrew cannot stop the daemon for you: its uninstall hooks run
+    sandboxed, away from your home directory, where the daemon's socket is.
+
+=== "Install script or archive"
+
+    ```sh
+    rm "$(command -v torrnado)"
+    rm -f /usr/local/share/man/man1/torrnado.1 ~/.local/share/man/man1/torrnado.1
+    ```
+
+    The man page is wherever the binary's `<prefix>/share/man/man1` is -
+    beside it, as installed above.
+
+=== "systemd"
+
+    ```sh
+    sudo systemctl disable --now torrnado
+    sudo rm /etc/systemd/system/torrnado.service /usr/local/bin/torrnado
+    sudo systemctl daemon-reload
+    sudo rm -r /etc/torrnado /var/lib/torrnado   # config and state
+    sudo userdel torrnado
+    ```
+
+    `systemctl disable --now` is what stops the daemon here, not
+    `torrnado stop`: the service would only start it again.
+
+### What is left behind
+
+Nothing outside these, and none of them is removed by deleting the binary.
+`torrnado config` prints where each one is on your machine, which is the
+place to look when `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME` or the config
+file moved them - `brew uninstall --zap` only knows the defaults.
+
+| What | Default location |
+| --- | --- |
+| Config and themes | `~/.config/torrnado/` |
+| Daemon state: log, socket, session, saved `.torrent` files | `~/.local/share/torrnado/` |
+| Piece-completion database | `.torrent.bolt.db` in the download directory (`.torrent.db` from a source build) |
+| Your downloads | `~/Downloads/torrnado/` |
+
+The piece-completion database is the easy one to miss, because it lives
+in the download directory rather than with the rest of the state - no
+uninstall touches it, `--zap` included, since that directory holds your
+data. Deleting it only means the next install re-verifies whatever is
+still on disk.
