@@ -75,7 +75,7 @@ sysfs - make a tunnel and route the probe destination through it:
 
 ```sh
 docker run --rm -it --cap-add=NET_ADMIN --device /dev/net/tun \
-  -v "$PWD:/src" -w /src golang:1.25 bash
+  -v "$PWD:/src" -w /src golang:1.26 bash
 apt-get update && apt-get install -y iproute2
 
 ip tuntap add mode tun dev tun0            # or: ip link add wg0 type wireguard

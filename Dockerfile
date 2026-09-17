@@ -20,7 +20,7 @@
 # than run under emulation per target: CGO_ENABLED=0 makes GOARCH the
 # only thing that changes, so a linux/arm64 image costs a compiler flag
 # instead of a QEMU'd toolchain.
-FROM --platform=$BUILDPLATFORM golang:1.25 AS build
+FROM --platform=$BUILDPLATFORM golang:1.26 AS build
 
 WORKDIR /src
 
