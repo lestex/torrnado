@@ -108,6 +108,31 @@ homebrew_casks:
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/torrnado"]
           end
+    # Removing a binary does not stop a daemon running from it - the kernel
+    # keeps the file alive - so an uninstalled torrnado keeps seeding, and
+    # an upgraded one keeps serving the old version to the new CLI. The
+    # cask cannot stop it: the legacy `uninstall_preflight` block does, but
+    # it is deprecated, and its `uninstall_preflight_steps` replacement runs
+    # in a sandbox that denies reads under $HOME and swaps HOME for a temp
+    # directory - `torrnado stop` there gets "connect: operation not
+    # permitted", or finds no socket and reports nothing running. `uninstall
+    # quit:` takes an app bundle ID. So it is said here instead, which
+    # `brew install` and `brew info` print.
+    caveats: |
+      torrnado runs a background daemon that outlives the TUI. Run
+        torrnado stop
+      before `brew uninstall` or `brew upgrade`, or the old daemon keeps
+      running from the removed binary. `brew uninstall --zap` also removes
+      ~/.config/torrnado and ~/.local/share/torrnado.
+    # `brew uninstall --zap` only: the config, and the daemon's log, socket,
+    # session and torrent metainfo. The default paths, since a cask cannot
+    # read $XDG_CONFIG_HOME or a config file. Never the download
+    # directory - that is the user's data, and the piece-completion
+    # database beside it is documented instead.
+    zap:
+      trash:
+        - ~/.config/torrnado
+        - ~/.local/share/torrnado
 
 snapshot:
   version_template: "{{ incpatch .Version }}-snapshot"
