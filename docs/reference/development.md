@@ -157,6 +157,12 @@ rather than moving the tag.
 A `-rc` or `-beta` tag is skipped (`skip_upload: auto`), so a pre-release
 never becomes what `brew install` hands people.
 
+GoReleaser cannot write a cask that passes `brew style` as generated, so
+the workflow's `tap-style` job runs `brew style --fix` on
+`Casks/torrnado.rb` in the tap afterwards and commits the result. It
+fails if anything is left that cannot be corrected automatically; nothing
+in the tap should need editing by hand after a release.
+
 To rehearse any of it locally:
 
 ```sh

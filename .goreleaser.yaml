@@ -99,15 +99,23 @@ homebrew_casks:
     # These binaries are not signed or notarized, so macOS quarantines
     # anything downloaded and Gatekeeper refuses to run it - the failure
     # reads as a corrupt binary rather than as a policy. Stripping the
-    # attribute is what every unsigned cask does; the OS.mac? guard is
-    # there because /usr/bin/xattr does not exist on Linux, where casks
-    # now also install.
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/torrnado"]
-          end
+    # attribute is what every unsigned cask does; on_macos is there because
+    # /usr/bin/xattr does not exist on Linux, where casks now also install.
+    #
+    # custom_block rather than `hooks`: `hooks` generates `postflight do`,
+    # which Homebrew has deprecated for `postflight_steps` and which `brew
+    # style --fix` cannot rewrite - v0.8.1's tap cask was fixed by hand for
+    # it. GoReleaser puts custom_block at the top of the cask, out of stanza
+    # order; release.yml runs `brew style --fix` on the tap afterwards, which
+    # moves it (see the tap-style job there). custom_block is a Go template,
+    # so Homebrew's own {{staged_path}} token is written as a quoted template
+    # string to come through literally.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/torrnado"]
+        end
+      end
     # Removing a binary does not stop a daemon running from it - the kernel
     # keeps the file alive - so an uninstalled torrnado keeps seeding, and
     # an upgraded one keeps serving the old version to the new CLI. The

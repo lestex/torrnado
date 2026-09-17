@@ -83,6 +83,57 @@ jobs:
           # workflow from the same tag rather than to move the tag.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
+  # Brings the cask GoReleaser just committed to the tap up to `brew style`.
+  #
+  # GoReleaser cannot write a cask that passes as generated: custom_block
+  # lands at the top, out of stanza order, and `zap` indents its array the
+  # way Layout/FirstArrayElementIndentation rejects (see .goreleaser.yaml).
+  # Every one of those is autocorrectable, so this corrects them rather than
+  # leaving the tap to be fixed by hand, which is what v0.8.1 needed.
+  #
+  # Cloned straight into Homebrew's Taps directory rather than with `brew
+  # tap`: style has to run inside a tap - on a loose file it also
+  # "corrects" in a Sorbet sigil and a frozen-string-literal comment no tap
+  # cask carries - but `brew tap` loads every cask, and Homebrew refuses to
+  # load one from a tap nobody has run `brew trust` on. Style only lints,
+  # so a plain clone needs no trust. Not actions/checkout either, which
+  # cannot check out outside the workspace.
+  #
+  # Only torrnado.rb - the tap holds other casks this repository does not
+  # own. `test -f` because `brew style` on a missing file reports no
+  # offenses and exits 0. The second `brew style`, without --fix, is what
+  # fails the job when something is left that cannot be corrected. Nothing
+  # to commit - a prerelease, where the cask was not uploaded, or a re-run -
+  # is a success.
+  tap-style:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@1e34f2e2acaa766b7efacb8c26352e6abbb023f9 # 2026.09.13.1
+
+      - name: Correct the cask and push it
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          tap="$(brew --repository)/Library/Taps/lestex/homebrew-tap"
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/lestex/homebrew-tap.git" "$tap"
+          cd "$tap"
+          cask=Casks/torrnado.rb
+          test -f "$cask"
+          brew style --fix "$cask" || true
+          brew style "$cask"
+          if git diff --quiet -- "$cask"; then
+            echo "cask already passes brew style"
+            exit 0
+          fi
+          git diff -- "$cask"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: brew style --fix torrnado ${GITHUB_REF_NAME}" -- "$cask"
+          git push origin HEAD:main
+
   # The container image, to ghcr.io/lestex/torrnado.
   #
   # Gated on the release job rather than run beside it: the image and the
