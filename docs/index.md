@@ -37,7 +37,7 @@ The engine runs as a daemon, so closing the terminal doesn't stop the download.
   <span>macOS</span>
   <span>Linux</span>
   <span>MIT License</span>
-  <span>Go 1.25+</span>
+  <span>Go 1.26+</span>
   <span><b>v0.8.1</b></span>
 </div>
 
@@ -135,7 +135,7 @@ a tunnel, and lets them go again when it reconnects.
     go build -o torrnado ./cmd/torrnado
     ```
 
-    Requires Go 1.25+. `make build` instead stamps the version, commit and
+    Requires Go 1.26+. `make build` instead stamps the version, commit and
     date in, so `torrnado version` says more than "dev".
 
 === "Docker"

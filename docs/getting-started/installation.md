@@ -105,7 +105,7 @@ header. Building from source, `make man` writes the same page.
 
 ## From source
 
-Requires Go 1.25+.
+Requires Go 1.26+.
 
 ```sh
 go build -o torrnado ./cmd/torrnado    # or: make build

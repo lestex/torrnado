@@ -34,7 +34,7 @@ Or grab an archive from the [releases
 page](https://github.com/lestex/torrnado/releases) yourself, or build it:
 
 ```sh
-go build -o torrnado ./cmd/torrnado   # requires Go 1.25+
+go build -o torrnado ./cmd/torrnado   # requires Go 1.26+
 ```
 
 For a box you leave running, every release also publishes a container

@@ -45,7 +45,7 @@ go mod tidy
 There are no test files in this repo yet. If adding tests, standard `go
 test ./...` conventions apply.
 
-Requires Go 1.25+ (see `go.mod`).
+Requires Go 1.26+ (see `go.mod`).
 
 ## Architecture
 
