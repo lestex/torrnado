@@ -4,6 +4,19 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.8.2 - 2026-09-17
+
+### Bug fixes
+
+- Clean up after uninstalling (#123)
+
+### Dependencies
+
+- Bump github.com/spf13/pflag from 1.0.9 to 1.0.10
+- Move to Go 1.26
+- Bump golang.org/x/time from 0.14.0 to 0.16.0
+- Bump golang.org/x/sys from 0.46.0 to 0.48.0 (#119)
+
 ## 0.8.1 - 2026-09-03
 
 ### Bug fixes
