@@ -82,6 +82,11 @@ jobs:
 
   # Reports only vulnerabilities the code actually reaches, so a finding
   # here is worth acting on rather than triaging.
+  #
+  # Pinned, not @latest: govulncheck raises its minimum Go with its own
+  # releases, and under GOTOOLCHAIN=local a newer one than .go-version
+  # fails to build at all - v1.8.0 needs Go 1.26 and turned this job red
+  # with no code change. Move the pin when .go-version moves.
   vuln:
     runs-on: ubuntu-latest
     steps:
@@ -89,7 +94,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: .go-version
-      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
   # The release build, on every push. Cross-compiling four targets is
   # exactly the sort of thing that breaks quietly and is discovered at tag
