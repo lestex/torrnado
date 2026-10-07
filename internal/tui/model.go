@@ -159,6 +159,9 @@ type Model struct {
 	theme       theme.Theme
 	themeSaved  theme.Theme
 	themesDir   string
+	// themeStamp is how the active theme's file looked when it was
+	// applied, so checkThemeFile can tell when it has been rewritten.
+	themeStamp fileStamp
 
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
@@ -223,21 +226,20 @@ type Options struct {
 // New builds the initial Model. The client and its Events() channel must
 // already be connected.
 func New(o Options) Model {
-	return Model{
+	m := Model{
 		client:    o.Client,
 		events:    o.Client.Events(),
 		keymap:    o.Keys,
-		styles:    newStyles(o.Theme),
-		theme:     o.Theme,
 		themesDir: o.ThemesDir,
 		player:    o.Player,
 		opener:    o.Opener,
 		selected:  map[engine.TorrentID]bool{},
 	}
+	return m.applyTheme(o.Theme)
 }
 
 func (m Model) Init() tea.Cmd {
-	return listenForEvents(m.events)
+	return tea.Batch(listenForEvents(m.events), themeWatchCmd(themeWatchInterval))
 }
 
 // listenForEvents waits for one event and delivers it as a message.
