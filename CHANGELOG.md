@@ -4,6 +4,12 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.9.0 - 2026-10-07
+
+### Features
+
+- **tui:** Apply the active theme's file when it changes
+
 ## 0.8.2 - 2026-09-17
 
 ### Bug fixes

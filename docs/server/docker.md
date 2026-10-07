@@ -4,10 +4,10 @@ Every release publishes an image to GitHub Container Registry, for
 `linux/amd64` and `linux/arm64`:
 
 ```sh
-docker pull ghcr.io/lestex/torrnado          # or :0.8.2, or :0.8
+docker pull ghcr.io/lestex/torrnado          # or :0.9.0, or :0.9
 ```
 
-`latest` follows the newest release, `0.8.2` pins one exactly, and `0.8`
+`latest` follows the newest release, `0.9.0` pins one exactly, and `0.9`
 tracks that minor series. Pin a version anywhere the download directory
 matters - see the completion-database note below.
 
