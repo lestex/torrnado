@@ -55,6 +55,22 @@ reported and stepped over rather than applied.
 `:theme nord` switches straight to a named theme without opening the
 picker.
 
+## Editing a theme while torrnado runs
+
+The TUI checks the active theme's file about once a second, and when the
+file has changed it applies it straight away, without a restart. Save an
+edit to `~/.config/torrnado/themes/<name>.toml` and the open TUI recolors.
+If the file is a symlink, the change that counts is to the file it points
+at. That lets a theme switcher keep one file, say `current.toml` with
+`theme = "current"`, linked to a palette it regenerates on every switch,
+and every running torrnado follows it.
+
+It follows the theme in use, so after `:theme nord` it is nord's file
+that counts, and a built-in theme has no file to follow. Nothing is
+reloaded while the `:theme` picker is open. A file that fails to load is
+reported once and the last good theme stays, until the file changes
+again.
+
 The choice lasts for the session. torrnado will not rewrite your
 `config.toml` - doing so would re-encode the file and lose its comments
 and ordering - so to keep a theme, put `theme = "nord"` in it yourself.

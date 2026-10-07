@@ -65,6 +65,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.setStatus(msg)
 		return m, cmd
 
+	case themeCheckMsg:
+		return m.checkThemeFile()
+
 	case statusExpiredMsg:
 		m.clearStatus(msg.seq)
 		return m, nil

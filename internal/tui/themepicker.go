@@ -99,10 +99,12 @@ func (m Model) moveThemeCursor(key string) (tea.Model, tea.Cmd) {
 
 // applyTheme swaps in a theme's styles. Cheap enough to do on every
 // keystroke - it is a few dozen lipgloss values, built once at startup
-// for exactly this reason.
+// for exactly this reason. It also notes how the theme's file looks now,
+// so checkThemeFile reloads only after a later change.
 func (m Model) applyTheme(th theme.Theme) Model {
 	m.theme = th
 	m.styles = newStyles(th)
+	m.themeStamp, _ = stampOf(m.themeFile())
 	return m
 }
 
