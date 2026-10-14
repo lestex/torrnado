@@ -71,7 +71,9 @@ running. Press `?` or `h` in the TUI for every key and every command, and
 - **Waits for your VPN.** Optionally holds every transfer until the system
   is on one, and lets them go again when it reconnects.
 - **Scripts.** Every action is a subcommand.
-- **Themes.** Nine built in, plus your own; `:theme` switches live.
+- **Themes.** Follows your terminal's own colors by default, so it looks
+  right on every machine with no config. Nine named palettes built in,
+  plus your own; `:theme` switches live.
 
 ## Documentation
 

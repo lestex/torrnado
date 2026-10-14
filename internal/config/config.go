@@ -204,12 +204,15 @@ func Default() (Config, error) {
 		DownloadDir:  downloadDir,
 		DaemonSocket: socket,
 		StateDir:     stateDir,
-		Theme:        "dracula",
-		Player:       "mpv",
-		Opener:       defaultOpener(),
-		Keybinds:     map[string]string{},
-		RateLimit:    RateLimits{Upload: 0, Download: 0},
-		Port:         PortRange{Low: 51413, High: 51433},
+		// The one theme that is right on a machine it was not chosen on:
+		// it takes its colors from the terminal's own palette. A named
+		// palette here would be a guess about the terminal.
+		Theme:     "terminal",
+		Player:    "mpv",
+		Opener:    defaultOpener(),
+		Keybinds:  map[string]string{},
+		RateLimit: RateLimits{Upload: 0, Download: 0},
+		Port:      PortRange{Low: 51413, High: 51433},
 		// Seed off by default. It is the one network setting that keeps
 		// costing something after the work is done - bandwidth, an open
 		// port, and a continuing announcement of what this machine has -

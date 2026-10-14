@@ -34,8 +34,8 @@ func TestLoadDefaultsWhenUnnamed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load(\"\"): %v", err)
 	}
-	if th.Name != "dracula" {
-		t.Errorf("default theme is %q, want dracula", th.Name)
+	if th.Name != "terminal" {
+		t.Errorf("default theme is %q, want terminal", th.Name)
 	}
 }
 
@@ -76,6 +76,94 @@ func TestPlainThemeAvoidsHexColors(t *testing.T) {
 		if strings.HasPrefix(c, "#") {
 			t.Errorf("plain theme uses a hex color %q", c)
 		}
+	}
+}
+
+// The "terminal" theme is the default, and its whole purpose is to state
+// no colour of its own: a hex value in it would be the one thing it is
+// meant not to do, and would travel to another machine as badly as any
+// other palette.
+func TestTerminalThemeNamesNoColorOfItsOwn(t *testing.T) {
+	th, err := Load("terminal", t.TempDir())
+	if err != nil {
+		t.Fatalf("Load(terminal): %v", err)
+	}
+	for key, c := range map[string]string{
+		"background": string(th.Background), "foreground": string(th.Foreground),
+		"muted": string(th.Muted), "accent": string(th.Accent),
+		"success": string(th.Success), "warning": string(th.Warning),
+		"error": string(th.Error), "border": string(th.Border),
+		"selected_bg": string(th.SelectedBg), "selected_fg": string(th.SelectedFg),
+	} {
+		if strings.HasPrefix(c, "#") {
+			t.Errorf("terminal theme pins %s to the hex colour %q, which the "+
+				"emulator's palette was supposed to decide", key, c)
+		}
+	}
+
+	// The text and the backdrop in particular: an ANSI code here would
+	// pick a side between a light and a dark terminal, which is the bug
+	// that makes "plain" a dark theme rather than this one.
+	if th.Foreground != Inherit || th.Background != Inherit {
+		t.Errorf("terminal theme should inherit foreground and background, got %q on %q",
+			th.Foreground, th.Background)
+	}
+}
+
+// Inherit has to reach the renderer as the empty color, because that is
+// the only value lipgloss writes no escape sequence for - anything else
+// paints over the terminal's default instead of leaving it alone.
+func TestResolvedTurnsInheritIntoTheEmptyColor(t *testing.T) {
+	th := Theme{
+		Name: "mixed", Background: Inherit, Foreground: Inherit,
+		Muted: "8", Accent: "6", Success: "2", Warning: "3", Error: "1",
+		Border: "8", SelectedBg: "8", SelectedFg: Inherit,
+	}
+
+	got := th.Resolved()
+	for key, c := range map[string]string{
+		"background":  string(got.Background),
+		"foreground":  string(got.Foreground),
+		"selected_fg": string(got.SelectedFg),
+	} {
+		if c != "" {
+			t.Errorf("Resolved() left %s as %q, want the empty color", key, c)
+		}
+	}
+	if got.Accent != "6" || got.SelectedBg != "8" {
+		t.Errorf("Resolved() changed a colour that was not Inherit: %+v", got)
+	}
+	if th.Background != Inherit {
+		t.Error("Resolved() mutated its receiver; the sentinel has to survive for validation")
+	}
+}
+
+// A user's own theme can ask for the terminal's colour too, by the same
+// name the built-in uses. The alternative - leaving the key out - is
+// reserved for the error that names a key you forgot.
+func TestOverrideMayInheritFromTheTerminal(t *testing.T) {
+	dir := writeTheme(t, "mine", `
+background  = "default"
+foreground  = "default"
+muted       = "8"
+accent      = "6"
+success     = "2"
+warning     = "3"
+error       = "1"
+border      = "8"
+selected_bg = "8"
+selected_fg = "default"
+`)
+
+	th, err := Load("mine", dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if th.Foreground != Inherit {
+		t.Errorf("foreground = %q, want the inherit sentinel", th.Foreground)
+	}
+	if th.Resolved().Foreground != "" {
+		t.Errorf("resolved foreground = %q, want the empty color", th.Resolved().Foreground)
 	}
 }
 
@@ -120,10 +208,14 @@ func contrastRatio(a, b string) float64 {
 }
 
 // resolveColor turns a theme colour into a hex value, looking an ANSI
-// code up in the palette above.
+// code up in the palette above. Inherit resolves to nothing: it is the
+// terminal's colour, and no value here stands for it.
 func resolveColor(c string) string {
 	if strings.HasPrefix(c, "#") {
 		return c
+	}
+	if c == string(Inherit) {
+		return ""
 	}
 	n, err := strconv.Atoi(c)
 	if err != nil || n < 0 || n > 15 {
@@ -145,6 +237,13 @@ func resolveColor(c string) string {
 // stated assumption about the terminal: nothing paints it (see the note
 // on Background), so the real backdrop is whatever the terminal is set
 // to, and that is the only stated intent there is.
+// A theme that inherits its background is skipped here and in the two
+// tests below, because it has not stated what its colours will be drawn
+// against. The backdrop is the terminal's, and a terminal scheme is built
+// to make its own sixteen colours read against its own background - that
+// guarantee is the emulator's to keep and there is nothing on this side
+// to measure it with. Holding such a theme to the xterm palette would be
+// measuring a terminal nobody is necessarily using.
 func TestEveryThemeAccentReadsAgainstItsBackground(t *testing.T) {
 	const floor = 3.0
 
@@ -152,6 +251,9 @@ func TestEveryThemeAccentReadsAgainstItsBackground(t *testing.T) {
 		th, err := Load(name, t.TempDir())
 		if err != nil {
 			t.Fatalf("Load(%s): %v", name, err)
+		}
+		if th.Background == Inherit || th.Accent == Inherit {
+			continue
 		}
 		bg, accent := resolveColor(string(th.Background)), resolveColor(string(th.Accent))
 		if bg == "" || accent == "" {
@@ -183,6 +285,9 @@ func TestEveryThemeForegroundReadsAgainstItsBackground(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Load(%s): %v", name, err)
 		}
+		if th.Foreground == Inherit || th.Background == Inherit {
+			continue
+		}
 		fg, bg := resolveColor(string(th.Foreground)), resolveColor(string(th.Background))
 		if got := contrastRatio(fg, bg); got < floor {
 			t.Errorf("%s: foreground %s on background %s is %.2f:1, want at least %.1f:1",
@@ -203,6 +308,9 @@ func TestEveryThemeSelectionIsReadable(t *testing.T) {
 		th, err := Load(name, t.TempDir())
 		if err != nil {
 			t.Fatalf("Load(%s): %v", name, err)
+		}
+		if th.SelectedFg == Inherit || th.SelectedBg == Inherit {
+			continue
 		}
 		fg, bg := resolveColor(string(th.SelectedFg)), resolveColor(string(th.SelectedBg))
 		if got := contrastRatio(fg, bg); got < floor {
