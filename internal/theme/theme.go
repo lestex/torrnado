@@ -9,6 +9,14 @@
 // exists for the worst case (no color profile detected at all, or a
 // terminal a user wants a guaranteed-safe look on) and uses bare ANSI
 // color codes instead of hex.
+//
+// A color may also be [Inherit], which leaves that element to the
+// terminal: an ANSI code names a slot in the emulator's own palette
+// rather than a color, and Inherit names no slot at all. The default
+// "terminal" theme is built from both, which is what lets one install
+// look right on machines whose terminals are themed differently - and
+// means a palette the emulator reloads recolors the TUI with no help
+// from us, because the resolution happens at its end, not ours.
 package theme
 
 import (
@@ -22,6 +30,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
+
+// Inherit is the color that asks for the terminal's own: a theme sets a
+// field to it to leave that element unpainted.
+//
+// It is a word rather than an empty string so that "set to the terminal
+// default" stays distinguishable from "forgot to set it" - the second is
+// still an error naming the key, which it could not be if absence were
+// the way to say the first. [Theme.Resolved] turns it into the empty
+// color, which lipgloss emits no escape sequence for at all.
+const Inherit lipgloss.Color = "default"
 
 // Theme is a named palette. Every field is required to be non-empty when
 // loaded from an override file; built-ins always populate all of them.
@@ -62,6 +80,38 @@ func (t Theme) missingFields() []string {
 	check("selected_bg", t.SelectedBg)
 	check("selected_fg", t.SelectedFg)
 	return missing
+}
+
+// Resolved returns the palette as the renderer should use it: every
+// [Inherit] replaced by the empty color.
+//
+// termenv maps an empty color to no color at all, and lipgloss then
+// writes no escape sequence for it, so the cell keeps whatever the
+// terminal's default is. That is the only way to get the default back -
+// there is no code for "undo", and guessing at a hex value for it means
+// being wrong on every terminal themed differently from the guess.
+//
+// Done here, once, rather than at each of the twenty-odd styles built
+// from a palette, and deliberately not in Load: the sentinel has to
+// survive loading for validation and the contrast checks to see it.
+func (t Theme) Resolved() Theme {
+	deref := func(c lipgloss.Color) lipgloss.Color {
+		if c == Inherit {
+			return ""
+		}
+		return c
+	}
+	t.Background = deref(t.Background)
+	t.Foreground = deref(t.Foreground)
+	t.Muted = deref(t.Muted)
+	t.Accent = deref(t.Accent)
+	t.Success = deref(t.Success)
+	t.Warning = deref(t.Warning)
+	t.Error = deref(t.Error)
+	t.Border = deref(t.Border)
+	t.SelectedBg = deref(t.SelectedBg)
+	t.SelectedFg = deref(t.SelectedFg)
+	return t
 }
 
 // builtins maps theme name -> palette, populated by builtin.go's init.
@@ -128,7 +178,7 @@ func IsUserTheme(name, themesDir string) bool {
 // invent a new one.
 func Load(name, themesDir string) (Theme, error) {
 	if name == "" {
-		name = "dracula"
+		name = "terminal"
 	}
 
 	overridePath := filepath.Join(themesDir, name+".toml")

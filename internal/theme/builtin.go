@@ -1,6 +1,55 @@
 package theme
 
 func init() {
+	// terminal is the default, and the only theme that does not decide
+	// what anything looks like: it names slots in the emulator's palette
+	// and leaves the text and the backdrop alone entirely.
+	//
+	// It exists because every other theme here is a per-machine
+	// commitment. A hex palette is right on the terminal it was picked
+	// against and arbitrary everywhere else, so the same config carried to
+	// another machine lands a Dracula TUI inside a Gruvbox terminal, and
+	// keeping the two in step means a theme switcher writing a file on
+	// every machine. ANSI codes make that whole problem go away: the
+	// emulator resolves them when it draws, so the TUI is already in
+	// whatever scheme the terminal is set to, and a scheme the emulator
+	// reloads recolors the running TUI without torrnado being told - the
+	// file watching in internal/tui/themewatch.go has nothing to follow
+	// here, and needs nothing to follow.
+	//
+	// Foreground, Background and SelectedFg are Inherit rather than ANSI
+	// 7 and 0 - which is what "plain" uses, and why "plain" is not this
+	// theme. 7 on 0 is light-grey text on black, so it only holds up on a
+	// dark terminal; on a light scheme it is grey on cream. Inheriting the
+	// default pair is correct on both without having to know which one is
+	// in use.
+	//
+	// The ANSI choices, all normal rather than bright: a terminal scheme
+	// is built to be legible against its own background, which is exactly
+	// the guarantee wanted here, and it is the normal half that every
+	// scheme tunes for that. The bright half is widely left near the
+	// xterm values, where bright cyan on a light background is 1.3:1 -
+	// "plain" takes bright cyan for Accent on the opposite reasoning,
+	// and it is right to, because it has already assumed a dark terminal
+	// and this theme cannot.
+	//
+	// SelectedBg is 8, the one slot that is mid-tone by construction in
+	// both kinds of scheme, so the inherited foreground reads on it either
+	// way. It is the only background this theme paints.
+	register(Theme{
+		Name:       "terminal",
+		Background: Inherit,
+		Foreground: Inherit,
+		Muted:      "8",
+		Accent:     "6",
+		Success:    "2",
+		Warning:    "3",
+		Error:      "1",
+		Border:     "8",
+		SelectedBg: "8",
+		SelectedFg: Inherit,
+	})
+
 	register(Theme{
 		Name:       "dracula",
 		Background: "#282a36",

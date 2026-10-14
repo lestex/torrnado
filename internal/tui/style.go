@@ -52,6 +52,12 @@ type styles struct {
 }
 
 func newStyles(t theme.Theme) styles {
+	// Every style below is built from the palette, so the one place a
+	// theme.Inherit has to become the empty color is here, before any of
+	// them exist. Stored on the struct in its resolved form too: what
+	// styles carries is what was rendered with.
+	t = t.Resolved()
+
 	// The padding sits inside the width the pane is given (lipgloss wraps
 	// at width minus horizontal padding), so it costs the text area, not
 	// the frame. layout() subtracts the same panePadX from what the

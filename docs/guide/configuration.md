@@ -18,7 +18,7 @@ state_dir     = "~/.local/share/torrnado"                  # session file + save
 min_free_space = "none"                                    # hold transfers below this much free disk
 watch_dir      = ""                                        # add .torrent files dropped here
                                                            # (a second daemon needs its own)
-theme         = "dracula"                                  # see Themes below
+theme         = "terminal"                                 # see Themes below
 player        = "mpv"                                      # used by preview; may carry flags
 opener        = "open"                                     # xdg-open on Linux; used by `o` / `torrnado open`
 on_complete   = ""                                         # run once when a torrent finishes; %f is its folder
@@ -110,7 +110,7 @@ Paths
   saved metainfo  ~/.local/share/torrnado/torrents
 
 Settings
-  theme                dracula
+  theme                terminal
   player               mpv
   rate_limit.upload    unlimited
   rate_limit.download  2.0MiB/s

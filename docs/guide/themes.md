@@ -1,6 +1,9 @@
 # Themes
 
-Built in: `dracula`, `alucard` (Dracula's light counterpart), `nord`,
+The default is `terminal`, which takes its colors from your terminal
+emulator rather than naming any of its own.
+
+Also built in: `dracula`, `alucard` (Dracula's light counterpart), `nord`,
 `gruvbox`, `solarized-dark`, `solarized-light`, `catppuccin`,
 `tokyo-night`, and `plain` (a 16-color-safe fallback with no truecolor hex
 codes, for terminals with no real color support).
@@ -8,6 +11,40 @@ codes, for terminals with no real color support).
 Truecolor-to-256/16-color degradation is handled automatically by
 lipgloss/termenv based on the terminal's detected color profile (and
 `$COLORTERM`) - themes don't need separate variants per color depth.
+
+## The `terminal` theme
+
+Every other theme here is a per-machine decision. A hex palette is right
+on the terminal it was chosen against and arbitrary everywhere else, so
+the same `config.toml` carried to another machine puts a Dracula TUI
+inside a Gruvbox terminal, and keeping the two in step means running a
+theme switcher that writes a torrnado theme file on every machine you
+use.
+
+`terminal` sidesteps that. It names slots in the emulator's palette -
+"cyan", "red", "bright black" - and leaves the text and the background
+alone entirely, so the TUI is already in whatever scheme the terminal is
+set to. Nothing to configure, nothing to copy between machines, and no
+assumption about whether your terminal is light or dark.
+
+It also means **switching your terminal's color scheme recolors a running
+TUI by itself**, instantly and including what is already on screen. Your
+emulator resolves those color slots as it draws, so the change happens at
+its end without torrnado being involved - unlike a theme file, which is
+what the file watching below is for.
+
+The trade is that you get sixteen colors and the emulator's idea of them.
+`muted` is bright black, so it only reads as dimmer text if your scheme
+puts a real gray there; a scheme that sets bright black near its
+background will flatten the distinction. If you want an exact look, pick
+one of the named themes or write your own.
+
+`plain` is *not* this theme, despite also avoiding hex: it pins the text
+to ANSI 7 on ANSI 0, which is light gray on black, so it assumes a dark
+terminal. `terminal` inherits the default pair instead and is right on
+either.
+
+## Writing your own
 
 To customize or add a theme, drop a TOML file at
 `~/.config/torrnado/themes/<name>.toml` (matching `theme = "<name>"` in
@@ -27,6 +64,12 @@ selected_fg = "#c0caf5"
 ```
 
 A file matching a built-in theme's name overrides that built-in.
+
+A color can be a hex value, a number from 0 to 15 naming a slot in the
+terminal's own palette, or `"default"`, which leaves that element to the
+terminal - what `terminal` uses for its text and background. All ten keys
+still have to be present: `"default"` says "the terminal's", while
+leaving a key out is the mistake that is reported as a missing color.
 
 `border` draws the panes' outlines, one cell wide, and every built-in
 uses the same colour for it as for `muted`. The palettes these come from
