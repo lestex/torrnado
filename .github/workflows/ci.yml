@@ -95,7 +95,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: .go-version
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   # The release build, on every push. Cross-compiling four targets is
   # exactly the sort of thing that breaks quietly and is discovered at tag
