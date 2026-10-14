@@ -4,6 +4,17 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.10.0 - 2026-10-14
+
+### Features
+
+- **theme:** Take the colors from the terminal by default
+
+### Dependencies
+
+- Go 1.26.9 and x/net v0.60.0 for ten reachable advisories
+- Bump golang.org/x/sys from 0.48.0 to 0.49.0
+
 ## 0.9.0 - 2026-10-07
 
 ### Features
