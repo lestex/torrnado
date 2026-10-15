@@ -105,6 +105,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	km := m.keymap
 
+	// ctrl+c is answered before anything that swallows a keystroke, and
+	// almost everything here does: the help screen dismisses itself on
+	// any key, the two overlays deliberately take every key, and a prompt
+	// treats a key as text. Each of those would otherwise eat the one
+	// keystroke every terminal program answers the same way - and a
+	// window with no visible way out that ignores ctrl+c reads as a
+	// hung program.
+	//
+	// It is not rebindable, for the same reason: a config file should not
+	// be able to take it away.
+	if key == "ctrl+c" {
+		m.quitting = true
+		return m, tea.Quit
+	}
+
 	// The help screen swallows the next key to dismiss itself, so there
 	// is no key to learn for closing it.
 	if m.showHelp {
@@ -262,9 +277,7 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.pendingAt = time.Now()
 		return m, nil
 
-	// ctrl+c is not rebindable: it is what every terminal program does,
-	// and a config file should not be able to take it away.
-	case key == "ctrl+c", key == km.Quit:
+	case key == km.Quit:
 		m.quitting = true
 		return m, tea.Quit
 
