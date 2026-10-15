@@ -328,3 +328,78 @@ func TestGeneratedConfigLoads(t *testing.T) {
 		t.Fatalf("the generated config must load: %v", err)
 	}
 }
+
+// The indexer is opt-in, and an empty table has to stay legal: it is what
+// Default() holds and what `torrnado init` writes, so rejecting it would
+// mean shipping a generated config that will not load.
+func TestIndexerIsOptional(t *testing.T) {
+	cfg, err := Load(writeConfig(t, ""))
+	if err != nil {
+		t.Fatalf("no indexer at all should be fine: %v", err)
+	}
+	if cfg.Indexer.Backend != "" || cfg.Indexer.URL != "" || cfg.Indexer.APIKey != "" {
+		t.Errorf("indexer should default to empty, got %+v", cfg.Indexer)
+	}
+
+	if _, err := Load(writeConfig(t, "[indexer]")); err != nil {
+		t.Errorf("an empty [indexer] table should be fine: %v", err)
+	}
+}
+
+// Half a configuration is the interesting case: it is what someone has
+// after reading the docs and stopping partway, and each error has to name
+// the key that is missing rather than failing at the first search.
+func TestIndexerValidationNamesTheMissingKey(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		body    string
+		wantKey string
+	}{
+		{"backend with no url", "[indexer]\nbackend = \"jackett\"\napi_key = \"k\"", "indexer.url"},
+		{"url with no backend", "[indexer]\nurl = \"http://localhost:9117\"\napi_key = \"k\"", "indexer.backend"},
+		{"no api key", "[indexer]\nbackend = \"jackett\"\nurl = \"http://localhost:9117\"", "indexer.api_key"},
+		{"unknown backend", "[indexer]\nbackend = \"sonarr\"\nurl = \"http://x\"\napi_key = \"k\"", "indexer.backend"},
+		{"url with no scheme", "[indexer]\nbackend = \"jackett\"\nurl = \"localhost:9117\"\napi_key = \"k\"", "indexer.url"},
+		{"url with no host", "[indexer]\nbackend = \"jackett\"\nurl = \"http://\"\napi_key = \"k\"", "indexer.url"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := Load(writeConfig(t, c.body))
+			if err == nil {
+				t.Fatalf("%q should have failed", c.body)
+			}
+			if !strings.Contains(err.Error(), c.wantKey) {
+				t.Errorf("error %q should mention %q", err, c.wantKey)
+			}
+		})
+	}
+}
+
+// An unknown backend has to list the ones that exist: the fix is in the
+// error or it is in the docs, and the error is where the user is looking.
+func TestUnknownIndexerBackendListsTheChoices(t *testing.T) {
+	_, err := Load(writeConfig(t, "[indexer]\nbackend = \"sonarr\"\nurl = \"http://x\"\napi_key = \"k\""))
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	for _, b := range IndexerBackends {
+		if !strings.Contains(err.Error(), b) {
+			t.Errorf("error should list %q, got: %v", b, err)
+		}
+	}
+}
+
+func TestLoadIndexerSettings(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `
+[indexer]
+backend = "prowlarr"
+url = "https://prowlarr.example:9696"
+api_key = "abc123"
+`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	want := Indexer{Backend: "prowlarr", URL: "https://prowlarr.example:9696", APIKey: "abc123"}
+	if cfg.Indexer != want {
+		t.Errorf("got %+v, want %+v", cfg.Indexer, want)
+	}
+}

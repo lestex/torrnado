@@ -143,3 +143,40 @@ func TestReportNamesStderrForAnEmptyLogFile(t *testing.T) {
 		t.Errorf("an unset log file should read as stderr:\n%s", out)
 	}
 }
+
+// The API key is the first secret config.toml holds, and this output is
+// what people paste into bug reports. Whether it is set is the useful
+// part; the value never is.
+func TestConfigReportNeverPrintsTheAPIKey(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Indexer = config.Indexer{
+		Backend: "jackett",
+		URL:     "http://localhost:9117",
+		APIKey:  "s3cr3t-do-not-print",
+	}
+
+	var buf bytes.Buffer
+	if err := writeConfigReport(&buf, cfg, "/nonexistent/config.toml"); err != nil {
+		t.Fatalf("writeConfigReport: %v", err)
+	}
+	got := buf.String()
+
+	if strings.Contains(got, "s3cr3t-do-not-print") {
+		t.Error("the report printed the API key")
+	}
+	for _, want := range []string{"jackett", "http://localhost:9117", "api key set"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report should mention %q, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestConfigReportSaysWhenThereIsNoIndexer(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeConfigReport(&buf, testConfig(t), "/nonexistent/config.toml"); err != nil {
+		t.Fatalf("writeConfigReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "indexer") {
+		t.Error("report should carry an indexer row even when unconfigured")
+	}
+}
