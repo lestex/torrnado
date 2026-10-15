@@ -25,13 +25,15 @@ type fakeSearcher struct {
 	// started is closed the moment Search is entered, so a test can
 	// wait for it rather than sleeping and hoping.
 	started chan struct{}
+	// warnings is what a partly-failed search reports beside results.
+	warnings []string
 
 	once sync.Once
 }
 
-func (f *fakeSearcher) Name() string { return f.name }
+func (f *fakeSearcher) Sources() []string { return []string{f.name} }
 
-func (f *fakeSearcher) Search(ctx context.Context, query string) ([]indexer.Result, error) {
+func (f *fakeSearcher) Search(ctx context.Context, query string) ([]indexer.Result, []string, error) {
 	if f.started != nil {
 		f.once.Do(func() { close(f.started) })
 	}
@@ -39,12 +41,10 @@ func (f *fakeSearcher) Search(ctx context.Context, query string) ([]indexer.Resu
 		<-f.block
 	}
 	if f.err != nil {
-		return nil, f.err
+		return nil, nil, f.err
 	}
-	return f.results, nil
+	return f.results, f.warnings, nil
 }
-
-func (f *fakeSearcher) Health(context.Context) error { return nil }
 
 // startSearchDaemon is startTestDaemon with a searcher injected.
 func startSearchDaemon(t *testing.T, s indexer.Searcher) *Client {
@@ -120,7 +120,7 @@ func TestSearchWithNoIndexerConfigured(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error with no indexer configured")
 	}
-	for _, want := range []string{"indexer.url", "indexer.api_key"} {
+	for _, want := range []string{"search.jackett.url", "search.jackett.api_key"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error should name %q, got: %v", want, err)
 		}
@@ -138,7 +138,7 @@ func TestSearchWithNoIndexerConfigured(t *testing.T) {
 func TestSearchSurfacesTheIndexersError(t *testing.T) {
 	c := startSearchDaemon(t, &fakeSearcher{
 		name: "jackett",
-		err:  errors.New("jackett: rejected the API key (HTTP 401) - check indexer.api_key"),
+		err:  errors.New("jackett: rejected the API key (HTTP 401) - check search.jackett.api_key"),
 	})
 
 	_, _, err := c.Search("ubuntu")
@@ -147,7 +147,7 @@ func TestSearchSurfacesTheIndexersError(t *testing.T) {
 	}
 	// The remedy has to survive the trip: the error crosses as text, and
 	// what reaches the user is all they get.
-	if !strings.Contains(err.Error(), "indexer.api_key") {
+	if !strings.Contains(err.Error(), "search.jackett.api_key") {
 		t.Errorf("error lost its advice: %v", err)
 	}
 }

@@ -329,38 +329,38 @@ func TestGeneratedConfigLoads(t *testing.T) {
 	}
 }
 
-// The indexer is opt-in, and an empty table has to stay legal: it is what
-// Default() holds and what `torrnado init` writes, so rejecting it would
-// mean shipping a generated config that will not load.
-func TestIndexerIsOptional(t *testing.T) {
+// Search is opt-in, and empty tables have to stay legal: they are what
+// Default() holds and what `torrnado init` writes, so rejecting them
+// would mean shipping a generated config that will not load.
+func TestSearchIsOptional(t *testing.T) {
 	cfg, err := Load(writeConfig(t, ""))
 	if err != nil {
-		t.Fatalf("no indexer at all should be fine: %v", err)
+		t.Fatalf("no search sources at all should be fine: %v", err)
 	}
-	if cfg.Indexer.Backend != "" || cfg.Indexer.URL != "" || cfg.Indexer.APIKey != "" {
-		t.Errorf("indexer should default to empty, got %+v", cfg.Indexer)
+	if got := cfg.Search.Enabled(); len(got) != 0 {
+		t.Errorf("enabled sources = %v, want none", got)
 	}
 
-	if _, err := Load(writeConfig(t, "[indexer]")); err != nil {
-		t.Errorf("an empty [indexer] table should be fine: %v", err)
+	if _, err := Load(writeConfig(t, "[search.jackett]\n[search.prowlarr]")); err != nil {
+		t.Errorf("empty source tables should be fine: %v", err)
 	}
 }
 
 // Half a configuration is the interesting case: it is what someone has
-// after reading the docs and stopping partway, and each error has to name
-// the key that is missing rather than failing at the first search.
-func TestIndexerValidationNamesTheMissingKey(t *testing.T) {
+// after reading the docs and stopping partway, and each error has to
+// name the key that is missing rather than failing at the first search.
+func TestSearchValidationNamesTheMissingKey(t *testing.T) {
 	for _, c := range []struct {
 		name    string
 		body    string
 		wantKey string
 	}{
-		{"backend with no url", "[indexer]\nbackend = \"jackett\"\napi_key = \"k\"", "indexer.url"},
-		{"url with no backend", "[indexer]\nurl = \"http://localhost:9117\"\napi_key = \"k\"", "indexer.backend"},
-		{"no api key", "[indexer]\nbackend = \"jackett\"\nurl = \"http://localhost:9117\"", "indexer.api_key"},
-		{"unknown backend", "[indexer]\nbackend = \"sonarr\"\nurl = \"http://x\"\napi_key = \"k\"", "indexer.backend"},
-		{"url with no scheme", "[indexer]\nbackend = \"jackett\"\nurl = \"localhost:9117\"\napi_key = \"k\"", "indexer.url"},
-		{"url with no host", "[indexer]\nbackend = \"jackett\"\nurl = \"http://\"\napi_key = \"k\"", "indexer.url"},
+		{"jackett without url", "[search.jackett]\napi_key = \"k\"", "search.jackett.url"},
+		{"jackett without key", "[search.jackett]\nurl = \"http://localhost:9117\"", "search.jackett.api_key"},
+		{"prowlarr without url", "[search.prowlarr]\napi_key = \"k\"", "search.prowlarr.url"},
+		{"prowlarr without key", "[search.prowlarr]\nurl = \"http://localhost:9696\"", "search.prowlarr.api_key"},
+		{"url with no scheme", "[search.jackett]\nurl = \"localhost:9117\"\napi_key = \"k\"", "search.jackett.url"},
+		{"url with no host", "[search.jackett]\nurl = \"http://\"\napi_key = \"k\"", "search.jackett.url"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			_, err := Load(writeConfig(t, c.body))
@@ -374,32 +374,26 @@ func TestIndexerValidationNamesTheMissingKey(t *testing.T) {
 	}
 }
 
-// An unknown backend has to list the ones that exist: the fix is in the
-// error or it is in the docs, and the error is where the user is looking.
-func TestUnknownIndexerBackendListsTheChoices(t *testing.T) {
-	_, err := Load(writeConfig(t, "[indexer]\nbackend = \"sonarr\"\nurl = \"http://x\"\napi_key = \"k\""))
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	for _, b := range IndexerBackends {
-		if !strings.Contains(err.Error(), b) {
-			t.Errorf("error should list %q, got: %v", b, err)
-		}
-	}
-}
-
-func TestLoadIndexerSettings(t *testing.T) {
+// Both sources at once is the case the merge exists for, and the order
+// they are reported in is the order they are searched.
+func TestLoadSeveralSearchSources(t *testing.T) {
 	cfg, err := Load(writeConfig(t, `
-[indexer]
-backend = "prowlarr"
+[search.jackett]
+url = "http://localhost:9117"
+api_key = "jk"
+
+[search.prowlarr]
 url = "https://prowlarr.example:9696"
-api_key = "abc123"
+api_key = "pk"
 `))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	want := Indexer{Backend: "prowlarr", URL: "https://prowlarr.example:9696", APIKey: "abc123"}
-	if cfg.Indexer != want {
-		t.Errorf("got %+v, want %+v", cfg.Indexer, want)
+	if cfg.Search.Jackett.APIKey != "jk" || cfg.Search.Prowlarr.APIKey != "pk" {
+		t.Errorf("got %+v", cfg.Search)
+	}
+	got := cfg.Search.Enabled()
+	if len(got) != 2 || got[0] != "jackett" || got[1] != "prowlarr" {
+		t.Errorf("enabled = %v, want [jackett prowlarr]", got)
 	}
 }

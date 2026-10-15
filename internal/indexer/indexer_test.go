@@ -82,7 +82,7 @@ func TestBothBackendsNormalizeToTheSameResults(t *testing.T) {
 		t.Run(tc.backend, func(t *testing.T) {
 			c, _ := serve(t, tc.backend, tc.body, http.StatusOK)
 
-			got, err := c.Search(context.Background(), "ubuntu")
+			got, _, err := c.Search(context.Background(), "ubuntu")
 			if err != nil {
 				t.Fatalf("Search: %v", err)
 			}
@@ -109,7 +109,7 @@ func TestAbsentCountsAreUnknownNotZero(t *testing.T) {
 	} {
 		t.Run(tc.backend, func(t *testing.T) {
 			c, _ := serve(t, tc.backend, tc.body, http.StatusOK)
-			got, err := c.Search(context.Background(), "ubuntu")
+			got, _, err := c.Search(context.Background(), "ubuntu")
 			if err != nil {
 				t.Fatalf("Search: %v", err)
 			}
@@ -140,7 +140,7 @@ func TestLinkFallsBackToTheDownloadURL(t *testing.T) {
 	} {
 		t.Run(tc.backend, func(t *testing.T) {
 			c, _ := serve(t, tc.backend, tc.body, http.StatusOK)
-			got, err := c.Search(context.Background(), "ubuntu")
+			got, _, err := c.Search(context.Background(), "ubuntu")
 			if err != nil {
 				t.Fatalf("Search: %v", err)
 			}
@@ -171,7 +171,7 @@ func TestLinkFallsBackToTheDownloadURL(t *testing.T) {
 func TestResultsComeBackSeedersFirst(t *testing.T) {
 	c, _ := serve(t, "jackett", jackettBody, http.StatusOK)
 
-	got, err := c.Search(context.Background(), "ubuntu")
+	got, _, err := c.Search(context.Background(), "ubuntu")
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestSearchRequestShape(t *testing.T) {
 			}
 			// A query with a space and an & is the one that breaks if
 			// anything is concatenated rather than encoded.
-			if _, err := c.Search(context.Background(), "tom & jerry"); err != nil {
+			if _, _, err := c.Search(context.Background(), "tom & jerry"); err != nil {
 				t.Fatalf("Search: %v", err)
 			}
 

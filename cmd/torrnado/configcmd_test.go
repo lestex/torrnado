@@ -149,10 +149,9 @@ func TestReportNamesStderrForAnEmptyLogFile(t *testing.T) {
 // part; the value never is.
 func TestConfigReportNeverPrintsTheAPIKey(t *testing.T) {
 	cfg := testConfig(t)
-	cfg.Indexer = config.Indexer{
-		Backend: "jackett",
-		URL:     "http://localhost:9117",
-		APIKey:  "s3cr3t-do-not-print",
+	cfg.Search = config.Search{
+		Jackett:  config.Aggregator{URL: "http://localhost:9117", APIKey: "s3cr3t-do-not-print"},
+		Prowlarr: config.Aggregator{URL: "http://localhost:9696", APIKey: "also-s3cr3t"},
 	}
 
 	var buf bytes.Buffer
@@ -161,10 +160,12 @@ func TestConfigReportNeverPrintsTheAPIKey(t *testing.T) {
 	}
 	got := buf.String()
 
-	if strings.Contains(got, "s3cr3t-do-not-print") {
-		t.Error("the report printed the API key")
+	for _, secret := range []string{"s3cr3t-do-not-print", "also-s3cr3t"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("the report printed an API key (%s)", secret)
+		}
 	}
-	for _, want := range []string{"jackett", "http://localhost:9117", "api key set"} {
+	for _, want := range []string{"jackett", "http://localhost:9117", "prowlarr", "api key set"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report should mention %q, got:\n%s", want, got)
 		}
@@ -176,7 +177,7 @@ func TestConfigReportSaysWhenThereIsNoIndexer(t *testing.T) {
 	if err := writeConfigReport(&buf, testConfig(t), "/nonexistent/config.toml"); err != nil {
 		t.Fatalf("writeConfigReport: %v", err)
 	}
-	if !strings.Contains(buf.String(), "indexer") {
-		t.Error("report should carry an indexer row even when unconfigured")
+	if !strings.Contains(buf.String(), "search") {
+		t.Error("report should carry a search row even when unconfigured")
 	}
 }

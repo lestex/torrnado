@@ -39,17 +39,17 @@ func TestRepeatedSearchesAreServedFromCache(t *testing.T) {
 	c, hits := cached(t, time.Minute, &now)
 	ctx := context.Background()
 
-	if _, err := c.Search(ctx, "ubuntu"); err != nil {
+	if _, _, err := c.Search(ctx, "ubuntu"); err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	if _, err := c.Search(ctx, "UBUNTU  "); err != nil { // case and spacing do not matter
+	if _, _, err := c.Search(ctx, "UBUNTU  "); err != nil { // case and spacing do not matter
 		t.Fatalf("second: %v", err)
 	}
 	if n := hits.Load(); n != 1 {
 		t.Errorf("made %d requests, want 1 - the second should come from cache", n)
 	}
 
-	if _, err := c.Search(ctx, "debian"); err != nil {
+	if _, _, err := c.Search(ctx, "debian"); err != nil {
 		t.Fatalf("different query: %v", err)
 	}
 	if n := hits.Load(); n != 2 {
@@ -57,7 +57,7 @@ func TestRepeatedSearchesAreServedFromCache(t *testing.T) {
 	}
 
 	now = now.Add(2 * time.Minute) // past the TTL
-	if _, err := c.Search(ctx, "ubuntu"); err != nil {
+	if _, _, err := c.Search(ctx, "ubuntu"); err != nil {
 		t.Fatalf("after expiry: %v", err)
 	}
 	if n := hits.Load(); n != 3 {
@@ -70,7 +70,7 @@ func TestCacheCanBeTurnedOff(t *testing.T) {
 	c, hits := cached(t, -1, &now)
 
 	for i := 0; i < 3; i++ {
-		if _, err := c.Search(context.Background(), "ubuntu"); err != nil {
+		if _, _, err := c.Search(context.Background(), "ubuntu"); err != nil {
 			t.Fatalf("search %d: %v", i, err)
 		}
 	}
@@ -98,10 +98,10 @@ func TestFailuresAreNeverCached(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	if _, err := c.Search(context.Background(), "ubuntu"); err == nil {
+	if _, _, err := c.Search(context.Background(), "ubuntu"); err == nil {
 		t.Fatal("expected the first search to fail")
 	}
-	got, err := c.Search(context.Background(), "ubuntu")
+	got, _, err := c.Search(context.Background(), "ubuntu")
 	if err != nil {
 		t.Fatalf("second search: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestCacheIsBounded(t *testing.T) {
 		// Each entry expires a little later than the last, so the one
 		// dropped is predictable.
 		now = now.Add(time.Second)
-		if _, err := c.Search(context.Background(), string(rune('a'+i%26))+time.Duration(i).String()); err != nil {
+		if _, _, err := c.Search(context.Background(), string(rune('a'+i%26))+time.Duration(i).String()); err != nil {
 			t.Fatalf("search %d: %v", i, err)
 		}
 	}

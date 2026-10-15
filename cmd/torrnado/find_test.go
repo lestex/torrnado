@@ -162,47 +162,70 @@ func TestFindLink(t *testing.T) {
 	}
 }
 
-// An unconfigured indexer is the normal state, so the error has to name
-// the keys to set rather than merely refusing.
-func TestNewSearcherExplainsAnEmptyConfig(t *testing.T) {
-	_, err := newSearcher(config.Config{})
-	if err == nil {
-		t.Fatal("expected an error with no indexer configured")
+// Nothing configured is the normal state, not a failure: newSearcher
+// says so by returning nil rather than an error, and the daemon answers
+// a search by naming the keys to set.
+func TestNewSearcherWithNothingConfigured(t *testing.T) {
+	s, err := newSearcher(config.Config{})
+	if err != nil {
+		t.Fatalf("an empty config is not an error: %v", err)
 	}
-	for _, want := range []string{"indexer.url", "indexer.api_key", "jackett", "prowlarr"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error should mention %q, got: %v", want, err)
-		}
+	if s != nil {
+		t.Errorf("searcher = %v, want nil when nothing is configured", s)
 	}
 }
 
-func TestNewSearcherBuildsAClient(t *testing.T) {
-	cfg := config.Config{Indexer: config.Indexer{
-		Backend: "prowlarr", URL: "http://localhost:9696", APIKey: "k",
+func TestNewSearcherBuildsOneSource(t *testing.T) {
+	cfg := config.Config{Search: config.Search{
+		Prowlarr: config.Aggregator{URL: "http://localhost:9696", APIKey: "k"},
 	}}
 	s, err := newSearcher(cfg)
 	if err != nil {
 		t.Fatalf("newSearcher: %v", err)
 	}
-	if s.Name() != "prowlarr" {
-		t.Errorf("Name() = %q, want prowlarr", s.Name())
+	// One source is used as it is rather than wrapped - a lone source
+	// needs no fan-out.
+	if got := s.Sources(); len(got) != 1 || got[0] != "prowlarr" {
+		t.Errorf("sources = %v, want [prowlarr]", got)
 	}
 }
 
-// config.IndexerBackends and indexer.New are two hand-written lists of
-// the same thing, in packages that cannot import each other. This is the
-// only place that imports both, so it is the only place the two can be
-// held in agreement - the same job keymap_test does for KnownActions.
-func TestEveryConfiguredBackendIsBuildable(t *testing.T) {
-	for _, name := range config.IndexerBackends {
-		if _, err := indexer.New(indexer.Options{Backend: name, URL: "http://x", APIKey: "k"}); err != nil {
-			t.Errorf("config accepts backend %q but indexer.New rejects it: %v", name, err)
+// Both configured is what the merge exists for, and the order reported
+// is the order they are searched.
+func TestNewSearcherBuildsEverySource(t *testing.T) {
+	cfg := config.Config{Search: config.Search{
+		Jackett:  config.Aggregator{URL: "http://localhost:9117", APIKey: "jk"},
+		Prowlarr: config.Aggregator{URL: "http://localhost:9696", APIKey: "pk"},
+	}}
+	s, err := newSearcher(cfg)
+	if err != nil {
+		t.Fatalf("newSearcher: %v", err)
+	}
+	got := s.Sources()
+	if len(got) != 2 || got[0] != "jackett" || got[1] != "prowlarr" {
+		t.Errorf("sources = %v, want [jackett prowlarr]", got)
+	}
+}
+
+// What the daemon tells a client when nothing is set up has to name the
+// keys, since having no indexer is the ordinary state rather than a
+// mistake.
+func TestFindSourcesSaysWhatToConfigure(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeFindSources(&buf, nil); err != nil {
+		t.Fatalf("writeFindSources: %v", err)
+	}
+	for _, want := range []string{"search.jackett.url", "search.jackett.api_key", "prowlarr"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("should mention %q, got: %q", want, buf.String())
 		}
 	}
-	if _, err := indexer.New(indexer.Options{Backend: "sonarr", URL: "http://x", APIKey: "k"}); err == nil {
-		t.Error("indexer.New accepted a backend config would reject")
+
+	buf.Reset()
+	if err := writeFindSources(&buf, []string{"jackett", "prowlarr"}); err != nil {
+		t.Fatalf("writeFindSources: %v", err)
 	}
-	if len(config.IndexerBackends) != len(indexer.Backends) {
-		t.Errorf("config lists %v but indexer lists %v", config.IndexerBackends, indexer.Backends)
+	if !strings.Contains(buf.String(), "jackett, prowlarr") {
+		t.Errorf("should name both sources, got: %q", buf.String())
 	}
 }
