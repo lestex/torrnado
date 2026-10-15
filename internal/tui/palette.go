@@ -248,10 +248,11 @@ func (m Model) setPausedTargets(paused bool) (tea.Model, tea.Cmd) {
 // the two accept exactly the same things.
 func addBatchCmd(c *ipc.Client, args []string) tea.Cmd {
 	return func() tea.Msg {
-		sources, err := batch.Expand(args)
+		sources, cleanup, err := batch.Expand(args)
 		if err != nil {
 			return errStatus(err)
 		}
+		defer cleanup()
 		ids, failures, err := c.AddBatch(sources, engine.AddOpts{})
 		if err != nil {
 			return errStatus(err)
