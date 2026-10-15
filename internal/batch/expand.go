@@ -21,12 +21,19 @@ import (
 // download from an http(s) URL before giving up.
 const httpFetchTimeout = 30 * time.Second
 
+// maxRedirects bounds the redirect chain. net/http enforces its own limit
+// of ten *inside* the default CheckRedirect, so supplying one replaces
+// that limit rather than adding to it - without this, a link that
+// redirects to itself would spin until httpFetchTimeout.
+const maxRedirects = 10
+
 // Expand resolves each argument into zero or more sources. Rules, applied
 // per argument:
 //   - starts with "magnet:"            -> the URI itself
 //   - starts with "http://"/"https://" -> download it and use the local
-//     copy (checked before the glob rule below, since URLs routinely
-//     contain "?" and would otherwise be misread as a glob pattern)
+//     copy, or, if it redirects to a magnet, that magnet (checked before
+//     the glob rule below, since URLs routinely contain "?" and would
+//     otherwise be misread as a glob pattern)
 //   - is a directory                   -> every "*.torrent" file directly inside it
 //   - contains glob metacharacters     -> filepath.Glob it (covers shells/contexts
 //     that don't expand globs themselves, e.g. quoted arguments or Windows)
@@ -34,29 +41,53 @@ const httpFetchTimeout = 30 * time.Second
 //   - is any other regular file        -> read as a text file of magnet URIs,
 //     one per line, blank lines and lines starting with "#" ignored
 //   - anything else                    -> an error
-func Expand(args []string) ([]string, error) {
-	var out []string
+//
+// The returned cleanup function removes the temp files any downloads
+// left behind, and must be called once the daemon has read them - which
+// is safe as soon as AddBatch returns, because the daemon keeps its own
+// copy of the metainfo. It is never nil, so a caller can defer it
+// without checking the error first.
+func Expand(args []string) (sources []string, cleanup func(), err error) {
+	ex := &expander{}
 	for _, arg := range args {
-		srcs, err := expandOne(arg)
+		srcs, err := ex.one(arg)
 		if err != nil {
-			return nil, err
+			ex.cleanup()
+			return nil, func() {}, err
 		}
-		out = append(out, srcs...)
+		sources = append(sources, srcs...)
 	}
-	return out, nil
+	return sources, ex.cleanup, nil
 }
 
-func expandOne(arg string) ([]string, error) {
+// expander accumulates the temp files one Expand call downloaded, so that
+// a caller who cannot tell which sources were downloaded and which the
+// user named can still clean up after itself.
+type expander struct {
+	tmp []string
+}
+
+// cleanup removes the downloaded files. A failed unlink is ignored: there
+// is no recovery from it, and a complaint about a temp file would bury
+// the report of whatever the user was actually doing.
+func (ex *expander) cleanup() {
+	for _, path := range ex.tmp {
+		os.Remove(path)
+	}
+	ex.tmp = nil
+}
+
+func (ex *expander) one(arg string) ([]string, error) {
 	if strings.HasPrefix(arg, "magnet:") {
 		return []string{arg}, nil
 	}
 
 	if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
-		path, err := fetchTorrentFile(arg)
+		src, err := ex.fetch(arg)
 		if err != nil {
 			return nil, err
 		}
-		return []string{path}, nil
+		return []string{src}, nil
 	}
 
 	if info, err := os.Stat(arg); err == nil {
@@ -79,7 +110,7 @@ func expandOne(arg string) ([]string, error) {
 		}
 		var out []string
 		for _, m := range matches {
-			srcs, err := expandOne(m)
+			srcs, err := ex.one(m)
 			if err != nil {
 				return nil, err
 			}
@@ -137,17 +168,46 @@ func expandMagnetListFile(path string) ([]string, error) {
 	return out, nil
 }
 
-// fetchTorrentFile downloads a .torrent file from an http(s) URL to a
-// temp file and returns its local path. It doesn't validate the content
-// beyond the HTTP status - an invalid/non-torrent response surfaces as a
-// clear bencode-parse error from the daemon's AddTorrentFile instead.
-func fetchTorrentFile(url string) (string, error) {
-	client := &http.Client{Timeout: httpFetchTimeout}
+// fetch resolves an http(s) argument into a source: a local copy of the
+// .torrent the URL serves, or - when it redirects to one - the magnet URI
+// it points at.
+//
+// That redirect is the ordinary case for anything found through `torrnado
+// find`: an indexer's download link for a release with no .torrent of its
+// own is a 302 to the magnet. net/http would follow it and fail with
+// `unsupported protocol scheme "magnet"`, which names the scheme as
+// though the link were malformed when in fact it worked, so CheckRedirect
+// stops there and keeps the target.
+//
+// A downloaded file is not validated beyond the HTTP status - an
+// invalid/non-torrent response surfaces as a clear bencode-parse error
+// from the daemon's AddTorrentFile instead.
+func (ex *expander) fetch(url string) (string, error) {
+	var magnet string
+	client := &http.Client{
+		Timeout: httpFetchTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.Scheme == "magnet" {
+				magnet = req.URL.String()
+				return http.ErrUseLastResponse
+			}
+			if len(via) >= maxRedirects {
+				return fmt.Errorf("stopped after %d redirects", maxRedirects)
+			}
+			return nil
+		},
+	}
 	resp, err := client.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("fetch %s: %w", url, err)
 	}
 	defer resp.Body.Close()
+
+	// Before the status check, because the status here is the redirect's
+	// own 302 and the redirect is the success case.
+	if magnet != "" {
+		return magnet, nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch %s: server returned %s", url, resp.Status)
 	}
@@ -157,9 +217,10 @@ func fetchTorrentFile(url string) (string, error) {
 		return "", fmt.Errorf("create temp file for %s: %w", url, err)
 	}
 	defer tmp.Close()
+	// Recorded before the copy, so a half-written file is cleaned up too.
+	ex.tmp = append(ex.tmp, tmp.Name())
 
 	if _, err := io.Copy(tmp, resp.Body); err != nil {
-		os.Remove(tmp.Name())
 		return "", fmt.Errorf("save %s: %w", url, err)
 	}
 	return tmp.Name(), nil
