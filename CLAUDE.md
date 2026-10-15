@@ -118,6 +118,20 @@ internal/indexer  Searches a self-hosted aggregator (Jackett, Prowlarr)
                   a cache) and only the daemon lives long enough to hold
                   that, so a client never constructs one. Does not
                   import `config`; the daemon translates.
+internal/flaresolverr
+                  Fetches a page through a FlareSolverr server, which
+                  drives a real browser. Stdlib only, no internal deps.
+                  It uses the HTML FlareSolverr returns and deliberately
+                  does not replay the cookies it earned: Cloudflare binds
+                  clearance to the client's TLS/HTTP2 fingerprint, so a
+                  valid cf_clearance replayed from a Go or .NET client -
+                  same User-Agent, same address - is challenged again.
+                  That is the bug that makes Jackett unable to reach a
+                  challenged tracker at all, and it is in the handoff,
+                  not in FlareSolverr. Injected cookies carry a site
+                  login in, which does transfer; leave their Domain
+                  empty, because one that mismatches the page fails the
+                  whole request rather than just the cookie.
 internal/tui      bubbletea Model. Three panes (status sidebar, torrent
                   list, docked Pieces/Peers/Files detail pane) + command
                   palette; keys route by which pane has focus, not by a
@@ -135,7 +149,7 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
 ```
 
 Dependency order is strict and one-directional: `format`, `engine`,
-`vpn` and `indexer` have no internal deps; `ipc` depends only on
+`vpn`, `indexer` and `flaresolverr` have no internal deps; `ipc` depends only on
 `engine` and `indexer`; `config` depends on `format`; `tui` depends on
 `engine`, `ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
 everything. `ipc` carries `[]indexer.Result` on the wire, which is why
