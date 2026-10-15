@@ -118,6 +118,23 @@ internal/indexer  Searches a self-hosted aggregator (Jackett, Prowlarr)
                   a cache) and only the daemon lives long enough to hold
                   that, so a client never constructs one. Does not
                   import `config`; the daemon translates.
+                    A site plugin (rutracker) is the other kind of
+                  source: it reads a tracker's own pages rather than an
+                  aggregator's JSON, so it needs a login and - the site
+                  being behind Cloudflare - a real browser, which it
+                  takes as an injected `Fetcher` rather than importing
+                  flaresolverr, keeping this package a stdlib-only leaf.
+                  Its search page carries no magnet, so a result's Link
+                  is a token ("rutracker:6916386") and the daemon reads
+                  the magnet off the topic page at add time: resolving
+                  all fifty rows eagerly would cost minutes for results
+                  nobody picked. Counts come from the page's own
+                  data-ts_text sort attributes, which hold exact bytes
+                  and a unix date - except leechers, the one column with
+                  no such attribute. A row with no seeders shows how
+                  long it has had none and sorts as -1; that is zero,
+                  not `Unknown`, because the site does know. None of the
+                  selectors come from Jackett, which is GPL-2.0.
 internal/flaresolverr
                   Fetches a page through a FlareSolverr server, which
                   drives a real browser. Stdlib only, no internal deps.
@@ -155,9 +172,14 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
 
 Dependency order is strict and one-directional: `format`, `engine`,
 `vpn`, `indexer` and `flaresolverr` have no internal deps; `ipc` depends only on
-`engine` and `indexer`; `config` depends on `format`; `tui` depends on
+`engine` and `indexer`; `config` depends on `format`; `batch` depends on
+`indexer`, for the one function that recognises a search token - the
+alternative was a second copy of the same rules in a package that could
+not be told when they changed; `tui` depends on
 `engine`, `ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
-everything. `ipc` carries `[]indexer.Result` on the wire, which is why
+everything, and is where `flaresolverr` is adapted to the `Fetcher` a
+site plugin wants, since neither of those two leaves may import the
+other. `ipc` carries `[]indexer.Result` on the wire, which is why
 it imports a second package - `indexer` is a stdlib-only leaf like
 `engine`, so this adds no cycle and nothing heavy. `engine` taking its VPN check as a
 `func() VPNStatus` rather than importing `vpn` is what keeps that first
@@ -256,14 +278,17 @@ structs (all fields for all methods) rather than one type per method
 behind an `interface{}`, because gob can't encode interface values
 without registering every concrete type up front.
 
-One method is answered off the connection's own goroutine: `Search` can
+Two methods are answered off the connection's own goroutine. `Search` can
 take a minute (an external solver driving a browser through a Cloudflare
 challenge) and requests on a connection are otherwise answered strictly
 in order, so every refresh the TUI makes would queue behind it and the
 interface would look frozen. Replies carry their sequence number and the
 client matches on it, so answering out of order is safe. `Search` also
 gets its own, longer client timeout; raising the shared one would mean a
-genuinely hung daemon took two minutes to report.
+genuinely hung daemon took two minutes to report. `AddBatch` joins it
+only when it carries a search token, because resolving one is itself a
+page load through a browser; an ordinary add stays in line, where its
+reply keeps its order.
 
 ### Config/theme resolution
 

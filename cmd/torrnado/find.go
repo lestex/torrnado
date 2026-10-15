@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/lestex/torrnado/internal/config"
+	"github.com/lestex/torrnado/internal/flaresolverr"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/ipc"
@@ -94,8 +97,9 @@ Arguments are joined with spaces, so a multi-word query needs no quoting.`,
 // merges the results; one is used as it is. Returns nil with no error
 // when nothing is configured - the ordinary case, and not a failure,
 // since the feature is opt-in.
-func newSearcher(cfg config.Config) (indexer.Searcher, error) {
+func newSearcher(cfg config.Config) (indexer.Searcher, func(), error) {
 	var sources []indexer.Searcher
+	closers := func() {}
 	for _, src := range []struct {
 		backend string
 		agg     config.Aggregator
@@ -112,11 +116,37 @@ func newSearcher(cfg config.Config) (indexer.Searcher, error) {
 			APIKey:  src.agg.APIKey,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("search.%s: %w", src.backend, err)
+			return nil, closers, fmt.Errorf("search.%s: %w", src.backend, err)
 		}
 		sources = append(sources, c)
 	}
-	return indexer.NewMulti(sources...), nil
+
+	// rutracker is a site rather than an aggregator: it reads pages
+	// directly, which takes a login and a browser. Config validation has
+	// already refused the combination that cannot work, so reaching here
+	// with one and not the other is a bug rather than a user mistake.
+	if rt := cfg.Search.Rutracker; rt.Enabled() {
+		fs, err := flaresolverr.New(flaresolverr.Config{
+			URL:     cfg.FlareSolverr.URL,
+			Timeout: time.Duration(cfg.FlareSolverr.MaxTimeout),
+		})
+		if err != nil {
+			return nil, closers, fmt.Errorf("flaresolverr: %w", err)
+		}
+		b := newBrowser(context.Background(), fs)
+		closers = func() { b.close(context.Background()) }
+		src, err := indexer.NewRutracker(b, indexer.RutrackerOptions{
+			Username: rt.Username,
+			Password: rt.Password,
+			Session:  rt.Session,
+		})
+		if err != nil {
+			closers()
+			return nil, func() {}, err
+		}
+		sources = append(sources, src)
+	}
+	return indexer.NewMulti(sources...), closers, nil
 }
 
 // writeFindSources answers --check: which indexers the daemon has.
