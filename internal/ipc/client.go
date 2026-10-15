@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Client is a connection to a running daemon. It is safe for concurrent
@@ -124,8 +125,14 @@ func (c *Client) failAllPending(err error) {
 }
 
 // call sends a request and waits for the reply carrying its sequence
-// number.
+// number, for the usual bound.
 func (c *Client) call(req *Request) (*Response, error) {
+	return c.callFor(req, callTimeout)
+}
+
+// callFor is call with an explicit deadline, for the one method whose
+// honest worst case is far longer than everything else here.
+func (c *Client) callFor(req *Request, timeout time.Duration) (*Response, error) {
 	c.mu.Lock()
 	c.seq++
 	req.Seq = c.seq
@@ -151,12 +158,12 @@ func (c *Client) call(req *Request) (*Response, error) {
 		return resp, nil
 	case <-c.closed:
 		return nil, fmt.Errorf("%s: client closed", req.Method)
-	case <-time.After(callTimeout):
+	case <-time.After(timeout):
 		// Give up rather than block a UI forever on a wedged daemon.
 		c.mu.Lock()
 		delete(c.pending, req.Seq)
 		c.mu.Unlock()
-		return nil, fmt.Errorf("%s: timed out after %s", req.Method, callTimeout)
+		return nil, fmt.Errorf("%s: timed out after %s", req.Method, timeout)
 	}
 }
 
@@ -265,6 +272,34 @@ func (c *Client) List() ([]engine.TorrentSnapshot, error) {
 		return nil, err
 	}
 	return resp.Snapshot, nil
+}
+
+// Search asks the daemon to query every configured indexer and return
+// what came back, best-first.
+//
+// The second return is one message per source that failed, mirroring
+// AddBatch: a search across several sources can half work, and a source
+// being down must not hide what the others found. An error means the
+// call itself failed, not that a source did.
+func (c *Client) Search(query string) ([]indexer.Result, []string, error) {
+	resp, err := c.callFor(&Request{Method: MethodSearch, Query: query}, searchTimeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp.Results, resp.Errs, nil
+}
+
+// SearchSources names the indexers this daemon is configured to search.
+//
+// Empty means none, which is the ordinary case - the feature is opt-in.
+// Asking is what lets a client say so without running a search to find
+// out, and name them while one is running.
+func (c *Client) SearchSources() ([]string, error) {
+	resp, err := c.call(&Request{Method: MethodSearchSources})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Sources, nil
 }
 
 // PreviewURL asks the daemon to make one file streamable and return the

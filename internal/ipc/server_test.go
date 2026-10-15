@@ -130,13 +130,13 @@ func TestSecondDaemonIsRefused(t *testing.T) {
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
 
-	first, err := Serve(sock, eng, nil)
+	first, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("first Serve: %v", err)
 	}
 	defer first.Close()
 
-	if second, err := Serve(sock, eng, nil); err == nil {
+	if second, err := Serve(sock, eng, nil, nil); err == nil {
 		second.Close()
 		t.Fatal("a second daemon was allowed to take the same socket")
 	}
@@ -153,13 +153,13 @@ func TestSocketCanBeReclaimedAfterClose(t *testing.T) {
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
 
-	first, err := Serve(sock, eng, nil)
+	first, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("first Serve: %v", err)
 	}
 	first.Close()
 
-	second, err := Serve(sock, eng, nil)
+	second, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("could not reclaim the socket after a clean shutdown: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestCloseDisconnectsAnAttachedClient(t *testing.T) {
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
 
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestDaemonInfoReportsOwnership(t *testing.T) {
 		t.Error("asking whether a daemon runs created the lock file")
 	}
 
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestDaemonInfoDoesNotBlockAStartingDaemon(t *testing.T) {
 	}()
 	defer func() { close(stop); <-done }()
 
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("Serve while status was being asked: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestShutdownRepliesBeforeTheDaemonTearsDown(t *testing.T) {
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
 
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestShutdownIsNotRequestedByOtherCalls(t *testing.T) {
 	t.Cleanup(func() { eng.Close() })
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}

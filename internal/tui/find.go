@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -19,6 +18,16 @@ import (
 // describing the torrents that are really there: a detail pane still
 // captioning a torrent hidden behind a list of search results would be
 // actively misleading.
+
+// finder is what the overlay asks. Narrower than indexer.Searcher on
+// purpose: the daemon does the searching now, so all a client needs is
+// the one call, and *ipc.Client satisfies this without the interface
+// having to describe anything a client cannot do.
+type finder interface {
+	// Search returns results, then one message per source that failed -
+	// a search across several sources can half work.
+	Search(query string) ([]indexer.Result, []string, error)
+}
 
 // findState is what the overlay is doing. Three states rather than a
 // bool, because "open and waiting" has to be drawn differently from
@@ -38,12 +47,23 @@ const findPrompt = "find:"
 
 // openFind starts the prompt, or explains that there is nothing to ask.
 func (m Model) openFind() (tea.Model, tea.Cmd) {
-	if m.finder == nil {
+	if !m.canFind() {
 		cmd := m.setStatus(errStatus(errNoIndexer()))
 		return m, cmd
 	}
 	m.mode = modeFind
 	return m, nil
+}
+
+// canFind reports whether there is anything to search.
+//
+// Two conditions, because they fail differently: no client at all (a
+// model built without one, in tests), and a daemon that named no
+// sources - which is the ordinary case, since the feature is opt-in.
+// The client itself is always present once attached, so its presence
+// says nothing about whether an indexer is configured.
+func (m Model) canFind() bool {
+	return m.finder != nil && len(m.findSources) > 0
 }
 
 // errNoIndexer says what to add to config.toml. Most users will not have
@@ -69,7 +89,7 @@ func (m Model) startFind(query string) (tea.Model, tea.Cmd) {
 		// opening an empty window.
 		return m, nil
 	}
-	if m.finder == nil {
+	if !m.canFind() {
 		cmd := m.setStatus(errStatus(errNoIndexer()))
 		return m, cmd
 	}
@@ -93,10 +113,10 @@ func (m Model) startFind(query string) (tea.Model, tea.Cmd) {
 // rather than the query text: closing the overlay also bumps it, so a
 // reply the user has walked away from cannot reopen the window, and two
 // searches for the same words stay distinguishable.
-func findCmd(finder indexer.Searcher, query string, seq int) tea.Cmd {
+func findCmd(f finder, query string, seq int) tea.Cmd {
 	return func() tea.Msg {
-		results, err := finder.Search(context.Background(), query)
-		return findResultsMsg{seq: seq, query: query, results: results, err: err}
+		results, errs, err := f.Search(query)
+		return findResultsMsg{seq: seq, query: query, results: results, warnings: errs, err: err}
 	}
 }
 
@@ -107,6 +127,7 @@ func (m Model) applyFindResults(msg findResultsMsg) (Model, tea.Cmd) {
 	}
 	m.findState = findLoaded
 	m.findResults = msg.results
+	m.findWarnings = msg.warnings
 	m.findErr = msg.err
 	m.findCursor = 0
 	return m, nil
@@ -261,12 +282,12 @@ func (m Model) renderFindResults() (box string, x, y int) {
 func (m Model) findBody(inner, rows int) string {
 	switch {
 	case m.findState == findLoading:
-		name := ""
-		if m.finder != nil {
-			name = " " + m.finder.Name()
+		where := ""
+		if len(m.findSources) > 0 {
+			where = " " + strings.Join(m.findSources, ", ")
 		}
 		return m.styles.Muted.Render(truncate(
-			fmt.Sprintf("searching%s for %q...", name, m.findQuery), inner)) + "\n"
+			fmt.Sprintf("searching%s for %q...", where, m.findQuery), inner)) + "\n"
 
 	case m.findErr != nil:
 		// The error already carries the remedy - which config key to
@@ -291,6 +312,13 @@ func (m Model) findBody(inner, rows int) string {
 		} else {
 			b.WriteString(m.styles.Row.Render(line))
 		}
+		b.WriteString("\n")
+	}
+
+	// A source that failed is said beneath what did come back, rather
+	// than instead of it.
+	for _, w := range m.findWarnings {
+		b.WriteString(m.styles.Error.Render(truncate(" ! "+w, inner)))
 		b.WriteString("\n")
 	}
 

@@ -113,9 +113,11 @@ internal/indexer  Searches a self-hosted aggregator (Jackett, Prowlarr)
                   classification live once on the Client. Wire structs
                   use pointer fields because a null count decodes into a
                   plain int silently, and "not reported" must not render
-                  as nought seeders. Does not import `config`: the
-                  caller translates, so `torrnado daemon` never links an
-                  HTTP client for an indexer it will not call.
+                  as nought seeders. The daemon holds the Searcher and
+                  serves it over ipc - searching is stateful (a session,
+                  a cache) and only the daemon lives long enough to hold
+                  that, so a client never constructs one. Does not
+                  import `config`; the daemon translates.
 internal/tui      bubbletea Model. Three panes (status sidebar, torrent
                   list, docked Pieces/Peers/Files detail pane) + command
                   palette; keys route by which pane has focus, not by a
@@ -134,9 +136,11 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
 
 Dependency order is strict and one-directional: `format`, `engine`,
 `vpn` and `indexer` have no internal deps; `ipc` depends only on
-`engine`; `config` depends on `format`; `tui` depends on `engine`,
-`ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
-everything. `engine` taking its VPN check as a
+`engine` and `indexer`; `config` depends on `format`; `tui` depends on
+`engine`, `ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
+everything. `ipc` carries `[]indexer.Result` on the wire, which is why
+it imports a second package - `indexer` is a stdlib-only leaf like
+`engine`, so this adds no cycle and nothing heavy. `engine` taking its VPN check as a
 `func() VPNStatus` rather than importing `vpn` is what keeps that first
 clause true. Nothing in `internal/engine` or
 `internal/ipc` imports `internal/tui` or `cmd` - if you find yourself
@@ -232,6 +236,15 @@ connection. `Request`/`Response` are deliberately flat "kitchen sink"
 structs (all fields for all methods) rather than one type per method
 behind an `interface{}`, because gob can't encode interface values
 without registering every concrete type up front.
+
+One method is answered off the connection's own goroutine: `Search` can
+take a minute (an external solver driving a browser through a Cloudflare
+challenge) and requests on a connection are otherwise answered strictly
+in order, so every refresh the TUI makes would queue behind it and the
+interface would look frozen. Replies carry their sequence number and the
+client matches on it, so answering out of order is safe. `Search` also
+gets its own, longer client timeout; raising the shared one would mean a
+genuinely hung daemon took two minutes to report.
 
 ### Config/theme resolution
 

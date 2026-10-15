@@ -175,13 +175,18 @@ type Model struct {
 	// finder is nil when no indexer is configured, which is the ordinary
 	// case - the feature is opt-in. Nil means "not configured" and is
 	// tested as such, so it must never be assigned a typed nil.
-	finder      indexer.Searcher
-	findState   findState
-	findQuery   string
-	findResults []indexer.Result
-	findCursor  int
-	findErr     error
-	findSeq     int
+	finder       finder
+	findState    findState
+	findQuery    string
+	findResults  []indexer.Result
+	findWarnings []string
+	findCursor   int
+	findErr      error
+	findSeq      int
+	// findSources names the indexers the daemon will search, asked once
+	// when attaching. Empty means none is configured, which is what lets
+	// the overlay say so without running a search to find out.
+	findSources []string
 
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
@@ -241,23 +246,27 @@ type Options struct {
 	Player string
 	// Opener is the command used to show a torrent's folder.
 	Opener string
-	// Finder searches an indexer, or is nil when none is configured -
-	// which is the ordinary case, since the feature is opt-in.
-	Finder indexer.Searcher
+	// Finder searches an indexer through the daemon, or is nil when the
+	// daemon has none configured - the ordinary case, since the feature
+	// is opt-in.
+	Finder finder
+	// FinderSources names those indexers, for the overlay to show.
+	FinderSources []string
 }
 
 // New builds the initial Model. The client and its Events() channel must
 // already be connected.
 func New(o Options) Model {
 	m := Model{
-		client:    o.Client,
-		events:    o.Client.Events(),
-		keymap:    o.Keys,
-		themesDir: o.ThemesDir,
-		player:    o.Player,
-		opener:    o.Opener,
-		finder:    o.Finder,
-		selected:  map[engine.TorrentID]bool{},
+		client:      o.Client,
+		events:      o.Client.Events(),
+		keymap:      o.Keys,
+		themesDir:   o.ThemesDir,
+		player:      o.Player,
+		opener:      o.Opener,
+		finder:      o.Finder,
+		findSources: o.FinderSources,
+		selected:    map[engine.TorrentID]bool{},
 	}
 	return m.applyTheme(o.Theme)
 }
