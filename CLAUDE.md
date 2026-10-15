@@ -101,6 +101,21 @@ internal/vpn      Reports whether traffic leaves through a tunnel, for the
                   MAC on darwin. Classifies by device, never by name, and
                   fails closed. The engine does not import it; the daemon
                   passes it in as a closure.
+internal/indexer  Searches a self-hosted aggregator (Jackett, Prowlarr)
+                  for torrents. Stdlib only, no internal deps. One GET
+                  per search: torrnado never talks to a tracker, the
+                  aggregator fans the query out - which is also why find
+                  is not gated on `vpn.required`, since the request that
+                  reaches a tracker is the aggregator's. A `backend`
+                  builds a whole *http.Request rather than a URL,
+                  because Jackett authenticates by query parameter and
+                  Prowlarr by header; retries, caching and error
+                  classification live once on the Client. Wire structs
+                  use pointer fields because a null count decodes into a
+                  plain int silently, and "not reported" must not render
+                  as nought seeders. Does not import `config`: the
+                  caller translates, so `torrnado daemon` never links an
+                  HTTP client for an indexer it will not call.
 internal/tui      bubbletea Model. Three panes (status sidebar, torrent
                   list, docked Pieces/Peers/Files detail pane) + command
                   palette; keys route by which pane has focus, not by a
@@ -117,10 +132,11 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
                   passthrough to the same IPC the TUI uses.
 ```
 
-Dependency order is strict and one-directional: `format`, `engine` and
-`vpn` have no internal deps; `ipc` depends only on `engine`; `config`
-depends on `format`; `tui` depends on `engine`, `ipc`, `config`, `theme`,
-`batch`; `cmd` depends on everything. `engine` taking its VPN check as a
+Dependency order is strict and one-directional: `format`, `engine`,
+`vpn` and `indexer` have no internal deps; `ipc` depends only on
+`engine`; `config` depends on `format`; `tui` depends on `engine`,
+`ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
+everything. `engine` taking its VPN check as a
 `func() VPNStatus` rather than importing `vpn` is what keeps that first
 clause true. Nothing in `internal/engine` or
 `internal/ipc` imports `internal/tui` or `cmd` - if you find yourself
