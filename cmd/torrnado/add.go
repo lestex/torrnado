@@ -36,10 +36,14 @@ func newAddCmd() *cobra.Command {
 			// Arguments are resolved here rather than in the daemon so
 			// that relative paths and globs are interpreted against the
 			// directory the user is standing in, not the daemon's.
-			sources, err := batch.Expand(args)
+			sources, cleanup, err := batch.Expand(args)
 			if err != nil {
 				return err
 			}
+			// The daemon keeps its own copy of the metainfo, so a
+			// downloaded .torrent is dead weight the moment AddBatch
+			// returns.
+			defer cleanup()
 
 			opts := engine.AddOpts{SavePath: savePath, Paused: paused, Files: files}
 			return withClient(func(c *ipc.Client) error {

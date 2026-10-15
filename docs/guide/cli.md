@@ -145,6 +145,11 @@ torrnado find ubuntu --json | jq -r '.[0].link' | xargs torrnado add
 `[]` rather than `null` when nothing matched, so `jq` has something to
 work with either way.
 
+The link is whatever the indexer gave: a magnet, or an `http(s)` URL to a
+`.torrent`. `add` takes either, including the common case of a download
+URL that redirects to a magnet, so the same command works whichever one a
+result carries.
+
 ### When it does not work
 
 `--check` separates "nothing matched" from "this was never going to work"
@@ -176,7 +181,9 @@ your indexer fan out again.
 - a magnet URI
 - a `.torrent` file path
 - an `http://` or `https://` URL to a `.torrent` file (downloaded to a
-  temp file and added from there)
+  temp file, added from there, and the temp file removed once the daemon
+  has read it) - or one that redirects to a magnet, which is what an
+  indexer's download link is for a release with no `.torrent` of its own
 - a directory (every `.torrent` file directly inside it, non-recursive)
 - a glob pattern (`~/torrents/*.torrent`) - handled by torrnado itself
   as well as by your shell, so it also works quoted or on shells that
