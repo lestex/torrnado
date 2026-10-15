@@ -255,8 +255,8 @@ func (s *Server) handleConn(conn net.Conn) {
 // It names the keys to set rather than merely refusing: having no
 // indexer is the ordinary state, not a mistake, so this is the common
 // answer and the only place a user will be told what to do about it.
-const noSearcherMsg = "no indexer configured: set indexer.backend, indexer.url and " +
-	"indexer.api_key in config.toml"
+const noSearcherMsg = "no indexer configured: set search.jackett.url and " +
+	"search.jackett.api_key (or search.prowlarr.*) in config.toml"
 
 // dispatch runs one request against the engine and builds its reply.
 //
@@ -413,18 +413,19 @@ func (s *Server) dispatch(req *Request) *Response {
 		// timeout and retry policy, and the client gives up after
 		// searchTimeout. A third opinion about the same wait would only
 		// be one more thing to keep in step.
-		results, err := s.searcher.Search(context.Background(), req.Query)
+		results, warnings, err := s.searcher.Search(context.Background(), req.Query)
 		if err != nil {
 			resp.Err = err.Error()
 			return resp
 		}
 		resp.OK = true
 		resp.Results = results
+		resp.Errs = warnings
 
 	case MethodSearchSources:
 		resp.OK = true
 		if s.searcher != nil {
-			resp.Sources = []string{s.searcher.Name()}
+			resp.Sources = s.searcher.Sources()
 		}
 
 	case MethodSetLabel:

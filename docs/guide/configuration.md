@@ -41,10 +41,13 @@ pex        = true
 encryption = true
 seed       = false   # keep uploading after a torrent completes
 
-[indexer]
-backend = ""   # jackett or prowlarr - what `torrnado find` searches
-url     = ""   # e.g. http://localhost:9117 (jackett), :9696 (prowlarr)
-api_key = ""   # from the indexer's own settings page
+[search.jackett]
+url     = ""   # e.g. http://localhost:9117 - what `torrnado find` searches
+api_key = ""   # from Jackett's dashboard
+
+[search.prowlarr]
+url     = ""   # e.g. http://localhost:9696
+api_key = ""   # from Settings -> General
 
 [vpn]
 required   = false   # hold every transfer while the system is not on a VPN
@@ -155,30 +158,40 @@ opened.
 
 ## Searching an indexer
 
-`[indexer]` is what [`torrnado find`](cli.md#finding-a-torrent) searches: a
-self-hosted Jackett or Prowlarr server, which holds your per-tracker
-configuration and fans one query out to all of it.
+`[search.*]` is what [`torrnado find`](cli.md#finding-a-torrent) searches:
+self-hosted Jackett or Prowlarr servers, which hold your per-tracker
+configuration and fan one query out to all of it.
 
 ```toml
-[indexer]
-backend = "jackett"
+[search.jackett]
 url     = "http://localhost:9117"
 api_key = "your-api-key"
 ```
 
 The key is in Jackett's dashboard, or under Settings → General in
-Prowlarr. There is no default backend: the two listen on different ports
-and speak incompatible APIs, so a URL alone cannot say which you are
-running.
+Prowlarr.
 
-Empty - the default - turns `find` off, and that is not a
+**Both can be set at once.** They are searched together and the results
+merged, best-first across everything that came back, so filling in the
+second widens a search rather than replacing the first. The same torrent
+reported by both appears once — matched on the magnet's infohash, which
+is the only identifier that means the same thing to both.
+
+If one source is down and another answers, you get the results plus a
+warning naming the one that failed. "This indexer is unreachable" and
+"nothing matched your query" are different answers, and only showing the
+second would have you hunting for a torrent that was never searched for.
+
+Empty — the default — turns `find` off, and that is not a
 misconfiguration: `find` then tells you what to put here. But a *half*
 filled table is rejected at startup, naming the key that is missing,
 rather than becoming a 404 or a 401 at your first search.
 
-`torrnado config` reports the backend and URL and whether a key is set. It
-never prints the key, because that output is the natural thing to paste
-into a bug report.
+The daemon does the searching, not the TUI or the command, so a session
+and a result cache outlive any one of them. `torrnado config` reports
+which sources are set and whether each has a key, never the keys
+themselves, because that output is the natural thing to paste into a bug
+report.
 
 !!! note "This is not gated on `[vpn]`"
     A search is one HTTP GET to your own indexer, usually on localhost.

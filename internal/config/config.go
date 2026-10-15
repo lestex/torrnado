@@ -84,30 +84,49 @@ type Logging struct {
 	File string `toml:"file"`
 }
 
-// Indexer points `torrnado find` at a self-hosted torrent aggregator -
-// Jackett or Prowlarr - which fans one query out to every tracker the
-// user has configured in it.
+// Aggregator configures one self-hosted indexer - Jackett or Prowlarr -
+// that `torrnado find` searches.
 //
 // torrnado never contacts a tracker itself: find makes a single HTTP GET
-// against this URL, usually on localhost. That is why it is not gated on
-// [vpn] the way transfers are - the request that reaches a tracker is the
-// aggregator's, over the aggregator's route.
-//
-// All three parts are empty by default, and an empty table is not a
-// misconfiguration: most installations have no aggregator at all, and
-// find says what to put here rather than failing obscurely.
-type Indexer struct {
-	// Backend is "jackett" or "prowlarr". There is no default, because
-	// the two listen on different ports and speak incompatible APIs -
-	// guessing from a URL alone would produce a 404 instead of an error
-	// naming the key that is missing.
-	Backend string `toml:"backend"`
-	// URL is the aggregator's base address, e.g. http://localhost:9117.
+// against this URL, usually on localhost, and the aggregator fans the
+// query out to every tracker configured in it. That is why find is not
+// gated on [vpn] the way transfers are - the request that reaches a
+// tracker is the aggregator's, over the aggregator's route.
+type Aggregator struct {
+	// URL is the base address, e.g. http://localhost:9117.
 	URL string `toml:"url"`
-	// APIKey is from the aggregator's own settings page. It is the first
-	// secret this file holds, so `torrnado config` reports only whether
-	// it is set.
+	// APIKey is from the aggregator's own settings page. Reported by
+	// `torrnado config` only as set or not, never printed.
 	APIKey string `toml:"api_key"`
+}
+
+// Enabled reports whether this source is configured at all. Empty is the
+// ordinary state, not a misconfiguration: most installations run no
+// aggregator.
+func (a Aggregator) Enabled() bool { return a.URL != "" || a.APIKey != "" }
+
+// Search is every indexer find will query.
+//
+// One table per source rather than a list of them, so each has its own
+// typed fields - an aggregator needs a URL and a key, and a tracker
+// plugin will need credentials, which no single shape covers. Sources
+// are searched together and the results merged, so enabling a second one
+// widens a search rather than replacing the first.
+type Search struct {
+	Jackett  Aggregator `toml:"jackett"`
+	Prowlarr Aggregator `toml:"prowlarr"`
+}
+
+// Enabled names every configured source, in the order they are searched.
+func (s Search) Enabled() []string {
+	var names []string
+	if s.Jackett.Enabled() {
+		names = append(names, "jackett")
+	}
+	if s.Prowlarr.Enabled() {
+		names = append(names, "prowlarr")
+	}
+	return names
 }
 
 // Config is the full contents of config.toml.
@@ -163,7 +182,7 @@ type Config struct {
 	SeedLimit SeedLimits        `toml:"seed_limit"`
 	Port      PortRange         `toml:"port"`
 	Network   Network           `toml:"network"`
-	Indexer   Indexer           `toml:"indexer"`
+	Search    Search            `toml:"search"`
 	VPN       VPN               `toml:"vpn"`
 	Log       Logging           `toml:"log"`
 	Keybinds  map[string]string `toml:"keybinds"`
@@ -171,24 +190,6 @@ type Config struct {
 
 // LogLevels are the accepted values for log.level and log.library_level.
 var LogLevels = []string{"debug", "info", "warn", "error"}
-
-// IndexerBackends are the accepted values for indexer.backend.
-//
-// Listed here rather than taken from internal/indexer for the same
-// reason as KnownActions: config validates a file without importing the
-// package that implements the thing, so `torrnado daemon` does not link
-// an HTTP client for an indexer it will never call. A test in
-// cmd/torrnado, which imports both, keeps the two lists in agreement.
-var IndexerBackends = []string{"jackett", "prowlarr"}
-
-func validIndexerBackend(s string) bool {
-	for _, b := range IndexerBackends {
-		if s == b {
-			return true
-		}
-	}
-	return false
-}
 
 func validLogLevel(s string) bool {
 	for _, l := range LogLevels {
@@ -391,32 +392,34 @@ func (c Config) Validate() error {
 		}
 	}
 
-	// The indexer is opt-in, so a wholly empty table has to pass - and
-	// that is load-bearing rather than lenient: Template(Default())
-	// writes an empty one, and the template tests load what it wrote, so
-	// rejecting it would mean `torrnado init` producing a file that will
-	// not start. Validate only once the user has said something.
-	if ix := c.Indexer; ix.Backend != "" || ix.URL != "" || ix.APIKey != "" {
-		if ix.Backend == "" {
-			// No safe guess: see the note on Indexer.Backend.
-			return fmt.Errorf("indexer.backend: must be set when indexer.url is (one of %s)",
-				strings.Join(IndexerBackends, ", "))
+	// Search is opt-in, so a wholly empty table has to pass - and that
+	// is load-bearing rather than lenient: Template(Default()) writes
+	// empty ones, and the template tests load what it wrote, so
+	// rejecting them would mean `torrnado init` producing a file that
+	// will not start. Validate only what the user has actually said.
+	for _, src := range []struct {
+		key string
+		agg Aggregator
+	}{
+		{"search.jackett", c.Search.Jackett},
+		{"search.prowlarr", c.Search.Prowlarr},
+	} {
+		if !src.agg.Enabled() {
+			continue
 		}
-		if !validIndexerBackend(ix.Backend) {
-			return fmt.Errorf("indexer.backend: %q is not one of %s",
-				ix.Backend, strings.Join(IndexerBackends, ", "))
+		if src.agg.URL == "" {
+			return fmt.Errorf("%s.url: must be set, e.g. http://localhost:9117", src.key)
 		}
-		if ix.URL == "" {
-			return fmt.Errorf("indexer.url: must be set when indexer.backend is, e.g. http://localhost:9117")
-		}
-		u, err := url.Parse(ix.URL)
+		u, err := url.Parse(src.agg.URL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return fmt.Errorf("indexer.url: %q must be an http(s) URL, e.g. http://localhost:9117", ix.URL)
+			return fmt.Errorf("%s.url: %q must be an http(s) URL, e.g. http://localhost:9117",
+				src.key, src.agg.URL)
 		}
-		if ix.APIKey == "" {
-			// Both products require one, so an empty key only buys a 401
-			// at the first search - later, and further from the cause.
-			return fmt.Errorf("indexer.api_key: must be set when indexer.url is (from the aggregator's settings page)")
+		if src.agg.APIKey == "" {
+			// Both products require one, so an empty key only buys a
+			// 401 at the first search - later, and further from the
+			// cause.
+			return fmt.Errorf("%s.api_key: must be set (from the aggregator's settings page)", src.key)
 		}
 	}
 

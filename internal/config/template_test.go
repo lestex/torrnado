@@ -75,37 +75,106 @@ func TestTemplateLoadsFromDisk(t *testing.T) {
 // generated file quietly incomplete - present, plausible, and missing a
 // setting. Walking the tags is what makes that a test failure rather than
 // something noticed a release later.
+//
+// Checked per table rather than per key name: "url" appears under both
+// search sources, so merely finding one "url =" somewhere would pass a
+// template that had forgotten the other.
 func TestTemplateWritesEveryKey(t *testing.T) {
 	out := string(Template(defaultConfig(t)))
+	sections := tomlSections(out)
 
-	for _, key := range tomlKeys(reflect.TypeFor[Config]()) {
-		// Anchored on the assignment (or the table header), so a key that
-		// appears only inside a prose comment does not count as written.
-		// Keys are padded for alignment, hence the run of spaces.
-		assigned := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(key) + ` *=`)
-		if !assigned.MatchString(out) && !strings.Contains(out, "["+key+"]") {
+	leaves, tables := tomlKeys(reflect.TypeFor[Config](), "")
+
+	// A map is a table of keys we cannot know in advance (keybinds), so
+	// all that can be asserted is that its header is there.
+	for _, table := range tables {
+		if _, ok := sections[table]; !ok {
+			t.Errorf("config table [%s] is missing from the generated file:\n%s", table, out)
+		}
+	}
+
+	for _, key := range leaves {
+		table, leaf := splitKey(key)
+		body, ok := sections[table]
+		if !ok {
+			t.Errorf("config key %q needs table [%s], which the generated file has no header for:\n%s",
+				key, table, out)
+			continue
+		}
+		// Anchored on the assignment, so a key that appears only inside
+		// a prose comment does not count as written. Keys are padded for
+		// alignment, hence the run of spaces.
+		assigned := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(leaf) + ` *=`)
+		if !assigned.MatchString(body) {
 			t.Errorf("config key %q is missing from the generated file:\n%s", key, out)
 		}
 	}
 }
 
-// tomlKeys collects the toml tag of every field of t, descending into
-// nested structs - which are the [table] headers, and are checked as
-// such.
-func tomlKeys(t reflect.Type) []string {
-	var keys []string
+// tomlSections splits a rendered config by its [table] headers. The
+// top-level keys, written before any header, are under "".
+func tomlSections(out string) map[string]string {
+	sections := map[string]string{}
+	table := ""
+	var b strings.Builder
+	flush := func() { sections[table] += b.String(); b.Reset() }
+
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			flush()
+			table = trimmed[1 : len(trimmed)-1]
+			if _, ok := sections[table]; !ok {
+				sections[table] = ""
+			}
+			continue
+		}
+		b.WriteString(line + "\n")
+	}
+	flush()
+	return sections
+}
+
+// splitKey divides a dotted key into the table it belongs to and the name
+// written inside it. A top-level key has no table.
+func splitKey(key string) (table, leaf string) {
+	i := strings.LastIndex(key, ".")
+	if i < 0 {
+		return "", key
+	}
+	return key[:i], key[i+1:]
+}
+
+// tomlKeys collects the dotted path of every leaf field of t, and
+// separately of every field that is a table of its own.
+//
+// A nested struct is a [table] whose own path is not a key to be
+// assigned; its leaves carry the full dotted path so they can be checked
+// inside the right one. A map is a table whose keys are the user's to
+// choose, so only its header can be asserted.
+func tomlKeys(t reflect.Type, prefix string) (leaves, tables []string) {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		tag := f.Tag.Get("toml")
 		if tag == "" || tag == "-" {
 			continue
 		}
-		keys = append(keys, tag)
-		if f.Type.Kind() == reflect.Struct {
-			keys = append(keys, tomlKeys(f.Type)...)
+		path := tag
+		if prefix != "" {
+			path = prefix + "." + tag
+		}
+		switch f.Type.Kind() {
+		case reflect.Struct:
+			l, tb := tomlKeys(f.Type, path)
+			leaves = append(leaves, l...)
+			tables = append(tables, tb...)
+		case reflect.Map:
+			tables = append(tables, path)
+		default:
+			leaves = append(leaves, path)
 		}
 	}
-	return keys
+	return leaves, tables
 }
 
 // Rate.String() renders "2.0MiB/s", which is for people to read and does

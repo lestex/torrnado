@@ -87,23 +87,36 @@ Arguments are joined with spaces, so a multi-word query needs no quoting.`,
 	return cmd
 }
 
-// newSearcher builds an indexer client from the config, or explains what
-// is missing.
+// newSearcher builds a searcher for every source the config enables, or
+// explains that there are none.
 //
-// Shared with the TUI's wiring so "not configured" reads the same in both
-// places. config.Validate has already rejected a half-filled table, so
-// the only case to describe here is an empty one.
+// Several sources become a Multi, which searches them together and
+// merges the results; one is used as it is. Returns nil with no error
+// when nothing is configured - the ordinary case, and not a failure,
+// since the feature is opt-in.
 func newSearcher(cfg config.Config) (indexer.Searcher, error) {
-	if cfg.Indexer.URL == "" {
-		return nil, fmt.Errorf("no indexer configured: set indexer.backend (%s), indexer.url and "+
-			"indexer.api_key in config.toml - see `torrnado config` for where that is",
-			strings.Join(config.IndexerBackends, " or "))
+	var sources []indexer.Searcher
+	for _, src := range []struct {
+		backend string
+		agg     config.Aggregator
+	}{
+		{"jackett", cfg.Search.Jackett},
+		{"prowlarr", cfg.Search.Prowlarr},
+	} {
+		if !src.agg.Enabled() {
+			continue
+		}
+		c, err := indexer.New(indexer.Options{
+			Backend: src.backend,
+			URL:     src.agg.URL,
+			APIKey:  src.agg.APIKey,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("search.%s: %w", src.backend, err)
+		}
+		sources = append(sources, c)
 	}
-	return indexer.New(indexer.Options{
-		Backend: cfg.Indexer.Backend,
-		URL:     cfg.Indexer.URL,
-		APIKey:  cfg.Indexer.APIKey,
-	})
+	return indexer.NewMulti(sources...), nil
 }
 
 // writeFindSources answers --check: which indexers the daemon has.
@@ -113,8 +126,8 @@ func newSearcher(cfg config.Config) (indexer.Searcher, error) {
 // which otherwise look identical from out here.
 func writeFindSources(out io.Writer, sources []string) error {
 	if len(sources) == 0 {
-		_, err := fmt.Fprintln(out, "no indexer configured: set indexer.backend, indexer.url and "+
-			"indexer.api_key in config.toml")
+		_, err := fmt.Fprintln(out, "no indexer configured: set search.jackett.url and "+
+			"search.jackett.api_key (or search.prowlarr.*) in config.toml")
 		return err
 	}
 	_, err := fmt.Fprintf(out, "searching: %s\n", strings.Join(sources, ", "))

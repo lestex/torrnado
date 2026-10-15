@@ -69,16 +69,17 @@ type Result struct {
 // has to be fetched first.
 func (r Result) IsMagnet() bool { return strings.HasPrefix(r.Link, "magnet:") }
 
-// Searcher is what a caller holds. It is an interface so the TUI can be
-// handed a fake in tests, and so "no indexer configured" can be a nil
-// interface rather than a flag beside a client.
+// Searcher is what the daemon holds: one source, or several behind a
+// Multi. An interface so a fake can stand in for it, and so "nothing is
+// configured" can be a nil interface rather than a flag beside a client.
 type Searcher interface {
-	// Search returns results ordered best-first (seeders descending).
-	Search(ctx context.Context, query string) ([]Result, error)
-	// Health reports whether the aggregator answers and accepts the key.
-	Health(ctx context.Context) error
-	// Name is the backend's name, for messages.
-	Name() string
+	// Search returns results ordered best-first (seeders descending),
+	// and one message per source that failed while others succeeded.
+	// An error means the whole search failed, not that a source did.
+	Search(ctx context.Context, query string) (results []Result, warnings []string, err error)
+	// Sources names what this will search, for a client to report
+	// without having to run a search to find out.
+	Sources() []string
 }
 
 // backend is the per-aggregator half: which paths, which JSON. Everything
@@ -199,29 +200,36 @@ func New(o Options) (*Client, error) {
 
 func (c *Client) Name() string { return c.backend.name() }
 
+// Sources is one name: a Client is one aggregator. Several are a Multi.
+func (c *Client) Sources() []string { return []string{c.backend.name()} }
+
 // Search queries the aggregator, newest cache entry first.
-func (c *Client) Search(ctx context.Context, query string) ([]Result, error) {
+//
+// The warnings return is always nil here: one source either answers or
+// fails. It exists so a Client and a Multi are the same shape to a
+// caller, which is what lets the daemon hold either.
+func (c *Client) Search(ctx context.Context, query string) ([]Result, []string, error) {
 	key := strings.ToLower(strings.TrimSpace(query))
 	if key == "" {
-		return nil, errors.New("find: needs a query")
+		return nil, nil, errors.New("find: needs a query")
 	}
 	if hit, ok := c.cache.get(key, c.now()); ok {
-		return hit, nil
+		return hit, nil, nil
 	}
 
 	body, status, err := c.do(ctx, func(ctx context.Context) (*http.Request, error) {
 		return c.backend.searchRequest(ctx, c.url, c.apiKey, query)
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if status < 200 || status > 299 {
-		return nil, &Error{Kind: KindStatus, Backend: c.backend.name(), URL: c.url, Status: status}
+		return nil, nil, &Error{Kind: KindStatus, Backend: c.backend.name(), URL: c.url, Status: status}
 	}
 
 	results, err := c.backend.parse(body)
 	if err != nil {
-		return nil, &Error{Kind: KindDecode, Backend: c.backend.name(), URL: c.url, Err: err}
+		return nil, nil, &Error{Kind: KindDecode, Backend: c.backend.name(), URL: c.url, Err: err}
 	}
 
 	// Best-first here rather than in each caller: an aggregator returns
@@ -236,7 +244,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]Result, error) {
 	// instantly after the key was fixed, which is a confusing bug to be
 	// on the wrong end of.
 	c.cache.put(key, results, c.now().Add(c.ttl), c.ttl)
-	return results, nil
+	return results, nil, nil
 }
 
 // Health reports whether the aggregator answers and accepts the key.

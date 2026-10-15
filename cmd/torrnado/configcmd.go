@@ -70,22 +70,35 @@ func newReportWriter(out io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 }
 
-// indexerText describes the configured aggregator without printing its
-// API key.
+// searchText describes the configured indexers without printing their
+// API keys.
 //
-// The key is the first secret this file has held, and the output of
+// Those keys are the only secrets this file holds, and the output of
 // `torrnado config` is exactly what gets pasted into a bug report. So
-// whether it is set is reported and the value never is - that is the
+// whether one is set is reported and the value never is - that is the
 // whole question anyone debugging it needs answered.
-func indexerText(ix config.Indexer) string {
-	if ix.Backend == "" && ix.URL == "" {
+func searchText(sc config.Search) string {
+	var parts []string
+	for _, src := range []struct {
+		name string
+		agg  config.Aggregator
+	}{
+		{"jackett", sc.Jackett},
+		{"prowlarr", sc.Prowlarr},
+	} {
+		if !src.agg.Enabled() {
+			continue
+		}
+		key := "no api key"
+		if src.agg.APIKey != "" {
+			key = "api key set"
+		}
+		parts = append(parts, fmt.Sprintf("%s %s (%s)", src.name, src.agg.URL, key))
+	}
+	if len(parts) == 0 {
 		return "none"
 	}
-	key := "no api key"
-	if ix.APIKey != "" {
-		key = "api key set"
-	}
-	return fmt.Sprintf("%s %s (%s)", ix.Backend, ix.URL, key)
+	return strings.Join(parts, ", ")
 }
 
 func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
@@ -130,7 +143,7 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	// it, rather than only in the README.
 	fmt.Fprintf(w, "  network.encryption\t%t\n", cfg.Network.Encryption)
 	fmt.Fprintf(w, "  network.seed\t%t\n", cfg.Network.Seed)
-	fmt.Fprintf(w, "  indexer\t%s\n", indexerText(cfg.Indexer))
+	fmt.Fprintf(w, "  search\t%s\n", searchText(cfg.Search))
 	// What it does and does not cover, said where someone turning it on
 	// will read it rather than only in the docs.
 	if cfg.VPN.Required {

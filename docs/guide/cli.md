@@ -100,7 +100,8 @@ as `torrnado.1` - see [Installation](../getting-started/installation.md#the-man-
 `torrnado find` searches a self-hosted [Jackett](https://github.com/Jackett/Jackett)
 or [Prowlarr](https://github.com/Prowlarr/Prowlarr) server, which fans one query
 out to every tracker configured in it. Point torrnado at yours under
-`[indexer]` in [config.toml](configuration.md), then:
+`[search.jackett]` or `[search.prowlarr]` in
+[config.toml](configuration.md), then:
 
 ```sh
 torrnado find ubuntu 24.04
@@ -160,6 +161,10 @@ A failure says which config key to look at rather than only what broke:
 error: jackett: cannot reach http://localhost:9117 (connection refused) - is it running, and is indexer.url right?
 error: jackett: http://localhost:9117 rejected the API key (HTTP 401) - check indexer.api_key
 ```
+
+With more than one source configured, one being down does not sink the
+search: the results that did come back are printed, and the source that
+failed is reported as a warning on stderr.
 
 Results are cached for five minutes, so repeating a query does not make
 your indexer fan out again.

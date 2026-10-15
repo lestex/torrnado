@@ -62,11 +62,15 @@ func Template(c Config) []byte {
 		{"seed", tomlBool(c.Network.Seed), "keep uploading after a torrent completes; while one is still downloading, peers are uploaded to either way"},
 	})
 
-	b.WriteString(templateIndexer)
+	b.WriteString(templateSearch)
 	writeRows(b, []row{
-		{"backend", tomlString(c.Indexer.Backend), strings.Join(IndexerBackends, " or ")},
-		{"url", tomlString(c.Indexer.URL), "e.g. http://localhost:9117 (jackett), http://localhost:9696 (prowlarr)"},
-		{"api_key", tomlString(c.Indexer.APIKey), "from the aggregator's own settings page"},
+		{"url", tomlString(c.Search.Jackett.URL), "e.g. http://localhost:9117"},
+		{"api_key", tomlString(c.Search.Jackett.APIKey), "from Jackett's dashboard"},
+	})
+	b.WriteString(templateSearchProwlarr)
+	writeRows(b, []row{
+		{"url", tomlString(c.Search.Prowlarr.URL), "e.g. http://localhost:9696"},
+		{"api_key", tomlString(c.Search.Prowlarr.APIKey), "from Settings -> General"},
 	})
 
 	b.WriteString(templateVPN)
@@ -126,16 +130,23 @@ const templateNetwork = `
 [network]
 `
 
-const templateIndexer = `
-[indexer]
-# ` + "`torrnado find <query>`" + ` searches a self-hosted aggregator - Jackett
-# or Prowlarr - which fans one query out to every tracker configured in it.
-# torrnado makes a single HTTP GET against this URL and never contacts a
-# tracker itself, which is why find is not held by [vpn] below.
+const templateSearch = `
+[search.jackett]
+# ` + "`torrnado find <query>`" + ` searches the indexers configured below -
+# self-hosted Jackett or Prowlarr - each of which fans one query out to every
+# tracker configured in it. torrnado makes a single HTTP GET and never
+# contacts a tracker itself, which is why find is not held by [vpn] below.
 #
-# Empty, the default, turns find off: it then says what to put here rather
-# than failing obscurely. There is no default backend because the two speak
-# incompatible APIs - a URL alone cannot say which.
+# The daemon does the searching, so a session and a result cache outlive any
+# one command. Both sources are searched together and the results merged, so
+# filling in the second widens a search rather than replacing the first.
+#
+# Empty - the default - turns find off: it then says what to put here rather
+# than failing obscurely.
+`
+
+const templateSearchProwlarr = `
+[search.prowlarr]
 `
 
 const templateVPN = `

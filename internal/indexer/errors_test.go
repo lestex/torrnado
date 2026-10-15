@@ -34,11 +34,11 @@ func TestFailuresAreClassifiedAndExplained(t *testing.T) {
 	t.Run("bad api key", func(t *testing.T) {
 		c, hits := serve(t, "jackett", `{"error":"no"}`, http.StatusUnauthorized)
 
-		_, err := c.Search(context.Background(), "x")
+		_, _, err := c.Search(context.Background(), "x")
 		if got := kindOf(t, err); got != KindAuth {
 			t.Errorf("kind = %v, want KindAuth", got)
 		}
-		if !strings.Contains(err.Error(), "indexer.api_key") {
+		if !strings.Contains(err.Error(), "search.jackett.api_key") {
 			t.Errorf("message does not say which key to fix: %v", err)
 		}
 		// Retrying an auth failure only triples the time to the message
@@ -51,7 +51,7 @@ func TestFailuresAreClassifiedAndExplained(t *testing.T) {
 	t.Run("other http status", func(t *testing.T) {
 		c, hits := serve(t, "prowlarr", "upstream is sulking", http.StatusBadGateway)
 
-		_, err := c.Search(context.Background(), "x")
+		_, _, err := c.Search(context.Background(), "x")
 		if got := kindOf(t, err); got != KindStatus {
 			t.Errorf("kind = %v, want KindStatus", got)
 		}
@@ -72,11 +72,11 @@ func TestFailuresAreClassifiedAndExplained(t *testing.T) {
 		if err != nil {
 			t.Fatalf("New: %v", err)
 		}
-		_, err = c.Search(context.Background(), "x")
+		_, _, err = c.Search(context.Background(), "x")
 		if got := kindOf(t, err); got != KindUnreachable {
 			t.Errorf("kind = %v, want KindUnreachable", got)
 		}
-		if !strings.Contains(err.Error(), "indexer.url") {
+		if !strings.Contains(err.Error(), "search.jackett.url") {
 			t.Errorf("message does not suggest checking the URL: %v", err)
 		}
 	})
@@ -84,7 +84,7 @@ func TestFailuresAreClassifiedAndExplained(t *testing.T) {
 	t.Run("not the json we expect", func(t *testing.T) {
 		c, _ := serve(t, "jackett", "<html>login page</html>", http.StatusOK)
 
-		_, err := c.Search(context.Background(), "x")
+		_, _, err := c.Search(context.Background(), "x")
 		if got := kindOf(t, err); got != KindDecode {
 			t.Errorf("kind = %v, want KindDecode", got)
 		}
@@ -109,7 +109,7 @@ func TestTimeoutsAreRetriedExactlyAttemptsTimes(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	_, err = c.Search(context.Background(), "x")
+	_, _, err = c.Search(context.Background(), "x")
 	if got := kindOf(t, err); got != KindTimeout {
 		t.Errorf("kind = %v, want KindTimeout", got)
 	}
@@ -173,7 +173,7 @@ func TestNewRejectsAnUnknownBackend(t *testing.T) {
 
 func TestSearchNeedsAQuery(t *testing.T) {
 	c, hits := serve(t, "jackett", jackettBody, http.StatusOK)
-	if _, err := c.Search(context.Background(), "   "); err == nil {
+	if _, _, err := c.Search(context.Background(), "   "); err == nil {
 		t.Error("expected an error for a blank query")
 	}
 	if n := hits.Load(); n != 0 {

@@ -50,11 +50,11 @@ func (e *Error) Error() string {
 		if !errors.Is(e.Err, syscall.ECONNREFUSED) {
 			reason = e.Err.Error()
 		}
-		return fmt.Sprintf("%s: cannot reach %s (%s) - is it running, and is indexer.url right?",
-			e.Backend, e.URL, reason)
+		return fmt.Sprintf("%s: cannot reach %s (%s) - is it running, and is search.%s.url right?",
+			e.Backend, e.URL, reason, e.Backend)
 	case KindAuth:
-		return fmt.Sprintf("%s: %s rejected the API key (HTTP %d) - check indexer.api_key",
-			e.Backend, e.URL, e.Status)
+		return fmt.Sprintf("%s: %s rejected the API key (HTTP %d) - check search.%s.api_key",
+			e.Backend, e.URL, e.Status, e.Backend)
 	case KindStatus:
 		return fmt.Sprintf("%s: %s returned HTTP %d", e.Backend, e.URL, e.Status)
 	case KindTimeout:
