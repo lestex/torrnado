@@ -150,11 +150,6 @@ func (m Model) handleFindKey(key string) (tea.Model, tea.Cmd) {
 	km := m.keymap
 
 	switch key {
-	// Not rebindable, and not swallowed: quitting is what ctrl+c does in
-	// every terminal program.
-	case "ctrl+c":
-		return m, tea.Quit
-
 	case "esc", km.Back:
 		return m.closeFind(), nil
 

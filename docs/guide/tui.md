@@ -83,6 +83,7 @@ next rather than only that it is empty:
 | `o`                | open the torrent's folder in your file manager      |
 | `h`, `?`           | keybind & command reference                        |
 | `q`                | quit the TUI (the daemon keeps running)             |
+| ++ctrl+c++         | the same, from anywhere - including a prompt or an overlay, and not rebindable |
 
 With the detail pane focused on its Files tab, `j`/`k` move between files
 and `+`/`-` raise/lower the selected file's priority (`=` and `_` do the
