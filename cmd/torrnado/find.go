@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os/signal"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -14,6 +12,7 @@ import (
 	"github.com/lestex/torrnado/internal/config"
 	"github.com/lestex/torrnado/internal/format"
 	"github.com/lestex/torrnado/internal/indexer"
+	"github.com/lestex/torrnado/internal/ipc"
 )
 
 func newFindCmd() *cobra.Command {
@@ -31,10 +30,11 @@ func newFindCmd() *cobra.Command {
 out to every tracker configured in it, and print what came back.
 
 Configure it under [indexer] in config.toml; "torrnado find --check"
-reports whether the server answers and accepts the key.
+reports which indexers the daemon is set up to search.
 
-This needs no daemon: it talks to the indexer, not to torrnado. Adding a
-result is a separate step, which keeps find usable in a pipeline:
+The daemon does the searching, so a session, a login and a cache can
+outlive any one command. Adding a result is a separate step, which keeps
+find usable in a pipeline:
 
   torrnado add "$(torrnado find ubuntu --link 1)"
   torrnado find ubuntu --json | jq -r '.[0].link' | xargs torrnado add
@@ -42,53 +42,47 @@ result is a separate step, which keeps find usable in a pipeline:
 Arguments are joined with spaces, so a multi-word query needs no quoting.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, _, err := loadConfig()
-			if err != nil {
-				return err
-			}
-			searcher, err := newSearcher(cfg)
-			if err != nil {
-				return err
-			}
-
-			// Ctrl-C ends a slow search promptly instead of after every
-			// attempt has timed out.
-			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
-
-			if check {
-				if err := searcher.Health(ctx); err != nil {
-					return err
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s is reachable and accepted the API key\n", searcher.Name())
-				return nil
-			}
-
 			query := strings.Join(args, " ")
-			if strings.TrimSpace(query) == "" {
+			if !check && strings.TrimSpace(query) == "" {
 				return fmt.Errorf("find: needs a query (or --check)")
 			}
 
-			results, err := searcher.Search(ctx, query)
-			if err != nil {
-				return err
-			}
+			return withClient(func(c *ipc.Client) error {
+				out := cmd.OutOrStdout()
 
-			out := cmd.OutOrStdout()
-			switch {
-			case link > 0:
-				return writeFindLink(out, results, link)
-			case asJSON:
-				return writeFindJSON(out, results, limit)
-			default:
-				return writeFindTable(out, results, limit)
-			}
+				if check {
+					sources, err := c.SearchSources()
+					if err != nil {
+						return err
+					}
+					return writeFindSources(out, sources)
+				}
+
+				results, errs, err := c.Search(query)
+				if err != nil {
+					return err
+				}
+				// Reported before the results, so a source being down is
+				// not mistaken for a thin set of hits.
+				for _, e := range errs {
+					fmt.Fprintln(cmd.ErrOrStderr(), "warning:", e)
+				}
+
+				switch {
+				case link > 0:
+					return writeFindLink(out, results, link)
+				case asJSON:
+					return writeFindJSON(out, results, limit)
+				default:
+					return writeFindTable(out, results, limit)
+				}
+			})
 		},
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 25, "show at most this many results (0 for all)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "print results as JSON")
-	cmd.Flags().BoolVar(&check, "check", false, "report whether the indexer answers, and run no search")
+	cmd.Flags().BoolVar(&check, "check", false, "report which indexers the daemon will search, and run no search")
 	cmd.Flags().IntVar(&link, "link", 0, "print only the Nth result's magnet or URL, for piping into add")
 	return cmd
 }
@@ -110,6 +104,21 @@ func newSearcher(cfg config.Config) (indexer.Searcher, error) {
 		URL:     cfg.Indexer.URL,
 		APIKey:  cfg.Indexer.APIKey,
 	})
+}
+
+// writeFindSources answers --check: which indexers the daemon has.
+//
+// Naming them rather than saying "ok" is the point - it separates "the
+// daemon has nothing configured" from "it searched and found nothing",
+// which otherwise look identical from out here.
+func writeFindSources(out io.Writer, sources []string) error {
+	if len(sources) == 0 {
+		_, err := fmt.Fprintln(out, "no indexer configured: set indexer.backend, indexer.url and "+
+			"indexer.api_key in config.toml")
+		return err
+	}
+	_, err := fmt.Fprintf(out, "searching: %s\n", strings.Join(sources, ", "))
+	return err
 }
 
 // capResults applies --limit. Results arrive seeders-first, so cutting

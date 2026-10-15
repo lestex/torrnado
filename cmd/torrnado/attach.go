@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lestex/torrnado/internal/config"
-	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/theme"
 	"github.com/lestex/torrnado/internal/tui"
 )
@@ -36,31 +35,31 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Built only when there is something to point it at, and assigned
-	// only on success: a typed nil in an interface is not nil, so
-	// `finder = (*indexer.Client)(nil)` would make the model's "is one
-	// configured" test quietly wrong. A bad [indexer] table has already
-	// been rejected by config.Validate, so a failure here is a surprise
-	// worth reporting rather than carrying on without the feature.
-	var finder indexer.Searcher
-	if cfg.Indexer.URL != "" {
-		f, err := newSearcher(cfg)
-		if err != nil {
-			return err
-		}
-		finder = f
+	// The daemon does the searching, so the client only has to ask what
+	// is configured. Asked once here rather than on every keystroke:
+	// knowing the names is what lets the overlay say "nothing is set up"
+	// without running a search to find out, and name the sources while
+	// one is running.
+	//
+	// A daemon too old to know the method answers "unknown method". That
+	// is not worth failing the whole TUI over - search simply reports
+	// itself unconfigured, which is what it effectively is.
+	sources, err := client.SearchSources()
+	if err != nil {
+		sources = nil
 	}
 
 	// WithAltScreen switches the terminal to its alternate buffer, so
 	// quitting leaves the scrollback exactly as it was found.
 	model := tui.New(tui.Options{
-		Client:    client,
-		Keys:      tui.DefaultKeyMap().WithOverrides(cfg.Keybinds),
-		Theme:     th,
-		ThemesDir: themesDir,
-		Player:    cfg.Player,
-		Opener:    cfg.Opener,
-		Finder:    finder,
+		Client:        client,
+		Keys:          tui.DefaultKeyMap().WithOverrides(cfg.Keybinds),
+		Theme:         th,
+		ThemesDir:     themesDir,
+		Player:        cfg.Player,
+		Opener:        cfg.Opener,
+		Finder:        client,
+		FinderSources: sources,
 	})
 	// WithMouseCellMotion gives clicks, releases and the wheel; "all
 	// motion" would add hover, which nothing here uses and which fewer

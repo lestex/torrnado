@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -12,21 +11,22 @@ import (
 	"github.com/lestex/torrnado/internal/indexer"
 )
 
-// fakeFinder stands in for an indexer. The model must never reach the
+// fakeFinder stands in for the daemon. The model must never reach the
 // network in a test, and Search is never actually called: the tests
 // inspect the command rather than running it, as palette_test does.
-type fakeFinder struct{ name string }
+type fakeFinder struct{}
 
-func (f fakeFinder) Name() string { return f.name }
-func (f fakeFinder) Search(context.Context, string) ([]indexer.Result, error) {
-	return nil, errors.New("fakeFinder.Search should not run in a test")
+func (fakeFinder) Search(string) ([]indexer.Result, []string, error) {
+	return nil, nil, errors.New("fakeFinder.Search should not run in a test")
 }
-func (f fakeFinder) Health(context.Context) error { return nil }
 
 func findModel(results ...indexer.Result) Model {
 	m := testModel("existing-torrent")
 	m.width, m.height = 120, 40
-	m.finder = fakeFinder{name: "jackett"}
+	m.finder = fakeFinder{}
+	// What makes search available is the daemon naming a source, not
+	// the client existing - see canFind.
+	m.findSources = []string{"jackett"}
 	if results != nil {
 		m.findState = findLoaded
 		m.findResults = results
@@ -50,7 +50,8 @@ func sampleResults() []indexer.Result {
 // the user nowhere to go.
 func TestFindWithNoIndexerSaysWhatToConfigure(t *testing.T) {
 	m := testModel("a")
-	m.finder = nil
+	m.finder = fakeFinder{}
+	m.findSources = nil // the daemon has no indexer configured
 
 	next := press(m, m.keymap.Find)
 	if next.findState != findClosed {

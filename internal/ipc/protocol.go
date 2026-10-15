@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Method names the daemon-side engine operation a Request invokes.
@@ -36,6 +37,8 @@ const (
 	MethodDetail                 Method = "Detail"
 	MethodPreviewURL             Method = "PreviewURL"
 	MethodSetLabel               Method = "SetLabel"
+	MethodSearch                 Method = "Search"
+	MethodSearchSources          Method = "SearchSources"
 	MethodShutdown               Method = "Shutdown"
 )
 
@@ -72,6 +75,11 @@ type Request struct {
 	Label string
 
 	NewDir string
+
+	// Query is what to search an indexer for. Searching lives in the
+	// daemon rather than the client because it is stateful - a logged-in
+	// session and a result cache outlive any one TUI.
+	Query string
 }
 
 // Response is the reply envelope. Err is set (and OK false) on failure;
@@ -94,6 +102,16 @@ type Response struct {
 	// URL is the loopback stream URL for PreviewURL. The bytes never
 	// cross this socket - see internal/stream for why they cannot.
 	URL string
+
+	// Results answers Search. Errs carries a message per source that
+	// failed, reusing the field AddBatch already uses for the same
+	// shape of answer: a search across several sources can half work,
+	// and one source being down must not hide what the others found.
+	Results []indexer.Result
+	// Sources answers SearchSources: the names of the sources that are
+	// configured, so a client can say "nothing is set up" without
+	// running a search to find out.
+	Sources []string
 }
 
 type msgKind byte
@@ -118,3 +136,12 @@ type message struct {
 // callTimeout bounds how long a client waits for a reply to a Request
 // before giving up.
 const callTimeout = 30 * time.Second
+
+// searchTimeout is what a Search waits instead.
+//
+// A search can be a browser page load and a Cloudflare challenge solve
+// behind an external solver, which routinely takes longer than every
+// other call here put together. Raising callTimeout to suit it would
+// mean a genuinely hung daemon took two minutes to report, so the long
+// wait is confined to the one method that needs it.
+const searchTimeout = 120 * time.Second

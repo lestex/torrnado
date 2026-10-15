@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/ipc"
 	"github.com/lestex/torrnado/internal/launch"
 	"github.com/lestex/torrnado/internal/logging"
@@ -125,7 +126,21 @@ func runDaemon() error {
 	}
 	defer stm.Close()
 
-	srv, err := ipc.Serve(cfg.DaemonSocket, eng, stm.URL)
+	// Built here, not in a client: a search is stateful - a logged-in
+	// session and a result cache outlive any one TUI - and the daemon is
+	// the only part that lives long enough to hold it. Nil when nothing
+	// is configured, which is the ordinary case; the server answers a
+	// search by saying what to put in config.toml.
+	var searcher indexer.Searcher
+	if cfg.Indexer.URL != "" {
+		searcher, err = newSearcher(cfg)
+		if err != nil {
+			return fmt.Errorf("configure indexer: %w", err)
+		}
+		lg.Info("indexer configured", "backend", cfg.Indexer.Backend, "url", cfg.Indexer.URL)
+	}
+
+	srv, err := ipc.Serve(cfg.DaemonSocket, eng, stm.URL, searcher)
 	if err != nil {
 		return fmt.Errorf("start ipc server: %w", err)
 	}

@@ -48,7 +48,10 @@ type findResultsMsg struct {
 	seq     int
 	query   string
 	results []indexer.Result
-	err     error
+	// warnings is one message per source that failed while others
+	// succeeded; err is the whole search failing.
+	warnings []string
+	err      error
 }
 
 func errStatus(err error) statusMsg {

@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Server accepts client connections on a Unix domain socket and
@@ -22,6 +24,13 @@ type Server struct {
 	// rather than taking the stream server itself, so this package still
 	// depends on nothing but engine. Nil disables the method.
 	previewURL func(engine.TorrentID, int) string
+	// searcher queries the configured indexers. Injected for the same
+	// reason as previewURL, and nil - no indexer configured - is the
+	// ordinary case rather than a failure, because the feature is
+	// opt-in. Held by the daemon rather than by a client because a
+	// search is stateful: a logged-in session and a result cache
+	// outlive any one TUI.
+	searcher indexer.Searcher
 	// lock is held open for the daemon's lifetime; closing it is what
 	// releases the exclusive flock.
 	lock *os.File
@@ -53,6 +62,7 @@ type Server struct {
 // previewURL may be nil, which disables MethodPreviewURL.
 func Serve(socketPath string, eng *engine.Engine,
 	previewURL func(engine.TorrentID, int) string,
+	searcher indexer.Searcher,
 ) (*Server, error) {
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create socket dir: %w", err)
@@ -79,6 +89,7 @@ func Serve(socketPath string, eng *engine.Engine,
 		ln:         ln,
 		socketPath: socketPath,
 		previewURL: previewURL,
+		searcher:   searcher,
 		lock:       lock,
 		conns:      map[net.Conn]struct{}{},
 		shutdown:   make(chan struct{}),
@@ -210,6 +221,19 @@ func (s *Server) handleConn(conn net.Conn) {
 		if msg.Kind != kindCall || msg.Req == nil {
 			continue
 		}
+		// A search is the one call that can take a minute: an external
+		// solver driving a browser through a challenge. Handled on its
+		// own goroutine so it does not hold up everything else on this
+		// connection - a TUI whose every refresh queued behind a search
+		// would look frozen. Replies carry their sequence number and the
+		// client matches on it, so answering out of order is fine, and
+		// send already holds the write mutex the event pump uses.
+		if msg.Req.Method == MethodSearch {
+			req := msg.Req
+			go func() { _ = send(message{Kind: kindReply, Resp: s.dispatch(req)}) }()
+			continue
+		}
+
 		resp := s.dispatch(msg.Req)
 		if send(message{Kind: kindReply, Resp: resp}) != nil {
 			return
@@ -224,6 +248,15 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 	}
 }
+
+// noSearcherMsg is what a daemon with no indexer configured answers a
+// search with.
+//
+// It names the keys to set rather than merely refusing: having no
+// indexer is the ordinary state, not a mistake, so this is the common
+// answer and the only place a user will be told what to do about it.
+const noSearcherMsg = "no indexer configured: set indexer.backend, indexer.url and " +
+	"indexer.api_key in config.toml"
 
 // dispatch runs one request against the engine and builds its reply.
 //
@@ -370,6 +403,29 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 		resp.URL = s.previewURL(id, req.FileIndex)
+
+	case MethodSearch:
+		if s.searcher == nil {
+			resp.Err = noSearcherMsg
+			return resp
+		}
+		// No deadline of our own: the searcher has its own per-attempt
+		// timeout and retry policy, and the client gives up after
+		// searchTimeout. A third opinion about the same wait would only
+		// be one more thing to keep in step.
+		results, err := s.searcher.Search(context.Background(), req.Query)
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.Results = results
+
+	case MethodSearchSources:
+		resp.OK = true
+		if s.searcher != nil {
+			resp.Sources = []string{s.searcher.Name()}
+		}
 
 	case MethodSetLabel:
 		if err := s.eng.SetLabel(engine.TorrentID(req.ID), req.Label); err != nil {

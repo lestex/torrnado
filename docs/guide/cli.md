@@ -28,7 +28,7 @@ torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-
 torrnado seed-limit <id...>           --ratio / --time; when this torrent stops seeding
 torrnado move <id> <new-directory>
 torrnado label <name> <id...>         file torrents under a label (--clear removes it)
-torrnado find <query...>              search a configured indexer; --json, --link, --limit, --check
+torrnado find <query...>              search the daemon's indexers; --json, --link, --limit, --check
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
@@ -122,8 +122,11 @@ seeding, which will never finish. `-` means the tracker did not say, which
 is common and holds nothing against it.
 
 torrnado never contacts a tracker itself - it makes one HTTP GET against
-your indexer, usually on localhost, and the indexer does the rest. `find`
-needs no daemon for the same reason: it is not talking to torrnado.
+your indexer, usually on localhost, and the indexer does the rest.
+
+The daemon does the searching, not the command, so a login and a result
+cache outlive any one invocation. `find` dials or spawns a daemon like
+every other subcommand.
 
 ### Adding what you found
 
@@ -143,11 +146,12 @@ work with either way.
 
 ### When it does not work
 
-`--check` separates "nothing matched" from "this was never going to work":
+`--check` separates "nothing matched" from "this was never going to work"
+by naming what the daemon will actually search:
 
 ```sh
 torrnado find --check
-# jackett is reachable and accepted the API key
+# searching: jackett
 ```
 
 A failure says which config key to look at rather than only what broke:
