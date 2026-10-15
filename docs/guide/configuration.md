@@ -41,6 +41,11 @@ pex        = true
 encryption = true
 seed       = false   # keep uploading after a torrent completes
 
+[indexer]
+backend = ""   # jackett or prowlarr - what `torrnado find` searches
+url     = ""   # e.g. http://localhost:9117 (jackett), :9696 (prowlarr)
+api_key = ""   # from the indexer's own settings page
+
 [vpn]
 required   = false   # hold every transfer while the system is not on a VPN
 interfaces = []      # extra interfaces to count as a VPN - see below
@@ -147,6 +152,40 @@ split, which keeps a directory with a space in its name a single argument.
 
 The program is detached: quitting the TUI does not close the window it
 opened.
+
+## Searching an indexer
+
+`[indexer]` is what [`torrnado find`](cli.md#finding-a-torrent) searches: a
+self-hosted Jackett or Prowlarr server, which holds your per-tracker
+configuration and fans one query out to all of it.
+
+```toml
+[indexer]
+backend = "jackett"
+url     = "http://localhost:9117"
+api_key = "your-api-key"
+```
+
+The key is in Jackett's dashboard, or under Settings → General in
+Prowlarr. There is no default backend: the two listen on different ports
+and speak incompatible APIs, so a URL alone cannot say which you are
+running.
+
+Empty - the default - turns `find` off, and that is not a
+misconfiguration: `find` then tells you what to put here. But a *half*
+filled table is rejected at startup, naming the key that is missing,
+rather than becoming a 404 or a 401 at your first search.
+
+`torrnado config` reports the backend and URL and whether a key is set. It
+never prints the key, because that output is the natural thing to paste
+into a bug report.
+
+!!! note "This is not gated on `[vpn]`"
+    A search is one HTTP GET to your own indexer, usually on localhost.
+    The requests that reach a tracker are the indexer's, over the
+    indexer's route - torrnado cannot see them and could not hold them
+    back, so `vpn.required` would gate the wrong half and tell you
+    nothing about the rest.
 
 ## Requiring a VPN
 
