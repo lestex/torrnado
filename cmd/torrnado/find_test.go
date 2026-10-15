@@ -166,7 +166,7 @@ func TestFindLink(t *testing.T) {
 // says so by returning nil rather than an error, and the daemon answers
 // a search by naming the keys to set.
 func TestNewSearcherWithNothingConfigured(t *testing.T) {
-	s, err := newSearcher(config.Config{})
+	s, _, err := newSearcher(config.Config{})
 	if err != nil {
 		t.Fatalf("an empty config is not an error: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestNewSearcherBuildsOneSource(t *testing.T) {
 	cfg := config.Config{Search: config.Search{
 		Prowlarr: config.Aggregator{URL: "http://localhost:9696", APIKey: "k"},
 	}}
-	s, err := newSearcher(cfg)
+	s, _, err := newSearcher(cfg)
 	if err != nil {
 		t.Fatalf("newSearcher: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestNewSearcherBuildsEverySource(t *testing.T) {
 		Jackett:  config.Aggregator{URL: "http://localhost:9117", APIKey: "jk"},
 		Prowlarr: config.Aggregator{URL: "http://localhost:9696", APIKey: "pk"},
 	}}
-	s, err := newSearcher(cfg)
+	s, _, err := newSearcher(cfg)
 	if err != nil {
 		t.Fatalf("newSearcher: %v", err)
 	}

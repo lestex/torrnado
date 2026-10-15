@@ -3,6 +3,8 @@ package indexer
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -151,4 +153,51 @@ func infoHash(link string) string {
 		h = h[:j]
 	}
 	return strings.ToLower(h)
+}
+
+// ResolveToken finds the member that issued the token and asks it.
+//
+// Multi deliberately does not implement Resolver itself: Resolve takes
+// an id with no source name on it, which a Multi has no way to route.
+func (m *Multi) ResolveToken(ctx context.Context, source, id string) (string, error) {
+	for _, s := range m.sources {
+		if !slices.Contains(s.Sources(), source) {
+			continue
+		}
+		r, ok := s.(Resolver)
+		if !ok {
+			return "", fmt.Errorf("%s does not use links that need resolving", source)
+		}
+		return r.Resolve(ctx, id)
+	}
+	return "", fmt.Errorf("no source named %q is configured", source)
+}
+
+// ResolveToken turns a token into something addable, whatever shape the
+// searcher is: one source, or several behind a Multi.
+//
+// It lives here rather than on the interface so that a Searcher stays
+// the two methods it was: most sources return real links and have
+// nothing to resolve, and the daemon should not have to know which kind
+// it is holding before it can add a result.
+func ResolveToken(ctx context.Context, s Searcher, token string) (string, error) {
+	source, id, ok := ParseToken(token)
+	if !ok {
+		return "", fmt.Errorf("%q is not a source token", token)
+	}
+	switch v := s.(type) {
+	case nil:
+		return "", fmt.Errorf("%q needs source %q, which this daemon is not searching", token, source)
+	case *Multi:
+		return v.ResolveToken(ctx, source, id)
+	default:
+		if !slices.Contains(s.Sources(), source) {
+			return "", fmt.Errorf("%q needs source %q, which this daemon is not searching", token, source)
+		}
+		r, ok := s.(Resolver)
+		if !ok {
+			return "", fmt.Errorf("%s does not use links that need resolving", source)
+		}
+		return r.Resolve(ctx, id)
+	}
 }

@@ -172,6 +172,40 @@ func TestConfigReportNeverPrintsTheAPIKey(t *testing.T) {
 	}
 }
 
+// rutracker's password and session cookie are the two most sensitive
+// values the config file can hold - a session cookie is a logged-in
+// account - and this output is what gets pasted into a bug report.
+func TestConfigReportNeverPrintsTheRutrackerSecrets(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Search = config.Search{
+		Rutracker: config.Rutracker{
+			Username: "a-user",
+			Password: "p4ssw0rd-do-not-print",
+			Session:  "bb-session-do-not-print",
+		},
+	}
+	cfg.FlareSolverr = config.FlareSolverr{URL: "http://localhost:8191"}
+
+	var buf bytes.Buffer
+	if err := writeConfigReport(&buf, cfg, "/nonexistent/config.toml"); err != nil {
+		t.Fatalf("writeConfigReport: %v", err)
+	}
+	got := buf.String()
+
+	for _, secret := range []string{"p4ssw0rd-do-not-print", "bb-session-do-not-print"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("the report printed a secret (%s)", secret)
+		}
+	}
+	// The username is not a secret, but it is not worth printing either:
+	// what a reader needs is which way it will log in.
+	for _, want := range []string{"rutracker", "password set", "session cookie set", "flaresolverr"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report should mention %q, got:\n%s", want, got)
+		}
+	}
+}
+
 func TestConfigReportSaysWhenThereIsNoIndexer(t *testing.T) {
 	var buf bytes.Buffer
 	if err := writeConfigReport(&buf, testConfig(t), "/nonexistent/config.toml"); err != nil {

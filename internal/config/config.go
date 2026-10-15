@@ -113,9 +113,47 @@ func (a Aggregator) Enabled() bool { return a.URL != "" || a.APIKey != "" }
 // are searched together and the results merged, so enabling a second one
 // widens a search rather than replacing the first.
 type Search struct {
-	Jackett  Aggregator `toml:"jackett"`
-	Prowlarr Aggregator `toml:"prowlarr"`
+	Jackett   Aggregator `toml:"jackett"`
+	Prowlarr  Aggregator `toml:"prowlarr"`
+	Rutracker Rutracker  `toml:"rutracker"`
 }
+
+// Rutracker configures rutracker.org, which unlike an aggregator is a
+// site torrnado reads directly: it needs a login, and it sits behind
+// Cloudflare, so it also needs [flaresolverr] to read a page at all.
+//
+// Either session on its own, or username and password together.
+type Rutracker struct {
+	// Username and Password log in through the browser on first use.
+	// Reported by `torrnado config` as set or not, never printed.
+	Username string `toml:"username"`
+	Password string `toml:"password"`
+	// Session is a bb_session cookie copied out of a browser that is
+	// already logged in. It is the way through when the login form
+	// answers with a captcha, which cannot be answered from here.
+	Session string `toml:"session"`
+}
+
+// Enabled reports whether enough is set to log in.
+func (r Rutracker) Enabled() bool {
+	return r.Session != "" || r.Username != "" || r.Password != ""
+}
+
+// FlareSolverr points at a FlareSolverr server, which drives a real
+// browser and is the only way to read a page from a site behind a
+// Cloudflare challenge: clearance is bound to the TLS fingerprint of
+// whoever earned it, so no Go HTTP client can use a cookie it did not
+// earn itself. Needed only by sources that are behind one.
+type FlareSolverr struct {
+	// URL is the server's address, e.g. http://localhost:8191.
+	URL string `toml:"url"`
+	// MaxTimeout is how long it may spend on one page, challenge
+	// included.
+	MaxTimeout Duration `toml:"max_timeout"`
+}
+
+// Enabled reports whether a server is configured.
+func (f FlareSolverr) Enabled() bool { return f.URL != "" }
 
 // Enabled names every configured source, in the order they are searched.
 func (s Search) Enabled() []string {
@@ -125,6 +163,9 @@ func (s Search) Enabled() []string {
 	}
 	if s.Prowlarr.Enabled() {
 		names = append(names, "prowlarr")
+	}
+	if s.Rutracker.Enabled() {
+		names = append(names, "rutracker")
 	}
 	return names
 }
@@ -178,14 +219,18 @@ type Config struct {
 	// back out of a path.
 	OnComplete string `toml:"on_complete"`
 
-	RateLimit RateLimits        `toml:"rate_limit"`
-	SeedLimit SeedLimits        `toml:"seed_limit"`
-	Port      PortRange         `toml:"port"`
-	Network   Network           `toml:"network"`
-	Search    Search            `toml:"search"`
-	VPN       VPN               `toml:"vpn"`
-	Log       Logging           `toml:"log"`
-	Keybinds  map[string]string `toml:"keybinds"`
+	RateLimit RateLimits `toml:"rate_limit"`
+	SeedLimit SeedLimits `toml:"seed_limit"`
+	Port      PortRange  `toml:"port"`
+	Network   Network    `toml:"network"`
+	Search    Search     `toml:"search"`
+	// FlareSolverr is needed only by a source behind Cloudflare, which
+	// is why it is its own table rather than a key under one source: a
+	// second such source would share the one server.
+	FlareSolverr FlareSolverr      `toml:"flaresolverr"`
+	VPN          VPN               `toml:"vpn"`
+	Log          Logging           `toml:"log"`
+	Keybinds     map[string]string `toml:"keybinds"`
 }
 
 // LogLevels are the accepted values for log.level and log.library_level.
@@ -421,6 +466,33 @@ func (c Config) Validate() error {
 			// cause.
 			return fmt.Errorf("%s.api_key: must be set (from the aggregator's settings page)", src.key)
 		}
+	}
+
+	// rutracker is a site rather than an aggregator, so it needs
+	// credentials and a browser instead of a URL and a key.
+	if rt := c.Search.Rutracker; rt.Enabled() {
+		if rt.Session == "" && (rt.Username == "" || rt.Password == "") {
+			return fmt.Errorf("search.rutracker: needs search.rutracker.session, " +
+				"or both search.rutracker.username and search.rutracker.password")
+		}
+		if !c.FlareSolverr.Enabled() {
+			// Saying this at load time rather than at the first search:
+			// the site is behind a Cloudflare challenge, so without a
+			// browser to pass it there is no configuration here that
+			// could ever work.
+			return fmt.Errorf("search.rutracker: needs flaresolverr.url " +
+				"(the site is behind a Cloudflare challenge, which needs a real browser)")
+		}
+	}
+	if c.FlareSolverr.Enabled() {
+		u, err := url.Parse(c.FlareSolverr.URL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("flaresolverr.url: %q must be an http(s) URL, e.g. http://localhost:8191",
+				c.FlareSolverr.URL)
+		}
+	}
+	if c.FlareSolverr.MaxTimeout < 0 {
+		return fmt.Errorf("flaresolverr.max_timeout: must not be negative")
 	}
 
 	// A binding naming an action that does not exist is a typo, and

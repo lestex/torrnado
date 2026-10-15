@@ -72,6 +72,17 @@ func Template(c Config) []byte {
 		{"url", tomlString(c.Search.Prowlarr.URL), "e.g. http://localhost:9696"},
 		{"api_key", tomlString(c.Search.Prowlarr.APIKey), "from Settings -> General"},
 	})
+	b.WriteString(templateSearchRutracker)
+	writeRows(b, []row{
+		{"username", tomlString(c.Search.Rutracker.Username), ""},
+		{"password", tomlString(c.Search.Rutracker.Password), ""},
+		{"session", tomlString(c.Search.Rutracker.Session), "a bb_session cookie; the way through a captcha"},
+	})
+	b.WriteString(templateFlareSolverr)
+	writeRows(b, []row{
+		{"url", tomlString(c.FlareSolverr.URL), "e.g. http://localhost:8191"},
+		{"max_timeout", tomlString(c.FlareSolverr.MaxTimeout.String()), "per page, challenge included"},
+	})
 
 	b.WriteString(templateVPN)
 	writeRows(b, []row{
@@ -147,6 +158,34 @@ const templateSearch = `
 
 const templateSearchProwlarr = `
 [search.prowlarr]
+`
+
+const templateSearchRutracker = `
+[search.rutracker]
+# rutracker.org is a site rather than an aggregator: torrnado reads its pages
+# directly, so it needs a login, and it sits behind a Cloudflare challenge, so
+# it also needs [flaresolverr] below.
+#
+# Either session on its own, or username and password together. A captcha on
+# the login form cannot be answered from here - when that happens, log in with
+# a browser and copy its bb_session cookie into session.
+#
+# Its search page carries no magnet, so a result is a token like
+# "rutracker:6916386" and the daemon reads the magnet off the topic page when
+# you add it. That costs about two seconds, once, for the one you picked.
+`
+
+const templateFlareSolverr = `
+[flaresolverr]
+# A FlareSolverr server, which drives a real browser. Needed only by a source
+# behind a Cloudflare challenge - [search.rutracker] above is one.
+#
+# It cannot be replaced by an HTTP client here, however carefully dressed up:
+# Cloudflare binds its clearance to the TLS fingerprint of whoever earned it,
+# so a cookie handed to a Go client is challenged again. The browser has to be
+# the one that reads the page.
+#
+# Empty - the default - leaves it off, and any source needing it says so.
 `
 
 const templateVPN = `

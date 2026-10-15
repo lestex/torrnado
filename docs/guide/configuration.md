@@ -200,6 +200,60 @@ report.
     back, so `vpn.required` would gate the wrong half and tell you
     nothing about the rest.
 
+### rutracker.org
+
+rutracker is a site rather than an aggregator: torrnado reads its pages
+directly, so it needs a login, and it sits behind a Cloudflare challenge,
+so it also needs a FlareSolverr server to read a page at all.
+
+```toml
+[search.rutracker]
+username = "you"
+password = "your-password"
+
+[flaresolverr]
+url         = "http://localhost:8191"
+max_timeout = "60s"
+```
+
+Either `username` and `password` together, or `session` on its own:
+
+```toml
+[search.rutracker]
+session = "your-bb_session-cookie"
+```
+
+`session` is a `bb_session` cookie copied out of a browser that is
+already logged in, and it is the way through when the login form answers
+with a captcha — which cannot be answered from here. When it expires, the
+error says so and names this key, rather than returning nothing and
+looking like a query that matched nothing.
+
+`password` and `session` are the two most sensitive things this file can
+hold. `torrnado config` reports which are set and never what they are.
+
+**Why FlareSolverr cannot be skipped.** Cloudflare binds the clearance it
+issues to the TLS fingerprint of whoever earned it. A `cf_clearance`
+cookie handed to a Go HTTP client — same user agent, same address — is
+challenged again, and impersonating a browser's fingerprint is not enough
+either, because passing the challenge means running its JavaScript. So
+the browser has to be the thing that reads the page. Setting
+`[search.rutracker]` without `flaresolverr.url` is refused at startup
+rather than at your first search: there is no configuration without one
+that could ever work.
+
+A rutracker result's link is a token like `rutracker:6916386`, not a
+magnet, because its search page carries no magnet — only the topic page
+does. `add` understands the token and the daemon reads the magnet when
+you add it, about two seconds for the one result you chose instead of
+two minutes for all fifty.
+
+!!! note "One site, deliberately"
+    rutracker is the only tracker torrnado reads directly, and that is a
+    decision rather than a starting point. Fanning a query across many
+    trackers is what Jackett and Prowlarr exist for, and a handful of
+    selectors here would do it worse.
+
 ## Requiring a VPN
 
 ```toml

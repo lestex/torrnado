@@ -192,7 +192,19 @@ func (c *Client) AddTorrentFile(path string, opts engine.AddOpts) (engine.Torren
 // and a message for each that did not. A batch can half succeed, and the
 // caller needs both halves.
 func (c *Client) AddBatch(sources []string, opts engine.AddOpts) (ids []engine.TorrentID, errs []string, err error) {
-	resp, err := c.call(&Request{Method: MethodAddBatch, Sources: sources, Opts: opts})
+	// A batch carrying search tokens waits as long as a search does: the
+	// daemon has to read a page through a browser for each one, which is
+	// seconds apiece, and the ordinary 30s would cut off a batch of them
+	// part way through - reporting a timeout for torrents that were in
+	// fact being added.
+	timeout := callTimeout
+	for _, src := range sources {
+		if _, _, ok := indexer.ParseToken(src); ok {
+			timeout = searchTimeout
+			break
+		}
+	}
+	resp, err := c.callFor(&Request{Method: MethodAddBatch, Sources: sources, Opts: opts}, timeout)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -122,8 +122,44 @@ relevance guess and that routinely puts dead torrents at the top.
 seeding, which will never finish. `-` means the tracker did not say, which
 is common and holds nothing against it.
 
-torrnado never contacts a tracker itself - it makes one HTTP GET against
-your indexer, usually on localhost, and the indexer does the rest.
+With an aggregator, torrnado never contacts a tracker itself: it makes
+one HTTP GET against your indexer, usually on localhost, and the indexer
+does the rest.
+
+### rutracker.org
+
+rutracker is the exception, and the one site torrnado reads directly. It
+needs a login, and it sits behind a Cloudflare challenge, so it also
+needs a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)
+server - which drives a real browser. Nothing else will do: Cloudflare
+binds its clearance to the TLS fingerprint of whoever earned it, so a
+cookie handed to an ordinary HTTP client is challenged all over again.
+
+```toml
+[search.rutracker]
+username = "you"
+password = "..."
+
+[flaresolverr]
+url = "http://localhost:8191"
+```
+
+If the login form answers with a captcha, which cannot be answered from
+here, log in with a browser and copy its `bb_session` cookie instead:
+
+```toml
+[search.rutracker]
+session = "..."
+```
+
+`torrnado config` reports which of these is set and never what they are,
+so its output is safe to paste into a bug report. When the cookie
+expires, the error says so and names the key - rather than coming back
+with no results, which would look like nothing matched.
+
+This is deliberately one site and not a framework for fifty. Fanning a
+query out across many trackers is what Jackett and Prowlarr are for, and
+they do it better than a handful of selectors here would.
 
 The daemon does the searching, not the command, so a login and a result
 cache outlive any one invocation. `find` dials or spawns a daemon like
@@ -150,6 +186,12 @@ The link is whatever the indexer gave: a magnet, or an `http(s)` URL to a
 URL that redirects to a magnet, so the same command works whichever one a
 result carries.
 
+A rutracker result instead carries a token like `rutracker:6916386`,
+because its search page publishes no magnet - only the topic page does.
+`add` takes that too: the daemon reads the magnet off the topic page when
+you add it, which costs about two seconds for the one result you picked
+rather than two minutes for all fifty.
+
 ### When it does not work
 
 `--check` separates "nothing matched" from "this was never going to work"
@@ -163,8 +205,8 @@ torrnado find --check
 A failure says which config key to look at rather than only what broke:
 
 ```
-error: jackett: cannot reach http://localhost:9117 (connection refused) - is it running, and is indexer.url right?
-error: jackett: http://localhost:9117 rejected the API key (HTTP 401) - check indexer.api_key
+error: jackett: cannot reach http://localhost:9117 (connection refused) - is it running, and is search.jackett.url right?
+error: jackett: http://localhost:9117 rejected the API key (HTTP 401) - check search.jackett.api_key
 ```
 
 With more than one source configured, one being down does not sink the
