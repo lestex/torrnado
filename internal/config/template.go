@@ -62,6 +62,13 @@ func Template(c Config) []byte {
 		{"seed", tomlBool(c.Network.Seed), "keep uploading after a torrent completes; while one is still downloading, peers are uploaded to either way"},
 	})
 
+	b.WriteString(templateIndexer)
+	writeRows(b, []row{
+		{"backend", tomlString(c.Indexer.Backend), strings.Join(IndexerBackends, " or ")},
+		{"url", tomlString(c.Indexer.URL), "e.g. http://localhost:9117 (jackett), http://localhost:9696 (prowlarr)"},
+		{"api_key", tomlString(c.Indexer.APIKey), "from the aggregator's own settings page"},
+	})
+
 	b.WriteString(templateVPN)
 	writeRows(b, []row{
 		{"required", tomlBool(c.VPN.Required), ""},
@@ -117,6 +124,18 @@ const templatePort = `
 
 const templateNetwork = `
 [network]
+`
+
+const templateIndexer = `
+[indexer]
+# ` + "`torrnado find <query>`" + ` searches a self-hosted aggregator - Jackett
+# or Prowlarr - which fans one query out to every tracker configured in it.
+# torrnado makes a single HTTP GET against this URL and never contacts a
+# tracker itself, which is why find is not held by [vpn] below.
+#
+# Empty, the default, turns find off: it then says what to put here rather
+# than failing obscurely. There is no default backend because the two speak
+# incompatible APIs - a URL alone cannot say which.
 `
 
 const templateVPN = `

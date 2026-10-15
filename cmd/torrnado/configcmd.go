@@ -70,6 +70,24 @@ func newReportWriter(out io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 }
 
+// indexerText describes the configured aggregator without printing its
+// API key.
+//
+// The key is the first secret this file has held, and the output of
+// `torrnado config` is exactly what gets pasted into a bug report. So
+// whether it is set is reported and the value never is - that is the
+// whole question anyone debugging it needs answered.
+func indexerText(ix config.Indexer) string {
+	if ix.Backend == "" && ix.URL == "" {
+		return "none"
+	}
+	key := "no api key"
+	if ix.APIKey != "" {
+		key = "api key set"
+	}
+	return fmt.Sprintf("%s %s (%s)", ix.Backend, ix.URL, key)
+}
+
 func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	w := newReportWriter(out)
 
@@ -112,6 +130,7 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	// it, rather than only in the README.
 	fmt.Fprintf(w, "  network.encryption\t%t\n", cfg.Network.Encryption)
 	fmt.Fprintf(w, "  network.seed\t%t\n", cfg.Network.Seed)
+	fmt.Fprintf(w, "  indexer\t%s\n", indexerText(cfg.Indexer))
 	// What it does and does not cover, said where someone turning it on
 	// will read it rather than only in the docs.
 	if cfg.VPN.Required {
