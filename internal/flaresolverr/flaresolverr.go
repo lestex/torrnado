@@ -38,8 +38,9 @@ import (
 const DefaultTimeout = 60 * time.Second
 
 // clientSlack is how much longer we wait than FlareSolverr does, so a
-// server that is working right up to its own deadline reports its own
-// error rather than having the connection pulled from under it.
+// server working right up to its own deadline reports its own error
+// rather than having the connection pulled from under it. Applied in
+// send, so it holds whichever http.Client is in use.
 const clientSlack = 15 * time.Second
 
 // Cookie is one cookie, going in or coming out.
@@ -112,6 +113,7 @@ type Options struct {
 type Client struct {
 	url     string
 	timeout time.Duration
+	slack   time.Duration
 	http    *http.Client
 }
 
@@ -124,6 +126,9 @@ type Config struct {
 	Timeout time.Duration
 	// HTTP overrides the transport, for tests.
 	HTTP *http.Client
+	// slack overrides clientSlack, so a test can make the whole bound
+	// milliseconds rather than waiting out a quarter of a minute.
+	slack time.Duration
 }
 
 // New builds a Client.
@@ -141,11 +146,15 @@ func New(cfg Config) (*Client, error) {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
+	slack := cfg.slack
+	if slack <= 0 {
+		slack = clientSlack
+	}
 	httpClient := cfg.HTTP
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: timeout + clientSlack}
+		httpClient = &http.Client{Timeout: timeout + slack}
 	}
-	return &Client{url: base, timeout: timeout, http: httpClient}, nil
+	return &Client{url: base, timeout: timeout, slack: slack, http: httpClient}, nil
 }
 
 // URL is the configured server address, for error messages.
@@ -190,7 +199,7 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if resp.Session == "" {
-		return "", &Error{URL: c.url, Msg: "created a session but got no id back"}
+		return "", &Error{Kind: KindServer, URL: c.url, Msg: "created a session but got no id back"}
 	}
 	return resp.Session, nil
 }
@@ -234,7 +243,7 @@ func (c *Client) do(ctx context.Context, cmd command) (*Page, error) {
 		return nil, err
 	}
 	if resp.Solution == nil {
-		return nil, &Error{URL: c.url, Msg: "no page came back: " + resp.Message}
+		return nil, &Error{Kind: KindServer, URL: c.url, Msg: "no page came back: " + resp.Message}
 	}
 	return &Page{
 		URL:       resp.Solution.URL,
@@ -249,24 +258,37 @@ func (c *Client) do(ctx context.Context, cmd command) (*Page, error) {
 func (c *Client) send(ctx context.Context, cmd command) (*response, error) {
 	body, err := json.Marshal(cmd)
 	if err != nil {
-		return nil, &Error{URL: c.url, Msg: "encode request", Err: err}
+		return nil, &Error{Kind: KindBadReply, URL: c.url, Msg: "could not encode the request", Err: err}
 	}
+
+	// The deadline is set here rather than left to the http.Client,
+	// because a caller may supply its own - to share a transport - and
+	// a client with no Timeout would otherwise wait forever on a server
+	// that accepts the connection and never answers. Longer than the
+	// budget given to FlareSolverr, so a server working right up to its
+	// own deadline gets to report its own error rather than having the
+	// connection pulled from under it.
+	wait := c.timeout + c.slack
+	ctx, cancel := context.WithTimeout(ctx, wait)
+	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url+"/v1", bytes.NewReader(body))
 	if err != nil {
-		return nil, &Error{URL: c.url, Msg: "build request", Err: err}
+		return nil, &Error{Kind: KindBadReply, URL: c.url, Msg: "could not build the request", Err: err}
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	httpResp, err := c.http.Do(req)
 	if err != nil {
-		return nil, &Error{URL: c.url, Unreachable: true, Err: err}
+		return nil, c.classify(err, wait)
 	}
 	defer httpResp.Body.Close()
 
 	var parsed response
 	if err := json.NewDecoder(httpResp.Body).Decode(&parsed); err != nil {
-		return nil, &Error{URL: c.url, Status: httpResp.StatusCode,
+		// Something answered but it was not FlareSolverr - a reverse
+		// proxy's error page, or another service on that port.
+		return nil, &Error{Kind: KindBadReply, URL: c.url, Status: httpResp.StatusCode,
 			Msg: "could not read the reply", Err: err}
 	}
 
@@ -274,7 +296,7 @@ func (c *Client) send(ctx context.Context, cmd command) (*response, error) {
 	// so the status alone does not say what went wrong - the message
 	// does, and it is the one worth showing.
 	if parsed.Status != "ok" {
-		return nil, &Error{URL: c.url, Status: httpResp.StatusCode, Msg: parsed.Message}
+		return nil, &Error{Kind: KindServer, URL: c.url, Status: httpResp.StatusCode, Msg: parsed.Message}
 	}
 	return &parsed, nil
 }

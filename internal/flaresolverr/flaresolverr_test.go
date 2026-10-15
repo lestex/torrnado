@@ -219,8 +219,8 @@ func TestAFailureKeepsFlareSolverrsOwnWords(t *testing.T) {
 	if !errors.As(err, &fe) {
 		t.Fatalf("error is %T, want *flaresolverr.Error", err)
 	}
-	if fe.Unreachable {
-		t.Error("a reply that arrived is not unreachable")
+	if fe.Kind != KindServer {
+		t.Errorf("kind = %v, want KindServer - a reply that arrived is not unreachable", fe.Kind)
 	}
 }
 
@@ -241,7 +241,7 @@ func TestAnUnreachableServerSaysSo(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 	var fe *Error
-	if !errors.As(err, &fe) || !fe.Unreachable {
+	if !errors.As(err, &fe) || fe.Kind != KindUnreachable {
 		t.Fatalf("want an unreachable *Error, got %T: %v", err, err)
 	}
 	if !strings.Contains(err.Error(), "is it running") {
@@ -291,5 +291,135 @@ func TestTimeoutDefaults(t *testing.T) {
 	c2, _ := New(Config{URL: "http://localhost:8191", Timeout: 5 * time.Second})
 	if c2.timeout != 5*time.Second {
 		t.Errorf("timeout = %s, want it honoured", c2.timeout)
+	}
+}
+
+// serveHanging starts a server that never answers until the test lets
+// it go.
+//
+// The handler waits on a channel the test closes rather than on the
+// request's own context: if it waited on the context and that never
+// fired, httptest's Close would block forever waiting for the handler,
+// and a test that fails by hanging is a bad test.
+func serveHanging(t *testing.T, timeout time.Duration, httpClient *http.Client) *Client {
+	t.Helper()
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() {
+		close(release)
+		srv.Close()
+	})
+
+	c, err := New(Config{URL: srv.URL, Timeout: timeout, slack: 30 * time.Millisecond, HTTP: httpClient})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return c
+}
+
+// A server that is there and slow is not a server that is absent, and
+// the fixes differ: more time against a healthy server, versus starting
+// one or correcting the address. Telling someone watching it run that it
+// may not be running is how an afternoon gets lost.
+func TestASlowServerIsATimeoutNotUnreachable(t *testing.T) {
+	c := serveHanging(t, 20*time.Millisecond, nil)
+
+	_, err := c.Get(context.Background(), "https://example.test/", Options{})
+	var fe *Error
+	if !errors.As(err, &fe) {
+		t.Fatalf("error is %T, want *Error: %v", err, err)
+	}
+	if fe.Kind != KindTimeout {
+		t.Errorf("kind = %v, want KindTimeout", fe.Kind)
+	}
+	if strings.Contains(err.Error(), "is it running") {
+		t.Errorf("a timeout must not advise restarting a healthy server: %v", err)
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Errorf("message should point at the timeout: %v", err)
+	}
+}
+
+// A caller giving up - a daemon shutting down mid-search - is not a
+// failure of anything, so nothing is diagnosed.
+func TestACancelledRequestSaysSo(t *testing.T) {
+	c := serveHanging(t, 5*time.Second, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := c.Get(ctx, "https://example.test/", Options{})
+	var fe *Error
+	if !errors.As(err, &fe) || fe.Kind != KindCanceled {
+		t.Fatalf("want KindCanceled, got %v: %v", fe, err)
+	}
+	if strings.Contains(err.Error(), "is it running") {
+		t.Errorf("cancelling is nobody's fault: %v", err)
+	}
+}
+
+// A failure that will not say why still has its status, which is then
+// the only fact left worth reporting.
+func TestAFailureWithNoMessageStillReportsTheStatus(t *testing.T) {
+	c, _ := serveFlare(t, `{"status":"error"}`, http.StatusBadGateway)
+
+	_, err := c.Get(context.Background(), "https://example.test/", Options{})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if strings.Contains(err.Error(), "<nil>") {
+		t.Errorf("message rendered a nil error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Errorf("message should carry the status, the only fact left: %v", err)
+	}
+}
+
+// Something that answers but is not FlareSolverr at all - a reverse
+// proxy's error page, or another service on that port.
+func TestANonFlareSolverrReply(t *testing.T) {
+	c, _ := serveFlare(t, "<html>nginx error page</html>", http.StatusBadGateway)
+
+	_, err := c.Get(context.Background(), "https://example.test/", Options{})
+	var fe *Error
+	if !errors.As(err, &fe) || fe.Kind != KindBadReply {
+		t.Fatalf("want KindBadReply, got %v: %v", fe, err)
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Errorf("message should carry the status: %v", err)
+	}
+}
+
+// The deadline has to hold whichever http.Client is in use. A caller
+// supplying its own - to share a transport - would otherwise wait
+// forever on a server that accepts the connection and never answers.
+func TestACallerSuppliedClientIsStillBounded(t *testing.T) {
+	// A client with no Timeout of its own, as a caller sharing a
+	// transport would supply.
+	c := serveHanging(t, 20*time.Millisecond, &http.Client{})
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.Get(context.Background(), "https://example.test/", Options{})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		var fe *Error
+		if !errors.As(err, &fe) || fe.Kind != KindTimeout {
+			t.Errorf("want KindTimeout, got %v: %v", fe, err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a caller-supplied client with no Timeout was never bounded")
 	}
 }
