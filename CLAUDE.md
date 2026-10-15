@@ -131,7 +131,12 @@ internal/flaresolverr
                   not in FlareSolverr. Injected cookies carry a site
                   login in, which does transfer; leave their Domain
                   empty, because one that mismatches the page fails the
-                  whole request rather than just the cookie.
+                  whole request rather than just the cookie. Errors are
+                  classified the way internal/indexer's are: a server
+                  that is slow and one that is absent need different
+                  fixes, and telling someone watching it run that it may
+                  not be running sends them to restart a healthy
+                  service.
 internal/tui      bubbletea Model. Three panes (status sidebar, torrent
                   list, docked Pieces/Peers/Files detail pane) + command
                   palette; keys route by which pane has focus, not by a
