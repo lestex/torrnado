@@ -344,3 +344,36 @@ func TestEventsArrivingWhileTheMouseIsOffAreIgnored(t *testing.T) {
 		t.Errorf("cursor = %d, want 0: the wheel must not act either", got.cursor)
 	}
 }
+
+// A click lands on whatever is drawn, and while an overlay is open that is
+// the overlay - not the panes it covers. Without the guard the hit test
+// still resolves against the panes underneath, so a click aimed at the
+// floating box moves a cursor nobody can see, exactly the bug the keyboard
+// avoids by checking the overlays before anything else.
+func TestOverlaysSwallowTheMouse(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		open func(*Model)
+	}{
+		{"theme picker", func(m *Model) { m.themePicker = true }},
+		{"help", func(m *Model) { m.showHelp = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := mouseModel("a", "b", "c", "d")
+			tc.open(&m)
+
+			next, _ := m.Update(click(40, 1+3))
+			if got := next.(Model); got.cursor != 0 {
+				t.Errorf("cursor = %d, want 0 - the click should not reach the list", got.cursor)
+			}
+
+			next, cmd := m.Update(wheel(40, 10, false))
+			if got := next.(Model); got.cursor != 0 {
+				t.Errorf("cursor = %d, want 0 - the wheel should not scroll the pane behind", got.cursor)
+			}
+			if cmd != nil {
+				t.Error("the wheel produced a command; nothing behind an overlay should act")
+			}
+		})
+	}
+}

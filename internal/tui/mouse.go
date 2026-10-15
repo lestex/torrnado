@@ -98,6 +98,15 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.mouseOff {
 		return m, nil
 	}
+	// A floating window takes the pointer with it. The panes are still
+	// drawn underneath, so a hit test against them still resolves - it
+	// would move a cursor the overlay is covering, and a click meant for
+	// the box on top would land on whatever happens to be behind it. The
+	// keyboard already works this way: handleKey checks the overlays
+	// before anything else.
+	if m.showHelp || m.themePicker {
+		return m, nil
+	}
 	if m.width == 0 || m.height == 0 {
 		return m, nil // no layout yet
 	}
