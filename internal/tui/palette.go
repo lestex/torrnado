@@ -51,6 +51,7 @@ var paletteCommands = []paletteCommand{
 	{[]string{"mouse"}, ":mouse", "hand the mouse back to the terminal, so drag-select works; again to take it", false},
 	{[]string{"label"}, ":label [name]", "file the marked torrents under a label; no name clears it", false},
 	{[]string{"sort"}, ":sort <column> [desc]", "name, size, progress, ratio, eta, added, down, up", false},
+	{[]string{"find"}, ":find [query]", "search a configured indexer for torrents", false},
 	{[]string{"theme"}, ":theme [name]", "open the theme picker, or apply one by name", false},
 	{[]string{"help"}, ":help", "show this screen", false},
 	{[]string{"q", "quit"}, ":q", "quit (the daemon keeps running)", false},
@@ -113,6 +114,15 @@ func (m Model) execCommand(line string) (tea.Model, tea.Cmd) {
 		// all clears it, which is the only way to say "none" without
 		// inventing a word that could never be a label.
 		return m.labelTargets(strings.Join(args, " "))
+
+	case "find":
+		// Like :theme, no argument opens the prompt and an argument
+		// searches straight away. Joined with spaces because a query is
+		// a phrase - "tv shows" is the obvious thing to type.
+		if len(args) == 0 {
+			return m.openFind()
+		}
+		return m.startFind(strings.Join(args, " "))
 
 	case "theme":
 		// With no argument the picker opens, which is how you find out

@@ -73,6 +73,10 @@ func (m Model) View() string {
 		box, x, y := m.renderThemePicker()
 		return overlay(frame, box, x, y)
 	}
+	if m.findState != findClosed {
+		box, x, y := m.renderFindResults()
+		return overlay(frame, box, x, y)
+	}
 	return frame
 }
 
@@ -110,8 +114,9 @@ func clampBlock(s string, height int) string {
 // drawn when what is typed leaves room: the input is the thing that must
 // never be squeezed off its own line.
 func (m Model) renderPrompt(sigil, buf string, width int, hints ...string) string {
-	// The leading space, the sigil and the cursor are a cell each.
-	room := width - 3
+	// The leading space and the cursor are a cell each; the sigil is as
+	// wide as it is, which is more than one cell for "find:".
+	room := width - 2 - lipgloss.Width(sigil)
 	if room < 1 {
 		return truncate(" "+sigil, width)
 	}
@@ -155,6 +160,8 @@ func (m Model) renderFooter(p panes) string {
 		return m.renderPrompt("/", m.searchQuery, p.footerW)
 	case modeCommand:
 		return m.renderPrompt(":", m.commandBuf, p.footerW, m.completions...)
+	case modeFind:
+		return m.renderPrompt(findPrompt, m.findQuery, p.footerW)
 	}
 	if m.showHelp {
 		return m.styles.StatusBar.Render(" press any key to close help")

@@ -67,7 +67,8 @@ next rather than only that it is empty:
 | `tab` / `shift+tab`| move focus between list, detail pane and sidebar   |
 | `]` / `[`, `1`/`2`/`3` | switch the detail pane's tab                    |
 | `}` / `{`          | cycle the sidebar's filter, statuses and labels    |
-| `/`                | search / filter by name                            |
+| `/`                | search / filter by name - the torrents already loaded |
+| `f`                | find torrents on a configured indexer, to add       |
 | `space`            | mark a torrent for batch operations; on the Files tab, skip that file |
 | `x`, `dd`          | remove selected (or cursor row), keep data on disk |
 | `D`                | remove selected (or cursor row), delete data too   |
@@ -104,9 +105,53 @@ always apply to the list's selection or cursor row.
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
 | `:label [name]`                                         | file the selection (or cursor row) under a label; no name clears it |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
+| `:find [query]`                                         | search an indexer; no query opens the prompt |
 | `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
 | `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
+
+## Finding torrents to add
+
+`f` asks a [configured indexer](configuration.md#searching-an-indexer) -
+Jackett or Prowlarr - for torrents matching a query, and `enter` adds the
+one under the cursor. `:find ubuntu 24.04` searches straight away without
+the prompt.
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ find  ubuntu                                                               │
+│                                                                            │
+│     TITLE                                     SIZE     SEEDS  PEERS  TRACKER│
+│ > 1 ubuntu-24.04.1-desktop-amd64.iso          5.8GiB   1243   87     ubuntu-official│
+│   2 Ubuntu 24.04 Studio                       4.0GiB   42     7      studio-tracker│
+│   3 ubuntu 24.04 remix (abandoned)            5.0GiB   0      0      abandoned│
+│   4 Ubuntu 24.04 LTS Server install image     2.6GiB   -      -      quiet-tracker│
+│                                                                            │
+│ enter add · j/k move · f new search · esc close                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+This is a different thing from `/`, which filters the torrents you already
+have. `f` asks about torrents you have never seen.
+
+Healthiest first, because an indexer returns its own relevance ranking and
+that routinely buries the copies that would actually download. `0` seeders
+means a torrent nobody is seeding, which will never finish; `-` means the
+tracker did not say, which is common and holds nothing against it.
+
+`enter` hands the result straight to the same code `:add` runs - there is
+no save-path step, because the save path, file priorities and pausing all
+have their own keys once the torrent is in the list. Pressing `f` again
+reopens the prompt with your last query still in it, which is the quick
+fix for a typo. `esc` closes the window; a search still running is
+abandoned rather than reappearing once it finishes.
+
+Searching takes as long as your indexer takes to ask every tracker, often
+several seconds, and the window says so while it waits. Results are
+remembered for five minutes, so closing and reopening the same search is
+instant.
+
+If nothing is configured, `f` says which keys to add to `config.toml`.
 
 ## Choosing which files to download
 

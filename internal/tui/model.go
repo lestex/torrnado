@@ -15,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/ipc"
 	"github.com/lestex/torrnado/internal/theme"
 )
@@ -96,6 +97,10 @@ const (
 	modeNormal inputMode = iota
 	modeSearch
 	modeCommand
+	// modeFind takes a query for an indexer, which is a different thing
+	// from modeSearch: that one filters the torrents already loaded,
+	// this one asks a server about torrents we have never seen.
+	modeFind
 )
 
 // Model is the root bubbletea model.
@@ -163,6 +168,21 @@ type Model struct {
 	// applied, so checkThemeFile can tell when it has been rewritten.
 	themeStamp fileStamp
 
+	// The find overlay: the indexer it asks, what was asked, what came
+	// back, and a sequence number so a reply the user has walked away
+	// from is dropped rather than reopening the window.
+	//
+	// finder is nil when no indexer is configured, which is the ordinary
+	// case - the feature is opt-in. Nil means "not configured" and is
+	// tested as such, so it must never be assigned a typed nil.
+	finder      indexer.Searcher
+	findState   findState
+	findQuery   string
+	findResults []indexer.Result
+	findCursor  int
+	findErr     error
+	findSeq     int
+
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
 	pendingAt time.Time
@@ -221,6 +241,9 @@ type Options struct {
 	Player string
 	// Opener is the command used to show a torrent's folder.
 	Opener string
+	// Finder searches an indexer, or is nil when none is configured -
+	// which is the ordinary case, since the feature is opt-in.
+	Finder indexer.Searcher
 }
 
 // New builds the initial Model. The client and its Events() channel must
@@ -233,6 +256,7 @@ func New(o Options) Model {
 		themesDir: o.ThemesDir,
 		player:    o.Player,
 		opener:    o.Opener,
+		finder:    o.Finder,
 		selected:  map[engine.TorrentID]bool{},
 	}
 	return m.applyTheme(o.Theme)
