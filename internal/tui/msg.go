@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/lestex/torrnado/internal/engine"
+import (
+	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
+)
 
 // engineEventMsg carries a fresh state snapshot pushed by the daemon.
 type engineEventMsg engine.Event
@@ -36,6 +39,16 @@ type statusExpiredMsg struct{ seq int }
 type detailLoadedMsg struct {
 	detail engine.TorrentDetail
 	err    error
+}
+
+// findResultsMsg is a reply from an indexer, carrying the sequence
+// number of the request that asked, so a superseded or abandoned search
+// can be dropped.
+type findResultsMsg struct {
+	seq     int
+	query   string
+	results []indexer.Result
+	err     error
 }
 
 func errStatus(err error) statusMsg {

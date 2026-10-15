@@ -20,6 +20,10 @@ type KeyMap struct {
 	HelpAlt string
 	Preview string
 	Open    string
+	// Find opens the indexer search. Distinct from Search, which filters
+	// the torrents already loaded - this one asks a server about
+	// torrents we have never seen.
+	Find string
 
 	// Pane focus and detail-pane tab movement.
 	FocusNext, FocusPrev   string
@@ -68,6 +72,9 @@ func DefaultKeyMap() KeyMap {
 		// Free, next to nothing destructive, and the letter every file
 		// manager and editor already uses for "open".
 		Open: "o",
+		// Free, and the letter every program that searches something
+		// remote already uses.
+		Find: "f",
 
 		FocusNext: "tab",
 		FocusPrev: "shift+tab",
@@ -116,6 +123,7 @@ func (k KeyMap) WithOverrides(overrides map[string]string) KeyMap {
 	apply(&k.HelpAlt, "help_alt")
 	apply(&k.Preview, "preview")
 	apply(&k.Open, "open")
+	apply(&k.Find, "find")
 	apply(&k.Detail, "detail")
 	apply(&k.Back, "back")
 	apply(&k.Quit, "quit")

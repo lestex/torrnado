@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lestex/torrnado/internal/config"
+	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/theme"
 	"github.com/lestex/torrnado/internal/tui"
 )
@@ -35,6 +36,21 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Built only when there is something to point it at, and assigned
+	// only on success: a typed nil in an interface is not nil, so
+	// `finder = (*indexer.Client)(nil)` would make the model's "is one
+	// configured" test quietly wrong. A bad [indexer] table has already
+	// been rejected by config.Validate, so a failure here is a surprise
+	// worth reporting rather than carrying on without the feature.
+	var finder indexer.Searcher
+	if cfg.Indexer.URL != "" {
+		f, err := newSearcher(cfg)
+		if err != nil {
+			return err
+		}
+		finder = f
+	}
+
 	// WithAltScreen switches the terminal to its alternate buffer, so
 	// quitting leaves the scrollback exactly as it was found.
 	model := tui.New(tui.Options{
@@ -44,6 +60,7 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		ThemesDir: themesDir,
 		Player:    cfg.Player,
 		Opener:    cfg.Opener,
+		Finder:    finder,
 	})
 	// WithMouseCellMotion gives clicks, releases and the wheel; "all
 	// motion" would add hover, which nothing here uses and which fewer

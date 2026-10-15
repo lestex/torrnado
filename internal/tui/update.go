@@ -61,6 +61,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pendingReveal = msg.ids
 		return m, m.setStatus(okStatus(msg.text))
 
+	case findResultsMsg:
+		next, cmd := m.applyFindResults(msg)
+		return next, cmd
+
 	case statusMsg:
 		cmd := m.setStatus(msg)
 		return m, cmd
@@ -114,12 +118,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleThemeKey(key)
 	}
 
+	// The find overlay, for the same reason. Checked after the picker,
+	// which cannot be open at the same time because it swallows the key
+	// that would open this.
+	if m.findState != findClosed {
+		return m.handleFindKey(key)
+	}
+
 	// While typing at a prompt, keys are text rather than commands.
 	switch m.mode {
 	case modeSearch:
 		return m.handleSearchKey(msg)
 	case modeCommand:
 		return m.handleCommandKey(msg)
+	case modeFind:
+		return m.handleFindPromptKey(msg)
 	}
 
 	// Focus and tab movement work from any pane, so the detail tabs stay
@@ -306,6 +319,9 @@ func (m Model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	case key == km.Open:
 		return m.openCursorFolder()
 
+	case key == km.Find:
+		return m.openFind()
+
 	// The detail pane is always docked, so there is no view to open -
 	// this moves focus into it instead.
 	case key == km.Detail:
@@ -465,6 +481,32 @@ func (m Model) recheckTargets(visible []engine.TorrentSnapshot) (tea.Model, tea.
 // the only reliable way to tell typed text from a named key: an input
 // method or a paste can deliver several runes in one message, and
 // anything filtering on "exactly one rune" silently drops the rest.
+// handleFindPromptKey edits the find query.
+//
+// Switches on msg.Type rather than the string form for the reason
+// handleSearchKey does: a paste, or an input method, delivers several
+// runes in one message, and matching the string would drop all but the
+// first.
+func (m Model) handleFindPromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		return m.startFind(m.findQuery)
+	case tea.KeyEsc:
+		m.mode = modeNormal
+		m.findQuery = ""
+		return m, nil
+	case tea.KeyBackspace:
+		if n := len(m.findQuery); n > 0 {
+			m.findQuery = m.findQuery[:n-1]
+		}
+	case tea.KeySpace:
+		m.findQuery += " "
+	case tea.KeyRunes:
+		m.findQuery += string(msg.Runes)
+	}
+	return m, nil
+}
+
 func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	before := m.searchQuery
 

@@ -210,7 +210,7 @@ var KnownActions = []string{
 	"pause", "recheck",
 	"search", "command",
 	"detail", "back", "quit",
-	"help", "help_alt", "preview", "open",
+	"help", "help_alt", "preview", "open", "find",
 	"focus_next", "focus_prev",
 	"tab_next", "tab_prev",
 	"tab_pieces", "tab_peers", "tab_files",
