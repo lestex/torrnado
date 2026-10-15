@@ -28,6 +28,7 @@ torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-
 torrnado seed-limit <id...>           --ratio / --time; when this torrent stops seeding
 torrnado move <id> <new-directory>
 torrnado label <name> <id...>         file torrents under a label (--clear removes it)
+torrnado find <query...>              search a configured indexer; --json, --link, --limit, --check
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
@@ -93,6 +94,71 @@ the XDG default. Torrent ids are hex-encoded info hashes, as printed by
 
 All of this is also in `man torrnado`, which every release archive ships
 as `torrnado.1` - see [Installation](../getting-started/installation.md#the-man-page).
+
+## Finding a torrent
+
+`torrnado find` searches a self-hosted [Jackett](https://github.com/Jackett/Jackett)
+or [Prowlarr](https://github.com/Prowlarr/Prowlarr) server, which fans one query
+out to every tracker configured in it. Point torrnado at yours under
+`[indexer]` in [config.toml](configuration.md), then:
+
+```sh
+torrnado find ubuntu 24.04
+```
+
+```
+#  TITLE                             SIZE    SEEDS  PEERS  TRACKER
+1  ubuntu-24.04.1-desktop-amd64.iso  5.8GiB  1243   87     ubuntu-official
+2  ubuntu 24.04 (dead)               5.0GiB  0      0      abandoned
+3  Ubuntu 24.04 LTS Server           2.6GiB  -      -      quiet-tracker
+```
+
+Arguments are joined with spaces, so a multi-word query needs no quoting.
+Results come back healthiest first, because an indexer returns its own
+relevance guess and that routinely puts dead torrents at the top.
+
+`0` seeders and `-` are different answers. `0` means a torrent nobody is
+seeding, which will never finish. `-` means the tracker did not say, which
+is common and holds nothing against it.
+
+torrnado never contacts a tracker itself - it makes one HTTP GET against
+your indexer, usually on localhost, and the indexer does the rest. `find`
+needs no daemon for the same reason: it is not talking to torrnado.
+
+### Adding what you found
+
+Adding is a separate step, which is what keeps `find` usable in a
+pipeline. There is no `LINK` column because a magnet runs past 200
+characters and would push everything else off the screen, so the link
+comes out through `--link` or `--json`:
+
+```sh
+torrnado add "$(torrnado find ubuntu --link 1)"
+torrnado find ubuntu --json | jq -r '.[0].link' | xargs torrnado add
+```
+
+`--json` prints every field, including the link, and always an array -
+`[]` rather than `null` when nothing matched, so `jq` has something to
+work with either way.
+
+### When it does not work
+
+`--check` separates "nothing matched" from "this was never going to work":
+
+```sh
+torrnado find --check
+# jackett is reachable and accepted the API key
+```
+
+A failure says which config key to look at rather than only what broke:
+
+```
+error: jackett: cannot reach http://localhost:9117 (connection refused) - is it running, and is indexer.url right?
+error: jackett: http://localhost:9117 rejected the API key (HTTP 401) - check indexer.api_key
+```
+
+Results are cached for five minutes, so repeating a query does not make
+your indexer fan out again.
 
 ## Batch add
 

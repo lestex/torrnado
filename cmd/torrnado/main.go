@@ -47,6 +47,7 @@ func main() {
 		newOpenCmd(),
 		newStatusCmd(),
 		newStopCmd(),
+		newFindCmd(),
 		newConfigCmd(),
 		newInitCmd(),
 		newVersionCmd(),
