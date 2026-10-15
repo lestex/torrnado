@@ -82,6 +82,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.Open, "open the torrent's folder in your file manager"},
 		{keyPair(km.Help, km.HelpAlt), "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},
+		{"ctrl+c", "the same, from any prompt or overlay"},
 	}
 
 	// The sections are built first so the header can be chosen against
