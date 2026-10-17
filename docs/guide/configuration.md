@@ -244,9 +244,9 @@ that could ever work.
 
 A rutracker result's link is a token like `rutracker:6916386`, not a
 magnet, because its search page carries no magnet — only the topic page
-does. `add` understands the token and the daemon reads the magnet when
-you add it, about two seconds for the one result you chose instead of
-two minutes for all fifty.
+does. `add` understands the token: it asks the daemon for the magnet
+first, about two seconds for the one result you chose instead of two
+minutes for all fifty.
 
 !!! note "One site, deliberately"
     rutracker is the only tracker torrnado reads directly, and that is a

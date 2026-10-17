@@ -15,8 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // httpFetchTimeout bounds how long Expand waits for a .torrent file to
@@ -100,18 +98,6 @@ func (ex *expander) one(arg string) ([]string, error) {
 			return []string{arg}, nil
 		}
 		return expandMagnetListFile(arg)
-	}
-
-	// A source token - "rutracker:6916386" - goes through untouched for
-	// the daemon to resolve. It cannot be resolved here: the page it
-	// names needs a login and a browser, both of which live in the
-	// daemon, and only the daemon knows which sources are configured.
-	//
-	// After the stat above, so a file that genuinely is called
-	// "name:thing" is still read as a file, and before the glob below,
-	// which a token would otherwise fall past into "no such file".
-	if source, id, ok := indexer.ParseToken(arg); ok && source != "" && id != "" {
-		return []string{arg}, nil
 	}
 
 	if strings.ContainsAny(arg, "*?[") {

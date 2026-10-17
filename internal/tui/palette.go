@@ -248,6 +248,13 @@ func (m Model) setPausedTargets(paused bool) (tea.Model, tea.Cmd) {
 // the two accept exactly the same things.
 func addBatchCmd(c *ipc.Client, args []string) tea.Cmd {
 	return func() tea.Msg {
+		// A search result from a source whose listing carries no magnet
+		// is a token only the daemon can resolve. Done first, so what
+		// reaches batch.Expand is what it has always taken.
+		args, err := c.ResolveLinks(args)
+		if err != nil {
+			return errStatus(err)
+		}
 		sources, cleanup, err := batch.Expand(args)
 		if err != nil {
 			return errStatus(err)

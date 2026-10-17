@@ -192,19 +192,7 @@ func (c *Client) AddTorrentFile(path string, opts engine.AddOpts) (engine.Torren
 // and a message for each that did not. A batch can half succeed, and the
 // caller needs both halves.
 func (c *Client) AddBatch(sources []string, opts engine.AddOpts) (ids []engine.TorrentID, errs []string, err error) {
-	// A batch carrying search tokens waits as long as a search does: the
-	// daemon has to read a page through a browser for each one, which is
-	// seconds apiece, and the ordinary 30s would cut off a batch of them
-	// part way through - reporting a timeout for torrents that were in
-	// fact being added.
-	timeout := callTimeout
-	for _, src := range sources {
-		if _, _, ok := indexer.ParseToken(src); ok {
-			timeout = searchTimeout
-			break
-		}
-	}
-	resp, err := c.callFor(&Request{Method: MethodAddBatch, Sources: sources, Opts: opts}, timeout)
+	resp, err := c.call(&Request{Method: MethodAddBatch, Sources: sources, Opts: opts})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -299,6 +287,54 @@ func (c *Client) Search(query string) ([]indexer.Result, []string, error) {
 		return nil, nil, err
 	}
 	return resp.Results, resp.Errs, nil
+}
+
+// ResolveLink turns a search result that is not addable as it stands
+// into a magnet that is.
+//
+// Only some sources issue such results: a site whose listing publishes
+// no magnet gives a token naming the page the magnet is on, and reading
+// that page needs the login the daemon holds. Everything else comes back
+// ready to add and never reaches here - ResolveToken on a magnet is an
+// error, not a no-op, so a caller that asks about the wrong thing is
+// told rather than quietly answered.
+//
+// It waits as long as a search does: the work is a page load through a
+// browser.
+func (c *Client) ResolveLink(token string) (string, error) {
+	resp, err := c.callFor(&Request{Method: MethodResolveLink, Token: token}, searchTimeout)
+	if err != nil {
+		return "", err
+	}
+	return resp.Link, nil
+}
+
+// ResolveLinks replaces any search token among the arguments with the
+// magnet it resolves to, and leaves everything else alone.
+//
+// This is the whole of the token's reach into adding: one pass, made by
+// the client before it expands its arguments. A magnet, a file, a
+// directory, a glob and a URL all travel on untouched, so internal/batch
+// and the daemon's AddBatch stay exactly as they were - a concept only
+// one source needs has no business in the path every torrent takes.
+//
+// It lives on the client rather than in each of them because both the
+// CLI and the TUI need it and this is the one place that already speaks
+// this protocol.
+func (c *Client) ResolveLinks(args []string) ([]string, error) {
+	var out []string
+	for _, arg := range args {
+		if _, _, ok := indexer.ParseToken(arg); !ok {
+			out = append(out, arg)
+			continue
+		}
+		link, err := c.ResolveLink(arg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", arg, err)
+		}
+		out = append(out, link)
+	}
+	return out, nil
 }
 
 // SearchSources names the indexers this daemon is configured to search.

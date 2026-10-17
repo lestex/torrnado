@@ -188,9 +188,9 @@ result carries.
 
 A rutracker result instead carries a token like `rutracker:6916386`,
 because its search page publishes no magnet - only the topic page does.
-`add` takes that too: the daemon reads the magnet off the topic page when
-you add it, which costs about two seconds for the one result you picked
-rather than two minutes for all fifty.
+`add` takes that too: it asks the daemon for the magnet first - the
+daemon holds the login - which costs about two seconds for the one result
+you picked rather than two minutes for all fifty.
 
 ### When it does not work
 

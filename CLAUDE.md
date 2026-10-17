@@ -125,10 +125,11 @@ internal/indexer  Searches a self-hosted aggregator (Jackett, Prowlarr)
                   takes as an injected `Fetcher` rather than importing
                   flaresolverr, keeping this package a stdlib-only leaf.
                   Its search page carries no magnet, so a result's Link
-                  is a token ("rutracker:6916386") and the daemon reads
-                  the magnet off the topic page at add time: resolving
-                  all fifty rows eagerly would cost minutes for results
-                  nobody picked. Counts come from the page's own
+                  is a token ("rutracker:6916386") that a client
+                  trades for a magnet through ipc's ResolveLink before
+                  adding it: resolving all fifty rows eagerly would cost
+                  minutes for results nobody picked, and one page load
+                  takes about two seconds. Counts come from the page's own
                   data-ts_text sort attributes, which hold exact bytes
                   and a unix date - except leechers, the one column with
                   no such attribute. A row with no seeders shows how
@@ -172,10 +173,7 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
 
 Dependency order is strict and one-directional: `format`, `engine`,
 `vpn`, `indexer` and `flaresolverr` have no internal deps; `ipc` depends only on
-`engine` and `indexer`; `config` depends on `format`; `batch` depends on
-`indexer`, for the one function that recognises a search token - the
-alternative was a second copy of the same rules in a package that could
-not be told when they changed; `tui` depends on
+`engine` and `indexer`; `config` depends on `format`; `tui` depends on
 `engine`, `ipc`, `config`, `theme`, `batch`, `indexer`; `cmd` depends on
 everything, and is where `flaresolverr` is adapted to the `Fetcher` a
 site plugin wants, since neither of those two leaves may import the
@@ -285,10 +283,13 @@ in order, so every refresh the TUI makes would queue behind it and the
 interface would look frozen. Replies carry their sequence number and the
 client matches on it, so answering out of order is safe. `Search` also
 gets its own, longer client timeout; raising the shared one would mean a
-genuinely hung daemon took two minutes to report. `AddBatch` joins it
-only when it carries a search token, because resolving one is itself a
-page load through a browser; an ordinary add stays in line, where its
-reply keeps its order.
+genuinely hung daemon took two minutes to report. `ResolveLink` is the second, for
+the same reason: it is a page load through a browser. `AddBatch` is
+deliberately *not* one of them - resolving a token is its own method
+rather than a step inside adding, so the path every torrent takes stays
+free of a concept only one source needs, and `internal/batch` never
+learns that tokens exist. The clients resolve first and then add a
+magnet like anything else.
 
 ### Config/theme resolution
 

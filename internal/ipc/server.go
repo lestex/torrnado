@@ -228,7 +228,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		// would look frozen. Replies carry their sequence number and the
 		// client matches on it, so answering out of order is fine, and
 		// send already holds the write mutex the event pump uses.
-		if slowMethod(msg.Req) {
+		if msg.Req.Method == MethodSearch || msg.Req.Method == MethodResolveLink {
 			req := msg.Req
 			go func() { _ = send(message{Kind: kindReply, Resp: s.dispatch(req)}) }()
 			continue
@@ -299,15 +299,6 @@ func (s *Server) dispatch(req *Request) *Response {
 		for _, src := range req.Sources {
 			var id engine.TorrentID
 			var err error
-			// A search result from a site whose listing carries no
-			// magnet arrives as a token, and resolving it means reading
-			// a page as a logged-in browser. Only the daemon holds that
-			// session, which is why the client sends the token through
-			// rather than resolving it where the user typed it.
-			if src, err = s.resolveToken(src); err != nil {
-				resp.Errs = append(resp.Errs, err.Error())
-				continue
-			}
 			if strings.HasPrefix(src, "magnet:") {
 				id, err = s.eng.AddMagnet(src, req.Opts)
 			} else {
@@ -413,6 +404,29 @@ func (s *Server) dispatch(req *Request) *Response {
 		resp.OK = true
 		resp.URL = s.previewURL(id, req.FileIndex)
 
+	case MethodResolveLink:
+		// A result from a site whose listing carries no magnet - see
+		// indexer's token.go. Resolving one reads a page as a logged-in
+		// browser, so it can only happen here: the client has neither
+		// the session nor the list of configured sources.
+		//
+		// Deliberately its own method rather than a step inside
+		// AddBatch. Adding is the one path everything goes through, and
+		// a concept that only one source needs has no business in it:
+		// the client resolves first, then adds a magnet like anything
+		// else.
+		if s.searcher == nil {
+			resp.Err = noSearcherMsg
+			return resp
+		}
+		link, err := indexer.ResolveToken(context.Background(), s.searcher, req.Token)
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.Link = link
+
 	case MethodSearch:
 		if s.searcher == nil {
 			resp.Err = noSearcherMsg
@@ -453,51 +467,4 @@ func (s *Server) dispatch(req *Request) *Response {
 		resp.Err = fmt.Sprintf("unknown method %q", req.Method)
 	}
 	return resp
-}
-
-// slowMethod reports whether a request may take long enough that
-// answering it in turn would make the interface look frozen.
-//
-// Search always can. An AddBatch can too, but only when it carries a
-// search token: resolving one reads a page through a browser, about two
-// seconds each, and a batch of them adds up. An ordinary add is fast and
-// stays on the connection's own goroutine, where its reply keeps its
-// place in line.
-func slowMethod(req *Request) bool {
-	if req.Method == MethodSearch {
-		return true
-	}
-	if req.Method != MethodAddBatch {
-		return false
-	}
-	for _, src := range req.Sources {
-		if _, _, ok := indexer.ParseToken(src); ok {
-			return true
-		}
-	}
-	return false
-}
-
-// resolveToken turns a source token into something the engine can add,
-// and passes anything else through untouched.
-//
-// A magnet and a path are left alone without consulting the searcher at
-// all, so the ordinary add path costs nothing and works on a daemon with
-// no search configured.
-func (s *Server) resolveToken(src string) (string, error) {
-	source, _, ok := indexer.ParseToken(src)
-	if !ok {
-		return src, nil
-	}
-	if s.searcher == nil {
-		return "", fmt.Errorf("%s: %s is a search result, and this daemon has no indexer configured", src, source)
-	}
-	// No deadline of its own, for the same reason Search has none: the
-	// client's timeout governs, and a second opinion about the same wait
-	// is one more thing to keep in step.
-	magnet, err := indexer.ResolveToken(context.Background(), s.searcher, src)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", src, err)
-	}
-	return magnet, nil
 }
