@@ -39,6 +39,7 @@ const (
 	MethodSetLabel               Method = "SetLabel"
 	MethodSearch                 Method = "Search"
 	MethodSearchSources          Method = "SearchSources"
+	MethodResolveLink            Method = "ResolveLink"
 	MethodShutdown               Method = "Shutdown"
 )
 
@@ -80,6 +81,11 @@ type Request struct {
 	// daemon rather than the client because it is stateful - a logged-in
 	// session and a result cache outlive any one TUI.
 	Query string
+	// Token is a search result that is not addable as it stands, for
+	// ResolveLink. Source carries an addable one; this one has to be
+	// turned into one first, by the daemon, because only the daemon
+	// holds the session needed to read the page it names.
+	Token string
 }
 
 // Response is the reply envelope. Err is set (and OK false) on failure;
@@ -112,6 +118,9 @@ type Response struct {
 	// configured, so a client can say "nothing is set up" without
 	// running a search to find out.
 	Sources []string
+	// Link answers ResolveLink: a magnet the client can now add through
+	// the ordinary add path, which knows nothing about tokens.
+	Link string
 }
 
 type msgKind byte

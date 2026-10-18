@@ -130,10 +130,13 @@ func runDaemon() error {
 	// the only part that lives long enough to hold it. Nil when nothing
 	// is configured, which is the ordinary case; the server answers a
 	// search by saying what to put in config.toml.
-	searcher, err := newSearcher(cfg)
+	searcher, closeSearcher, err := newSearcher(cfg)
 	if err != nil {
 		return fmt.Errorf("configure indexer: %w", err)
 	}
+	// Releases the browser session a site plugin keeps warm, so stopping
+	// the daemon does not leave a Chrome running inside FlareSolverr.
+	defer closeSearcher()
 	if searcher != nil {
 		lg.Info("indexers configured", "sources", strings.Join(searcher.Sources(), ","))
 	}

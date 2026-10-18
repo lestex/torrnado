@@ -95,6 +95,23 @@ func searchText(sc config.Search) string {
 		}
 		parts = append(parts, fmt.Sprintf("%s %s (%s)", src.name, src.agg.URL, key))
 	}
+
+	// rutracker holds two secrets rather than one, and which of them is
+	// set decides how it logs in - so that is what gets reported, and
+	// neither value does.
+	if rt := sc.Rutracker; rt.Enabled() {
+		var how []string
+		if rt.Username != "" {
+			how = append(how, "username set")
+		}
+		if rt.Password != "" {
+			how = append(how, "password set")
+		}
+		if rt.Session != "" {
+			how = append(how, "session cookie set")
+		}
+		parts = append(parts, fmt.Sprintf("rutracker (%s)", strings.Join(how, ", ")))
+	}
 	if len(parts) == 0 {
 		return "none"
 	}
@@ -144,6 +161,10 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 	fmt.Fprintf(w, "  network.encryption\t%t\n", cfg.Network.Encryption)
 	fmt.Fprintf(w, "  network.seed\t%t\n", cfg.Network.Seed)
 	fmt.Fprintf(w, "  search\t%s\n", searchText(cfg.Search))
+	if cfg.FlareSolverr.Enabled() {
+		fmt.Fprintf(w, "  flaresolverr\t%s\t(max %s per page)\n",
+			cfg.FlareSolverr.URL, cfg.FlareSolverr.MaxTimeout)
+	}
 	// What it does and does not cover, said where someone turning it on
 	// will read it rather than only in the docs.
 	if cfg.VPN.Required {

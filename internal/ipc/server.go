@@ -228,7 +228,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		// would look frozen. Replies carry their sequence number and the
 		// client matches on it, so answering out of order is fine, and
 		// send already holds the write mutex the event pump uses.
-		if msg.Req.Method == MethodSearch {
+		if msg.Req.Method == MethodSearch || msg.Req.Method == MethodResolveLink {
 			req := msg.Req
 			go func() { _ = send(message{Kind: kindReply, Resp: s.dispatch(req)}) }()
 			continue
@@ -403,6 +403,29 @@ func (s *Server) dispatch(req *Request) *Response {
 		}
 		resp.OK = true
 		resp.URL = s.previewURL(id, req.FileIndex)
+
+	case MethodResolveLink:
+		// A result from a site whose listing carries no magnet - see
+		// indexer's token.go. Resolving one reads a page as a logged-in
+		// browser, so it can only happen here: the client has neither
+		// the session nor the list of configured sources.
+		//
+		// Deliberately its own method rather than a step inside
+		// AddBatch. Adding is the one path everything goes through, and
+		// a concept that only one source needs has no business in it:
+		// the client resolves first, then adds a magnet like anything
+		// else.
+		if s.searcher == nil {
+			resp.Err = noSearcherMsg
+			return resp
+		}
+		link, err := indexer.ResolveToken(context.Background(), s.searcher, req.Token)
+		if err != nil {
+			resp.Err = err.Error()
+			return resp
+		}
+		resp.OK = true
+		resp.Link = link
 
 	case MethodSearch:
 		if s.searcher == nil {

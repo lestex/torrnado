@@ -33,20 +33,29 @@ func newAddCmd() *cobra.Command {
 			"to everything would defeat the point of asking.",
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Arguments are resolved here rather than in the daemon so
-			// that relative paths and globs are interpreted against the
-			// directory the user is standing in, not the daemon's.
-			sources, cleanup, err := batch.Expand(args)
-			if err != nil {
-				return err
-			}
-			// The daemon keeps its own copy of the metainfo, so a
-			// downloaded .torrent is dead weight the moment AddBatch
-			// returns.
-			defer cleanup()
-
 			opts := engine.AddOpts{SavePath: savePath, Paused: paused, Files: files}
 			return withClient(func(c *ipc.Client) error {
+				// A search result from a source whose listing carries no
+				// magnet is a token, and only the daemon can turn one
+				// into a magnet. Done before expanding, so batch - and
+				// the add path behind it - never learns that tokens
+				// exist.
+				args, err := c.ResolveLinks(args)
+				if err != nil {
+					return err
+				}
+				// Expanded here rather than in the daemon so that
+				// relative paths and globs are interpreted against the
+				// directory the user is standing in, not the daemon's.
+				sources, cleanup, err := batch.Expand(args)
+				if err != nil {
+					return err
+				}
+				// The daemon keeps its own copy of the metainfo, so a
+				// downloaded .torrent is dead weight the moment AddBatch
+				// returns.
+				defer cleanup()
+
 				ids, failures, err := c.AddBatch(sources, opts)
 				if err != nil {
 					return err
