@@ -249,15 +249,6 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
-// noSearcherMsg is what a daemon with no indexer configured answers a
-// search with.
-//
-// It names the keys to set rather than merely refusing: having no
-// indexer is the ordinary state, not a mistake, so this is the common
-// answer and the only place a user will be told what to do about it.
-const noSearcherMsg = "no indexer configured: set search.jackett.url and " +
-	"search.jackett.api_key (or search.prowlarr.*) in config.toml"
-
 // dispatch runs one request against the engine and builds its reply.
 //
 // This switch is the only place the two halves of the program meet: on
@@ -416,7 +407,7 @@ func (s *Server) dispatch(req *Request) *Response {
 		// the client resolves first, then adds a magnet like anything
 		// else.
 		if s.searcher == nil {
-			resp.Err = noSearcherMsg
+			resp.Err = indexer.NotConfiguredMsg
 			return resp
 		}
 		link, err := indexer.ResolveToken(context.Background(), s.searcher, req.Token)
@@ -429,7 +420,7 @@ func (s *Server) dispatch(req *Request) *Response {
 
 	case MethodSearch:
 		if s.searcher == nil {
-			resp.Err = noSearcherMsg
+			resp.Err = indexer.NotConfiguredMsg
 			return resp
 		}
 		// No deadline of our own: the searcher has its own per-attempt

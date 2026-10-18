@@ -113,7 +113,7 @@ func searchText(sc config.Search) string {
 		parts = append(parts, fmt.Sprintf("rutracker (%s)", strings.Join(how, ", ")))
 	}
 	if len(parts) == 0 {
-		return "none"
+		return "(not configured)"
 	}
 	return strings.Join(parts, ", ")
 }

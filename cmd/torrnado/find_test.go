@@ -3,6 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -227,5 +231,58 @@ func TestFindSourcesSaysWhatToConfigure(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "jackett, prowlarr") {
 		t.Errorf("should name both sources, got: %q", buf.String())
+	}
+}
+
+// TestNotConfiguredNamesKeysThatLoad writes the config file the message
+// tells the user to write, and loads it.
+//
+// This is the test that was missing. The TUI's copy of this message went
+// on naming indexer.backend, indexer.url and indexer.api_key for a whole
+// release after [search.*] replaced [indexer] - so the one answer a user
+// with nothing configured ever sees sent them to write a file that
+// config.Load would then reject for naming keys that no longer exist.
+// The TUI's own test asserted the stale keys, so it agreed with the bug.
+//
+// Asserting against Load rather than against a list of key names is the
+// point: a renamed key fails here without anyone remembering to come and
+// update a fixture.
+func TestNotConfiguredNamesKeysThatLoad(t *testing.T) {
+	keys := regexp.MustCompile(`search\.[a-z]+\.[a-z_]+`).FindAllString(indexer.NotConfiguredMsg, -1)
+	if len(keys) == 0 {
+		t.Fatalf("the message names no search.* key, so it tells the user nothing: %q",
+			indexer.NotConfiguredMsg)
+	}
+
+	// Grouped into tables, in the order named, because that is what TOML
+	// wants and the message is written as dotted keys.
+	tables := map[string][]string{}
+	var order []string
+	for _, k := range keys {
+		i := strings.LastIndex(k, ".")
+		table, field := k[:i], k[i+1:]
+		if _, seen := tables[table]; !seen {
+			order = append(order, table)
+		}
+		tables[table] = append(tables[table], field)
+	}
+
+	var b strings.Builder
+	for _, table := range order {
+		fmt.Fprintf(&b, "[%s]\n", table)
+		for _, field := range tables[table] {
+			// A URL for every field: an aggregator's url must parse as
+			// one, and its api_key only has to be non-empty.
+			fmt.Fprintf(&b, "%s = %q\n", field, "http://localhost:9117")
+		}
+	}
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.Load(path); err != nil {
+		t.Errorf("the not-configured message tells the user to write a config that does not load: %v\n\n%s",
+			err, b.String())
 	}
 }

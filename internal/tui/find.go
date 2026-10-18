@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -67,10 +68,14 @@ func (m Model) canFind() bool {
 }
 
 // errNoIndexer says what to add to config.toml. Most users will not have
-// an indexer, so this is the common answer rather than an edge case, and
-// "not configured" on its own would leave them nowhere to go.
+// a search source, so this is the common answer rather than an edge
+// case, and "not configured" on its own would leave them nowhere to go.
+//
+// The wording is indexer's, not ours: this message used to be its own
+// copy and named the keys of the [indexer] table long after [search.*]
+// replaced it.
 func errNoIndexer() error {
-	return fmt.Errorf("no indexer configured: set indexer.backend, indexer.url and indexer.api_key in config.toml")
+	return errors.New(indexer.NotConfiguredMsg)
 }
 
 // startFind fires a query and opens the overlay in its loading state.

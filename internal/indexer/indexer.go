@@ -69,6 +69,23 @@ type Result struct {
 // has to be fetched first.
 func (r Result) IsMagnet() bool { return strings.HasPrefix(r.Link, "magnet:") }
 
+// NotConfiguredMsg is the one answer every client gives when the daemon
+// is holding no searcher at all.
+//
+// A single constant rather than a sentence in each client, because there
+// were three copies and they drifted: the TUI's still named the keys of
+// the [indexer] table that [search.*] replaced, so pressing the find key
+// sent the user off to write a config file the loader would then reject
+// for naming keys that no longer exist.
+//
+// It names Jackett first deliberately. An aggregator is the way in - it
+// holds the per-tracker configuration and fans one query out to all of
+// them - and a built-in source is the exception to that, so the answer
+// everyone sees should point at the route almost everyone wants.
+const NotConfiguredMsg = "search is not configured: set search.jackett.url and " +
+	"search.jackett.api_key in config.toml (or search.prowlarr.*), which fans one " +
+	"query out to every tracker configured in it"
+
 // Searcher is what the daemon holds: one source, or several behind a
 // Multi. An interface so a fake can stand in for it, and so "nothing is
 // configured" can be a nil interface rather than a flag beside a client.
