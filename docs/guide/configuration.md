@@ -202,6 +202,16 @@ report.
 
 ### rutracker.org
 
+**Prefer an aggregator.** Jackett and Prowlarr carry hundreds of
+community-maintained tracker definitions; this is one site, read by
+selectors in torrnado's own source, which will break the day the page
+changes. It exists only because the aggregator route provably cannot
+reach this site: Jackett's Cloudflare helper asks FlareSolverr to solve
+the challenge, then throws away the solved page and refetches with its
+own HTTP client, which Cloudflare challenges again because clearance is
+bound to the fingerprint of whoever earned it. No Jackett setting fixes
+that, so for this one site there is nothing to delegate to.
+
 rutracker is a site rather than an aggregator: torrnado reads its pages
 directly, so it needs a login, and it sits behind a Cloudflare challenge,
 so it also needs a FlareSolverr server to read a page at all.

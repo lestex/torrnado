@@ -60,7 +60,10 @@ func TestFindWithNoIndexerSaysWhatToConfigure(t *testing.T) {
 	if !next.statusIsErr {
 		t.Error("want an error status")
 	}
-	for _, want := range []string{"indexer.url", "indexer.api_key"} {
+	// The real keys, which is the whole point: this assertion used to
+	// name indexer.url and indexer.api_key and so agreed with a message
+	// that had gone stale when [search.*] replaced [indexer].
+	for _, want := range []string{"search.jackett.url", "search.jackett.api_key"} {
 		if !strings.Contains(next.status, want) {
 			t.Errorf("status should mention %q, got %q", want, next.status)
 		}

@@ -30,10 +30,13 @@ func newFindCmd() *cobra.Command {
 		Use:   "find <query>...",
 		Short: "Search a configured indexer for torrents",
 		Long: `Search a self-hosted Jackett or Prowlarr server, which fans the query
-out to every tracker configured in it, and print what came back.
+out to every tracker configured in it, and print what came back. That
+aggregator is the way in: it holds the per-tracker logins and does the
+fanning out, so torrnado makes one request to a service you run.
 
-Configure it under [indexer] in config.toml; "torrnado find --check"
-reports which indexers the daemon is set up to search.
+Configure it under [search.jackett] or [search.prowlarr] in config.toml.
+Searching is off until one of those is set, and "torrnado find --check"
+reports which sources the daemon is set up to search.
 
 The daemon does the searching, so a session, a login and a cache can
 outlive any one command. Adding a result is a separate step, which keeps
@@ -156,8 +159,7 @@ func newSearcher(cfg config.Config) (indexer.Searcher, func(), error) {
 // which otherwise look identical from out here.
 func writeFindSources(out io.Writer, sources []string) error {
 	if len(sources) == 0 {
-		_, err := fmt.Fprintln(out, "no indexer configured: set search.jackett.url and "+
-			"search.jackett.api_key (or search.prowlarr.*) in config.toml")
+		_, err := fmt.Fprintln(out, indexer.NotConfiguredMsg)
 		return err
 	}
 	_, err := fmt.Fprintf(out, "searching: %s\n", strings.Join(sources, ", "))
