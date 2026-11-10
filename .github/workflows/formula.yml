@@ -1,0 +1,144 @@
+# Renders the Homebrew formula for a published release, lints it, and
+# installs it for real on Linux and macOS before anything is allowed to
+# publish it.
+#
+# Two callers. release.yml runs it for the tag it just released, and only
+# on success writes the formula to the tap. And a pull request that touches
+# the formula or this file runs it against the newest published release, so
+# a change to the template is proved on both platforms before a tag
+# depends on it - a formula can only be exercised against archives that
+# already exist, and cutting a release to find out is the wrong way round.
+#
+# Nothing here publishes. The tap is written by release.yml's `tap` job
+# alone, from the artifact this produces.
+name: formula
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to render the formula for
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - contrib/homebrew/**
+      - .github/workflows/formula.yml
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: A release tag, or empty for the newest published release
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # The tap a test install goes through. Local and throwaway: the formula
+  # is installed from a file rather than from lestex/homebrew-tap, which
+  # is the point - the tap is not written until this has passed.
+  TEST_TAP: local/formula-test
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # A pull request has no tag of its own, so it borrows the newest
+      # release. Prereleases are skipped: `gh release view` with no
+      # argument names the latest non-prerelease, which is the same rule
+      # the formula applies to what `brew install` may hand out.
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ]; then
+            tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          fi
+          echo "rendering for $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Render the formula
+        run: contrib/homebrew/render.sh "${{ steps.tag.outputs.tag }}" > torrnado.rb
+
+      # The hashes came from checksums.txt, so checking them against it
+      # again would prove nothing. This checks them against what GitHub
+      # actually serves for each of the four archives - which also covers
+      # darwin_amd64 and linux_arm64, the two the install jobs below do
+      # not run on and so would otherwise never be fetched at all.
+      - name: Check every archive against its hash
+        run: |
+          awk '/^ *url "/ { gsub(/^ *url "|"$/, ""); u = $0 }
+               /^ *sha256 "/ { gsub(/^ *sha256 "|"$/, ""); print $0, u }' torrnado.rb > pairs.txt
+          test "$(wc -l < pairs.txt)" -eq 4
+          while read -r sha url; do
+            echo "checking $url"
+            curl -fsSL -o archive.tar.gz "$url"
+            echo "$sha  archive.tar.gz" | sha256sum -c -
+          done < pairs.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: formula
+          path: torrnado.rb
+          if-no-files-found: error
+
+  # A real install, not just a lint. brew style and audit read the file;
+  # only an install runs Homebrew's post-install processing over a
+  # pre-compiled binary, which on an ad-hoc-signed arm64 Mach-O is where a
+  # formula like this could produce a binary that is killed on launch.
+  # macos-latest is arm64, so it exercises exactly that case.
+  install:
+    needs: render
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: formula
+
+      # Homebrew refuses to load a formula from a tap nobody has run
+      # `brew trust` on, and this one is created a moment ago for the
+      # purpose.
+      - name: Put the formula in a throwaway tap
+        run: |
+          brew tap-new --no-git "$TEST_TAP"
+          brew trust "$TEST_TAP"
+          mkdir -p "$(brew --repository "$TEST_TAP")/Formula"
+          cp torrnado.rb "$(brew --repository "$TEST_TAP")/Formula/torrnado.rb"
+
+      - name: brew style
+        run: brew style "$TEST_TAP/torrnado"
+
+      - name: brew audit
+        run: brew audit --strict --online --formula "$TEST_TAP/torrnado"
+
+      - name: brew install
+        run: brew install --formula "$TEST_TAP/torrnado"
+
+      - name: brew test
+        run: brew test "$TEST_TAP/torrnado"
+
+      # What the formula promises beyond the test block: the binary runs and
+      # reports the version it was released as, and the man page landed
+      # where `man` looks. `torrnado version` spawns no daemon.
+      - name: The installed binary and man page
+        env:
+          TAG: ${{ needs.render.outputs.tag }}
+        run: |
+          torrnado version | tee version.txt
+          grep -q "${TAG#v}" version.txt
+          test -f "$(brew --prefix)/share/man/man1/torrnado.1"
