@@ -144,24 +144,33 @@ then builds four archives with GoReleaser and creates the release, with
 notes generated from the same `cliff.toml` that wrote `CHANGELOG.md`. The
 same tag publishes the documentation site - see Docs below.
 
-It also writes the Homebrew cask to
-[lestex/homebrew-tap](https://github.com/lestex/homebrew-tap), generated
-from the archives and checksums of that same tag. That commit lands in a
-different repository, which the workflow's automatic `GITHUB_TOKEN`
-cannot write to - it is scoped to this one - so it needs a PAT with
-`contents:write` on the tap, stored here as the `HOMEBREW_TAP_TOKEN`
-secret. Without it every other part of the release still runs and the
-cask step fails; add the secret and re-run the workflow from the same tag
-rather than moving the tag.
+It also writes the Homebrew formula to
+[lestex/homebrew-tap](https://github.com/lestex/homebrew-tap).
+`contrib/homebrew/render.sh` renders it from the checksums of that same
+tag, and `formula.yml` then lints it and installs it for real on Linux and
+macOS - `brew style`, `brew audit --strict`, `brew install`, `brew test` -
+before the `tap` job commits it. Nothing reaches the tap unless that
+passed. That commit lands in a different repository, which the workflow's
+automatic `GITHUB_TOKEN` cannot write to - it is scoped to this one - so
+it needs a PAT with `contents:write` on the tap, stored here as the
+`HOMEBREW_TAP_TOKEN` secret. Without it every other part of the release
+still runs and the `tap` job fails; add the secret and re-run the
+workflow from the same tag rather than moving the tag.
 
-A `-rc` or `-beta` tag is skipped (`skip_upload: auto`), so a pre-release
-never becomes what `brew install` hands people.
+A `-rc` or `-beta` tag is skipped, so a pre-release never becomes what
+`brew install` hands people.
 
-GoReleaser cannot write a cask that passes `brew style` as generated, so
-the workflow's `tap-style` job runs `brew style --fix` on
-`Casks/torrnado.rb` in the tap afterwards and commits the result. It
-fails if anything is left that cannot be corrected automatically; nothing
-in the tap should need editing by hand after a release.
+The formula wraps the release's pre-compiled binaries rather than building
+from source, so a Homebrew install is the same `CGO_ENABLED=0` binary as
+every other route. GoReleaser is not involved: its `brews` is deprecated,
+and the cask it offers instead could not pass `brew style` as generated.
+The first time the `tap` job runs it also removes the old
+`Casks/torrnado.rb`, in the same commit. It touches no other file in the
+tap, which holds other casks this repository does not own.
+
+A pull request that changes the template or `formula.yml` runs the same
+workflow against the newest published release, so a change is proved on
+both platforms before a tag depends on it.
 
 To rehearse any of it locally:
 
@@ -170,10 +179,16 @@ goreleaser check                       # validate .goreleaser.yaml
 goreleaser build --snapshot --clean    # build all four targets into dist/
 git cliff --latest --strip header      # exactly what the release page gets
 
-# The cask this tag would publish, written to dist/homebrew/Casks/ and
-# pushed nowhere:
+# A whole release, built and archived and published nowhere:
 goreleaser release --snapshot --clean --skip=publish
+
+# The formula for a tag that has already been released:
+make formula TAG=v0.10.0 > torrnado.rb
 ```
+
+Lint that formula in a throwaway tap (`brew tap-new --no-git local/x`, then
+`brew trust local/x`), not your own, and do not install it: it would replace
+a `torrnado` you already have.
 
 `make changelog` uses `git-cliff` from `PATH` and falls back to its
 container image, so it works on a machine that has never installed it.

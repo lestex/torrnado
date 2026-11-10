@@ -55,7 +55,7 @@ LDFLAGS   := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(
 VENV := .venv
 PIP  := $(VENV)/bin/pip
 
-.PHONY: help build man run test test-race e2e cover vet fmt fmt-check tidy check clean changelog docker docker-test systemd-test docs-deps docs-serve docs-build
+.PHONY: help build man run test test-race e2e cover vet fmt fmt-check tidy check clean changelog formula docker docker-test systemd-test docs-deps docs-serve docs-build
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -184,6 +184,16 @@ changelog: ## Regenerate CHANGELOG.md (make changelog TAG=v0.1.0)
 			|| { rm -f CHANGELOG.md.tmp; exit 1; }; \
 	fi
 	@echo "wrote CHANGELOG.md"
+
+# The Homebrew formula a published tag would produce, on stdout and written
+# nowhere. Rendered from that tag's own checksums.txt, so it needs the
+# network and a tag that has been released - to rehearse it, pick one that
+# has, then lint it in a throwaway tap rather than your real one:
+#
+#	make formula TAG=v0.10.0 > torrnado.rb
+formula: ## Print the Homebrew formula for a released tag (make formula TAG=v0.10.0)
+	@test -n "$(TAG)" || { echo "usage: make formula TAG=v0.10.0" >&2; exit 2; }
+	@contrib/homebrew/render.sh $(TAG)
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out
