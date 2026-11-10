@@ -172,9 +172,9 @@ func expandMagnetListFile(path string) ([]string, error) {
 // .torrent the URL serves, or - when it redirects to one - the magnet URI
 // it points at.
 //
-// That redirect is the ordinary case for anything found through `torrnado
-// find`: an indexer's download link for a release with no .torrent of its
-// own is a 302 to the magnet. net/http would follow it and fail with
+// That redirect is the ordinary case for a link copied out of a torrent
+// indexer: its download link for a release with no .torrent of its own
+// is a 302 to the magnet. net/http would follow it and fail with
 // `unsupported protocol scheme "magnet"`, which names the scheme as
 // though the link were malformed when in fact it worked, so CheckRedirect
 // stops there and keeps the target.

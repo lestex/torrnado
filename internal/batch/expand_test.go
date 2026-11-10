@@ -188,9 +188,10 @@ func TestExpandURLReportsHTTPErrors(t *testing.T) {
 }
 
 // An indexer's download link for a release with no .torrent of its own is
-// a redirect to the magnet, which is most of what `torrnado find` hands
-// back. Following it is net/http's default and fails with "unsupported
-// protocol scheme", so the link has to be recognised rather than chased.
+// a redirect to the magnet, so it is a common shape for a link someone
+// pastes in. Following it is net/http's default and fails with
+// "unsupported protocol scheme", so the link has to be recognised rather
+// than chased.
 func TestExpandURLRedirectingToAMagnetYieldsTheMagnet(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, magnetA, http.StatusFound)
