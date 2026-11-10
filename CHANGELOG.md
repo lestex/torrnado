@@ -4,6 +4,28 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.10.1 - 2026-11-10
+
+### Bug fixes
+
+- **tui:** Don't let mouse events reach the panes behind an overlay
+- **batch:** Add a link that redirects to a magnet
+- **tui:** Answer ctrl+c from every mode, not only the list
+
+### Dependencies
+
+- Anacrolix/torrent v1.62.0 and Go 1.26.11 for two reachable advisories
+- Raise go.mod's floor to 1.26.11, not just .go-version
+- Bump golang.org/x/net from 0.60.0 to 0.62.0
+- Bump github.com/spf13/pflag from 1.0.10 to 1.1.0
+- **brew:** Render the Homebrew formula from a release's checksums
+
+### Other
+
+- Add Omarchy shell plugin
+- Pause/resume, stable list order, tighter bar icon
+- Publish a formula to the tap, not a cask
+
 ## 0.10.0 - 2026-10-14
 
 ### Features
