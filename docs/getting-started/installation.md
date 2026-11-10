@@ -17,20 +17,37 @@ Or `brew tap lestex/tap` once and `brew install torrnado` after. Upgrades
 come with `brew upgrade` like anything else, and the man page is installed
 with the binary.
 
-The tap is written by the release itself - the cask for a tag is generated
-from the same archives and checksums that tag publishes, so it cannot
-point at a build that does not exist. It is a cask rather than a formula
-because these are pre-compiled binaries: a formula that installs one is
-declaring a build it never does. Homebrew takes binary casks on Linux as
-well as macOS.
+The tap is written by the release itself - the formula for a tag is
+generated from the same archives and checksums that tag publishes, so it
+cannot point at a build that does not exist, and it is installed for real
+on Linux and macOS before it is published. It installs on both. It wraps
+those pre-compiled binaries rather than building from source, because a
+build on your machine would not be the binary the release ships: the two
+keep piece-completion state in databases that do not read each other's
+files.
+
+!!! note "Coming from the cask"
+
+    Releases up to and including v0.10.0 were published as a Homebrew
+    cask. A cask and a formula with the same name in one tap would make
+    that name ambiguous, so the first release published as a formula
+    removes the cask. Move over by hand:
+
+    ```sh
+    torrnado stop
+    brew uninstall --cask torrnado
+    brew install lestex/tap/torrnado
+    ```
+
+    Config, downloads and daemon state are left where they are.
 
 !!! note "The first run on macOS"
 
     These binaries are not signed or notarized, so macOS quarantines them
     and Gatekeeper refuses to start one - it reports a damaged binary,
-    which is not what happened. The cask clears the quarantine attribute
-    on install, so `brew install` needs nothing from you here. Unpacking
-    an archive by hand does: `xattr -dr com.apple.quarantine ./torrnado`.
+    which is not what happened. Homebrew does not mark what it downloads
+    as quarantined, so `brew install` needs nothing from you here.
+    Unpacking an archive by hand does: `xattr -dr com.apple.quarantine ./torrnado`.
 
 ## The one-liner
 
@@ -153,12 +170,12 @@ Then remove what the install put in place:
 === "Homebrew"
 
     ```sh
-    brew uninstall torrnado         # binary and man page
-    brew uninstall --zap torrnado   # ...and the config and daemon state
+    brew uninstall torrnado                          # binary and man page
+    rm -r ~/.config/torrnado ~/.local/share/torrnado   # config and daemon state
     ```
 
-    Homebrew cannot stop the daemon for you: its uninstall hooks run
-    sandboxed, away from your home directory, where the daemon's socket is.
+    Homebrew cannot stop the daemon for you: a formula has no hook that
+    runs when it is uninstalled.
 
 === "Install script or archive"
 
@@ -188,7 +205,7 @@ Then remove what the install put in place:
 Nothing outside these, and none of them is removed by deleting the binary.
 `torrnado config` prints where each one is on your machine, which is the
 place to look when `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME` or the config
-file moved them - `brew uninstall --zap` only knows the defaults.
+file moved them - the commands above only know the defaults.
 
 | What | Default location |
 | --- | --- |
@@ -199,6 +216,5 @@ file moved them - `brew uninstall --zap` only knows the defaults.
 
 The piece-completion database is the easy one to miss, because it lives
 in the download directory rather than with the rest of the state - no
-uninstall touches it, `--zap` included, since that directory holds your
-data. Deleting it only means the next install re-verifies whatever is
+uninstall touches it, since that directory holds your data. Deleting it only means the next install re-verifies whatever is
 still on disk.
