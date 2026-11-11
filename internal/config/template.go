@@ -68,6 +68,13 @@ func Template(c Config) []byte {
 		{"interfaces", tomlStrings(c.VPN.Interfaces), "extra devices to count as a VPN"},
 	})
 
+	b.WriteString(templateSearch)
+	writeRows(b, []row{
+		{"enabled", tomlBool(c.Search.Jackett.Enabled), "off until you set this; torrnado find then says search is not configured"},
+		{"url", tomlString(c.Search.Jackett.URL), "e.g. http://localhost:9117"},
+		{"api_key", tomlString(c.Search.Jackett.APIKey), "Jackett's dashboard shows it, top right"},
+	})
+
 	b.WriteString(templateLog)
 	writeRows(b, []row{
 		{"level", tomlString(c.Log.Level), strings.Join(LogLevels, ", ")},
@@ -129,6 +136,15 @@ const templateVPN = `
 # interfaces names devices to count as a VPN whatever the system says
 # about them - the escape hatch for a tunnel the kernel cannot label, such
 # as policy-based IPsec. Detection needs no configuration otherwise.
+`
+
+const templateSearch = `
+[search]
+# Search runs in the daemon and goes through Jackett, a service you run
+# yourself that holds the per-tracker setup. torrnado never talks to a
+# tracker. Keep the key private: ` + "`torrnado config`" + ` does not print it.
+
+[search.jackett]
 `
 
 const templateLog = `

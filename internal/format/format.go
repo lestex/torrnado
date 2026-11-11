@@ -6,6 +6,7 @@ package format
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -27,6 +28,20 @@ func Bytes(n int64) string {
 
 func Rate(bytesPerSec float64) string {
 	return Bytes(int64(bytesPerSec)) + "/s"
+}
+
+// Count renders a peer count, where a negative number means the tracker
+// did not report one.
+//
+// Written as "-" rather than "0", because zero seeders is a real and
+// important answer - it means the torrent will never finish - and a
+// tracker that simply keeps its counts to itself must not be made to say
+// it. Shared with the TUI so a result reads the same in both.
+func Count(n int) string {
+	if n < 0 {
+		return "-"
+	}
+	return strconv.Itoa(n)
 }
 
 func Ratio(r float64) string {

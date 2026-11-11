@@ -76,3 +76,22 @@ func TestETA(t *testing.T) {
 		}
 	}
 }
+
+// A count nobody reported is not a count of nought. Zero seeders means a
+// torrent that will never finish, which is the thing a user is scanning
+// for, so the two cannot look alike.
+func TestCount(t *testing.T) {
+	for _, c := range []struct {
+		in   int
+		want string
+	}{
+		{-1, "-"},
+		{0, "0"},
+		{1, "1"},
+		{1243, "1243"},
+	} {
+		if got := Count(c.in); got != c.want {
+			t.Errorf("Count(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

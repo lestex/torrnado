@@ -2,12 +2,15 @@ package ipc
 
 import (
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Client is a connection to a running daemon. It is safe for concurrent
@@ -126,6 +129,13 @@ func (c *Client) failAllPending(err error) {
 // call sends a request and waits for the reply carrying its sequence
 // number.
 func (c *Client) call(req *Request) (*Response, error) {
+	return c.callFor(req, callTimeout)
+}
+
+// callFor is call with its own deadline, for the one method that is
+// slow by nature. Raising callTimeout for everything instead would make a
+// wedged daemon take minutes to report.
+func (c *Client) callFor(req *Request, timeout time.Duration) (*Response, error) {
 	c.mu.Lock()
 	c.seq++
 	req.Seq = c.seq
@@ -151,12 +161,12 @@ func (c *Client) call(req *Request) (*Response, error) {
 		return resp, nil
 	case <-c.closed:
 		return nil, fmt.Errorf("%s: client closed", req.Method)
-	case <-time.After(callTimeout):
+	case <-time.After(timeout):
 		// Give up rather than block a UI forever on a wedged daemon.
 		c.mu.Lock()
 		delete(c.pending, req.Seq)
 		c.mu.Unlock()
-		return nil, fmt.Errorf("%s: timed out after %s", req.Method, callTimeout)
+		return nil, fmt.Errorf("%s: timed out after %s", req.Method, timeout)
 	}
 }
 
@@ -280,6 +290,29 @@ func (c *Client) PreviewURL(id engine.TorrentID, fileIndex int) (string, error) 
 		return "", fmt.Errorf("empty preview url response")
 	}
 	return resp.URL, nil
+}
+
+// Search runs query through the daemon's searcher and returns the results
+// best-first. The error is the daemon's message as written - it already
+// names the config key to fix - without the method prefix a bare call
+// would add. A daemon that predates search says so rather than reporting
+// an unknown method.
+func (c *Client) Search(query string) ([]indexer.Result, error) {
+	resp, err := c.callFor(&Request{Method: MethodSearch, Query: query}, searchTimeout)
+	if err != nil {
+		return nil, searchError(err)
+	}
+	return resp.Results, nil
+}
+
+// searchError strips the method prefix call adds and turns the one reply
+// a pre-search daemon can give into advice.
+func searchError(err error) error {
+	msg := strings.TrimPrefix(err.Error(), string(MethodSearch)+": ")
+	if strings.Contains(msg, "unknown method") {
+		msg = "this daemon is too old to search - restart it with torrnado stop, then run this again"
+	}
+	return errors.New(msg)
 }
 
 func (c *Client) Detail(id engine.TorrentID) (engine.TorrentDetail, error) {

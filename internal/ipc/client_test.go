@@ -13,7 +13,7 @@ import (
 // startTestDaemon runs a real engine behind a real server on a socket in
 // a temporary directory, and returns a client connected to it. The whole
 // round trip is exercised: encode, socket, dispatch, reply, decode.
-func startTestDaemon(t *testing.T) *Client {
+func startTestDaemon(t *testing.T, opts ...Option) *Client {
 	t.Helper()
 
 	eng, err := engine.New(engine.Config{DataDir: t.TempDir(), DisableDHT: true, DisablePEX: true})
@@ -23,7 +23,7 @@ func startTestDaemon(t *testing.T) *Client {
 	t.Cleanup(func() { eng.Close() })
 
 	sock := filepath.Join(shortTempDir(t), "d.sock")
-	srv, err := Serve(sock, eng, nil)
+	srv, err := Serve(sock, eng, nil, opts...)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}

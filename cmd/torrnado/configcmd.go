@@ -123,6 +123,16 @@ func writeConfigReport(out io.Writer, cfg config.Config, path string) error {
 		fmt.Fprintf(w, "  vpn.interfaces\t%s\t(also counted as a VPN)\n", strings.Join(cfg.VPN.Interfaces, ", "))
 	}
 
+	// The key is never printed: this output is what gets pasted into bug
+	// reports.
+	if j := cfg.Search.Jackett; j.Enabled {
+		fmt.Fprintf(w, "  search.jackett.enabled\ttrue\n")
+		fmt.Fprintf(w, "  search.jackett.url\t%s\n", j.URL)
+		fmt.Fprintf(w, "  search.jackett.api_key\t(set)\n")
+	} else {
+		fmt.Fprintln(w, "  search.jackett.enabled\tfalse\t(not configured)")
+	}
+
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Logging")
 	fmt.Fprintf(w, "  log.level\t%s\n", cfg.Log.Level)

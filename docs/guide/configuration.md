@@ -242,6 +242,31 @@ reason. The three usual ones, as they appear:
 If the script runs by hand but shows nothing on macOS, check that
 notifications are allowed for Script Editor in System Settings.
 
+## Searching
+
+`torrnado find` goes through a Jackett server you run. It is off until you
+enable it, and with it off the command says `search is not configured`
+rather than failing obscurely:
+
+```toml
+[search.jackett]
+enabled = true
+url     = "http://localhost:9117"
+api_key = "..."          # Jackett's dashboard shows it, top right
+```
+
+The search runs in the daemon, which reads the config when it starts, so
+run `torrnado stop` after changing these and the next command starts a
+fresh one. `url` and `api_key` are required once `enabled` is true, and
+naming the one that is missing is an error at startup rather than a
+search that silently does nothing. They are ignored while it is false, so
+they can be written down ahead of time.
+
+`torrnado config` shows `search.jackett.api_key (set)` and never the key.
+Searching is not covered by `vpn.required`: the request torrnado makes
+goes to Jackett on your own machine, and the one that reaches a tracker is
+Jackett's, over Jackett's route.
+
 ## Requiring a VPN
 
 ```toml

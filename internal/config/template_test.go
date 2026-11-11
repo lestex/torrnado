@@ -83,7 +83,8 @@ func TestTemplateWritesEveryKey(t *testing.T) {
 		// appears only inside a prose comment does not count as written.
 		// Keys are padded for alignment, hence the run of spaces.
 		assigned := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(key) + ` *=`)
-		if !assigned.MatchString(out) && !strings.Contains(out, "["+key+"]") {
+		header := regexp.MustCompile(`(?m)^\[(\w+\.)*` + regexp.QuoteMeta(key) + `\]`)
+		if !assigned.MatchString(out) && !header.MatchString(out) {
 			t.Errorf("config key %q is missing from the generated file:\n%s", key, out)
 		}
 	}

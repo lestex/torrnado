@@ -328,3 +328,35 @@ func TestGeneratedConfigLoads(t *testing.T) {
 		t.Fatalf("the generated config must load: %v", err)
 	}
 }
+
+func TestJackettValidation(t *testing.T) {
+	ok := func(j Jackett) error {
+		c, err := Default()
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Search.Jackett = j
+		return c.Validate()
+	}
+	// Off needs nothing, even with junk in the other keys.
+	if err := ok(Jackett{Enabled: false, URL: "not a url"}); err != nil {
+		t.Errorf("disabled should not be validated: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		j    Jackett
+		want string
+	}{
+		{"no url", Jackett{Enabled: true, APIKey: "k"}, "search.jackett.url"},
+		{"bad scheme", Jackett{Enabled: true, URL: "localhost:9117", APIKey: "k"}, "search.jackett.url"},
+		{"no key", Jackett{Enabled: true, URL: "http://localhost:9117"}, "search.jackett.api_key"},
+	} {
+		err := ok(tc.j)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want it to name %s", tc.name, err, tc.want)
+		}
+	}
+	if err := ok(Jackett{Enabled: true, URL: "http://localhost:9117", APIKey: "k"}); err != nil {
+		t.Errorf("valid config rejected: %v", err)
+	}
+}
