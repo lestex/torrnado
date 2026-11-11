@@ -174,6 +174,70 @@ fi
 assert_failure "previewing an unknown torrent fails" "$TORRNADO" preview "not-a-real-id" 0
 
 echo
+echo "machine-readable output"
+
+# Pretty-printed with one key to a line, so a grep reads it without jq.
+out=$("$TORRNADO" list --json 2>&1)
+assert_success "list --json succeeds" "$TORRNADO" list --json
+if [ "$(echo "$out" | head -1)" = "[" ]; then
+	pass "list --json is an array"
+else
+	fail "list --json is an array" "starts with: $(echo "$out" | head -1)"
+fi
+assert_contains "a torrent is there by id" "$out" "\"id\": \"$IH_B\""
+assert_contains "...and by name" "$out" '"name": "Second"'
+assert_contains "a size is a number of bytes" "$out" '"size": 15,'
+assert_contains "what is not known is null, not zero" "$out" '"eta_seconds": null'
+
+rows=$("$TORRNADO" list | tail -n +2 | grep -c .)
+objs=$(echo "$out" | grep -c '^    "id":')
+if [ "$rows" -eq "$objs" ]; then
+	pass "the JSON and the table list the same torrents"
+else
+	fail "the JSON and the table list the same torrents" "table has $rows rows, JSON has $objs"
+fi
+
+# Paused is its own field: state cannot say it for a torrent being checked.
+"$TORRNADO" pause "$SAMPLE_IH" >/dev/null 2>&1
+out=$("$TORRNADO" list --json 2>&1)
+assert_contains "a paused torrent says so" "$(echo "$out" | grep -A2 '"name": "hello.txt"')" '"paused": true'
+"$TORRNADO" resume "$SAMPLE_IH" >/dev/null 2>&1
+
+if command -v jq >/dev/null 2>&1; then
+	if echo "$out" | jq -e 'type == "array" and all(.[]; has("id") and has("state") and has("ratio"))' >/dev/null 2>&1; then
+		pass "the output is valid JSON with the contracted keys"
+	else
+		fail "the output is valid JSON with the contracted keys" "jq rejected it"
+	fi
+fi
+
+out=$("$TORRNADO" status --json 2>&1)
+assert_contains "status --json says a daemon is running" "$out" '"running": true'
+assert_contains "...and answering" "$out" '"answering": true'
+assert_contains "...and which process it is" "$out" "\"pid\": $(daemon_pid),"
+assert_contains "...and where it is listening" "$out" "\"socket\": \"$SOCKET\""
+assert_failure "--json with --watch is refused" "$TORRNADO" list --json --watch
+assert_failure "--json with --quiet is refused" "$TORRNADO" status --json --quiet
+
+# With nothing running: an empty data directory, so there is no daemon to
+# find. Asking must not start one, and is not itself a failure - the
+# answer is in the document.
+out=$(XDG_DATA_HOME="$E2E_TMP/empty-data" "$TORRNADO" status --json 2>&1)
+rc=$?
+assert_contains "with no daemon, running is false" "$out" '"running": false'
+assert_contains "...and nothing is answering" "$out" '"answering": false'
+if [ "$rc" -eq 0 ]; then
+	pass "...and the exit status is still 0"
+else
+	fail "...and the exit status is still 0" "got $rc"
+fi
+if [ ! -S "$E2E_TMP/empty-data/torrnado/daemon.sock" ]; then
+	pass "...and asking did not start a daemon"
+else
+	fail "...and asking did not start a daemon" "a socket appeared"
+fi
+
+echo
 echo "pause and resume"
 
 # Pause is not just a flag: the daemon tells the torrent to stop asking

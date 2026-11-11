@@ -303,15 +303,28 @@ func newPreviewCmd() *cobra.Command {
 }
 
 func newListCmd() *cobra.Command {
-	var watch bool
+	var watch, asJSON bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List torrents known to the daemon",
+		Long: "Lists the daemon's torrents as a table.\n\n" +
+			"With --json it prints an array instead, one object per torrent, for a\n" +
+			"script to read: sizes in bytes, rates in bytes per second, progress as\n" +
+			"a fraction, and null where a value is not known. The fields are listed\n" +
+			"in the command-line guide.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Before connecting: a refused combination must not be what
+			// starts a daemon.
+			if err := checkListFlags(asJSON, watch); err != nil {
+				return err
+			}
 			return withClient(func(c *ipc.Client) error {
 				snaps, err := c.List()
 				if err != nil {
 					return err
+				}
+				if asJSON {
+					return writeTorrentsJSON(os.Stdout, snaps)
 				}
 				if !watch {
 					return writeTorrentTable(os.Stdout, snaps)
@@ -322,6 +335,7 @@ func newListCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false,
 		"redraw as the daemon reports changes, until interrupted")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "print a JSON array instead of a table")
 	return cmd
 }
 

@@ -32,7 +32,7 @@ const statusWait = 2500 * time.Millisecond
 // reporting it as "not running" is how someone ends up starting a second
 // daemon on the same data directory.
 func newStatusCmd() *cobra.Command {
-	var quiet bool
+	var quiet, asJSON bool
 
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -42,9 +42,16 @@ func newStatusCmd() *cobra.Command {
 			"Unlike every other subcommand this never starts a daemon: asking\n" +
 			"whether one is running must not be what makes one run.\n\n" +
 			"With --quiet it prints nothing and reports the answer as its exit\n" +
-			"status: 0 if a daemon is running, 1 if not.",
+			"status: 0 if a daemon is running, 1 if not.\n\n" +
+			"With --json it prints one object for a script to read. Whether a\n" +
+			"daemon is running and whether it is answering are separate fields, and\n" +
+			"what the daemon says about itself is null unless it answered. The exit\n" +
+			"status is 0 either way - the answer is in the document.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkStatusFlags(quiet, asJSON); err != nil {
+				return err
+			}
 			cfg, _, err := loadConfig()
 			if err != nil {
 				return err
@@ -52,6 +59,9 @@ func newStatusCmd() *cobra.Command {
 			info, err := ipc.DaemonInfo(cfg.DaemonSocket)
 			if err != nil {
 				return err
+			}
+			if asJSON {
+				return writeStatusJSON(cmd.OutOrStdout(), cfg.DaemonSocket, info)
 			}
 			if quiet {
 				if !info.Running {
@@ -66,6 +76,7 @@ func newStatusCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false,
 		"print nothing; exit 0 if a daemon is running, 1 if not")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "print one JSON object instead of the report")
 	return cmd
 }
 
