@@ -4,6 +4,16 @@ Every release, newest first. Generated from the commit log by
 [git-cliff](https://git-cliff.org) - run `make changelog` rather than
 editing this file by hand.
 
+## 0.11.0 - 2026-11-11
+
+### Features
+
+- **cli:** Name a torrent by the front of its id, or by its name
+- **cli:** List and status can print JSON
+- Say so when the daemon is not the build the client is
+- **tui:** Show this build and the daemon's on the help screen
+- **brew:** A service block, so `brew services start torrnado` works
+
 ## 0.10.1 - 2026-11-10
 
 ### Bug fixes
