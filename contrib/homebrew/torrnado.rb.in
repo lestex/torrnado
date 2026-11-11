@@ -33,12 +33,40 @@ class Torrnado < Formula
     man1.install "torrnado.1"
   end
 
+  # `brew services start torrnado` runs the daemon at login, so seeding
+  # carries on without a terminal having to ask for it. Optional: the
+  # daemon is also started by any command that needs one.
+  #
+  # Restarted unless it exited cleanly, which is what lets `torrnado stop`
+  # mean stop. "Always" would have launchd bring it straight back, and a
+  # daemon that cannot be stopped is worse than one that has to be started.
+  # A crash, and the library's assertion failures exit non-zero, still get a
+  # fresh one. The same setting is `Restart=on-failure` under systemd.
+  service do
+    run [opt_bin/"torrnado", "daemon"]
+    keep_alive successful_exit: false
+    # A launchd job gets a bare PATH, and the daemon runs the on_complete
+    # hook, the player and the file manager from its own environment - a
+    # hook that names a program from Homebrew would not find it.
+    environment_variables PATH: std_service_path_env
+    # The daemon logs to stderr unless told otherwise, which is what a
+    # service manager wants.
+    log_path var/"log/torrnado.log"
+    error_log_path var/"log/torrnado.log"
+  end
+
   def caveats
     <<~EOS
       torrnado runs a background daemon that outlives the TUI. Run
         torrnado stop
       before `brew uninstall` or `brew upgrade`, or the old daemon keeps
       running from the removed binary.
+
+      To start it at login instead of whenever a command needs it:
+        brew services start torrnado
+      `torrnado stop` ends the daemon for now; `brew services stop torrnado`
+      also keeps it from starting at login. After an upgrade,
+      `brew services restart torrnado` picks up the new build.
 
       Uninstalling leaves your config and the daemon's state in place:
         ~/.config/torrnado

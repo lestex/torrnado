@@ -49,6 +49,29 @@ files.
     as quarantined, so `brew install` needs nothing from you here.
     Unpacking an archive by hand does: `xattr -dr com.apple.quarantine ./torrnado`.
 
+### Starting it at login
+
+The formula carries a service definition, so Homebrew can run the daemon for
+you instead of a command starting it the first time it is needed:
+
+```sh
+brew services start torrnado     # now, and at every login
+brew services stop torrnado      # and no longer at login
+```
+
+It runs `torrnado daemon` as you, so do not use `sudo`, and logs to
+`$(brew --prefix)/var/log/torrnado.log`. It is restarted if it exits
+unsuccessfully - a crash - but not if it was stopped on purpose: `torrnado
+stop` still means stop, and the daemon stays down until the next login or
+`brew services start`. The same rule is `KeepAlive` with `SuccessfulExit =
+false` under launchd and `Restart=on-failure` under systemd.
+
+The service is optional, and you can switch between the two. A daemon that is
+already running holds the lock, so a service started beside it exits at once
+with `another daemon already holds ... daemon.sock.lock` in the log;
+`torrnado stop` the first one, then start the service. After an upgrade,
+`brew services restart torrnado` picks up the new build.
+
 ## The one-liner
 
 ```sh
@@ -170,12 +193,14 @@ Then remove what the install put in place:
 === "Homebrew"
 
     ```sh
+    brew services stop torrnado                      # only if you started it that way
     brew uninstall torrnado                          # binary and man page
     rm -r ~/.config/torrnado ~/.local/share/torrnado   # config and daemon state
     ```
 
-    Homebrew cannot stop the daemon for you: a formula has no hook that
-    runs when it is uninstalled.
+    Homebrew cannot stop the daemon for you when you uninstall: a formula has
+    no hook that runs then. `brew services stop` does, for a daemon it
+    started; any other still needs `torrnado stop` first.
 
 === "Install script or archive"
 

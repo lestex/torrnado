@@ -15,7 +15,8 @@ thin client that connects to it over a Unix domain socket
   interrupted (Ctrl-C) or sent SIGTERM. This is what gets spawned in the
   background automatically, but you can also run it yourself directly if
   you'd rather manage it with systemd/launchd/tmux than let torrnado
-  manage it.
+  manage it. With Homebrew, `brew services start torrnado` does exactly that
+  - see [Installation](../getting-started/installation.md#starting-it-at-login).
 - **`torrnado status`** reports whether a daemon owns the socket, and
   **`torrnado stop`** shuts it down and waits. Both identify it by the
   lock it holds rather than by process name; `status` is the one
