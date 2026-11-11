@@ -10,7 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func main() {
+// newRootCmd builds the whole command tree. A function rather than inline
+// in main so a test can walk it.
+func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "torrnado",
 		Short: "A terminal BitTorrent client",
@@ -57,8 +59,11 @@ func main() {
 	// other is what a script or a bug report asks for.
 	root.Version = currentBuild().String()
 	root.SetVersionTemplate("torrnado {{.Version}}\n")
+	return root
+}
 
-	if err := root.Execute(); err != nil {
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
 		// An empty message is `torrnado status --quiet` reporting its
 		// answer as an exit status; printing "error:" alone would be
 		// noise in a shell condition.

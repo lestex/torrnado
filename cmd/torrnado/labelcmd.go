@@ -23,7 +23,8 @@ func newLabelCmd() *cobra.Command {
 			"There is no separate step to create a label: one exists while some\n" +
 			"torrent carries it, and stops existing when the last torrent drops\n" +
 			"it. So there is nothing to tidy up, and nothing to delete.\n\n" +
-			"A torrent has one label at a time; setting another replaces it.",
+			"A torrent has one label at a time; setting another replaces it.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeLabelArgs,
 		// --clear takes ids only, so it needs one argument where setting a
 		// label needs two. Cobra parses flags before it validates args,
 		// so this can read the flag it depends on.
