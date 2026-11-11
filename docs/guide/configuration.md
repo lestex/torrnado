@@ -148,6 +148,100 @@ split, which keeps a directory with a space in its name a single argument.
 The program is detached: quitting the TUI does not close the window it
 opened.
 
+## When a torrent finishes
+
+`on_complete` runs a command once when a torrent finishes downloading. It is
+given the torrent's folder as its last argument - or wherever `%f` is - and
+these environment variables, so a script need not parse them back out of a
+path:
+
+| Variable | Value |
+| --- | --- |
+| `TORRNADO_NAME` | the torrent's name |
+| `TORRNADO_ID` | its id, the hex info hash |
+| `TORRNADO_PATH` | its folder, the same as the argument |
+| `TORRNADO_SIZE` | its size in bytes |
+
+The command is split on spaces and run directly, never through a shell, and
+`~` is **not** expanded in it. So anything beyond a program and its flags
+belongs in a script, and the setting is the script's absolute path - with no
+space in it, since there is no quoting. It runs in the daemon's working
+directory, not the torrent's, so use the folder it is given rather than
+assuming where it is. The [caveats](../reference/caveats.md) say the rest:
+it runs once per torrent, is not waited for, and does not re-run for a
+torrent that was already finished when the daemon started.
+
+### A desktop notification
+
+Put the script somewhere, make it executable, and point `on_complete` at its
+full path.
+
+=== "macOS"
+
+    `~/.config/torrnado/notify.sh`:
+
+    ```sh
+    #!/bin/sh
+    osascript - "$TORRNADO_NAME" <<'EOF'
+    on run argv
+        display notification (item 1 of argv) with title "torrnado" subtitle "Download finished"
+    end run
+    EOF
+    ```
+
+=== "Linux"
+
+    `~/.config/torrnado/notify.sh`:
+
+    ```sh
+    #!/bin/sh
+    # Notification bodies may carry markup, so a name is escaped rather than
+    # trusted to be plain text.
+    name=$(printf '%s' "$TORRNADO_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+    notify-send --app-name=torrnado --icon=folder-download -- "Download finished" "$name"
+    ```
+
+```sh
+chmod +x ~/.config/torrnado/notify.sh
+```
+
+```toml
+on_complete = "/home/you/.config/torrnado/notify.sh"   # /Users/you/... on macOS
+```
+
+!!! warning "Never build the name into the script's text"
+
+    A torrent's name is whatever its creator typed, and anyone can make a
+    torrent. A one-liner like `osascript -e "display notification
+    \"$TORRNADO_NAME\""` lets a name containing a quote end the string and
+    carry on as AppleScript - including `do shell script`, which runs
+    commands as you. The macOS recipe hands the name over as an argument
+    instead, which is data and cannot be anything else. Do the same in
+    anything you write: quote `"$TORRNADO_NAME"`, and pass it as an argument
+    rather than splicing it into code.
+
+### If nothing happens
+
+The hook's output is discarded, so a script that fails does so silently.
+Run it by hand with the variables set, which shows what the daemon would see:
+
+```sh
+TORRNADO_NAME="Some Show" TORRNADO_PATH=/tmp ~/.config/torrnado/notify.sh /tmp
+```
+
+The daemon's log says whether it got as far as starting the command:
+`on_complete hook started`, or `the on_complete hook failed to start` with the
+reason. The three usual ones, as they appear:
+
+| In the log | What it means |
+| --- | --- |
+| `fork/exec /path/notify.sh: permission denied` | the script is not executable: `chmod +x` it |
+| `exec: "notify.sh": executable file not found in $PATH` | the path is relative; give the full one |
+| `launch /Users/me/My: fork/exec /Users/me/My: no such file or directory` | there is a space in the path, which split it in two; move the script |
+
+If the script runs by hand but shows nothing on macOS, check that
+notifications are allowed for Script Editor in System Settings.
+
 ## Requiring a VPN
 
 ```toml
