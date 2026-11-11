@@ -27,6 +27,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case engineEventMsg:
 		m.torrents = msg.Torrents
 		m.global = msg.Global
+		skewCmd := m.noteVersionSkew()
 		m = m.dropVanishedLabelFilter()
 		// Now that the torrents are in hand, drop whatever is hiding one
 		// that was just added, and say so - changing the view without a
@@ -41,7 +42,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clampCursor(len(m.visibleTorrents()))
 		// Cmds run once, so listening again is what keeps the stream
 		// flowing. The docked pane is refreshed on the same tick.
-		return m, tea.Batch(listenForEvents(m.events), m.syncDetail(), revealCmd)
+		return m, tea.Batch(listenForEvents(m.events), m.syncDetail(), revealCmd, skewCmd)
 
 	case tea.MouseMsg:
 		return m.handleMouse(msg)

@@ -130,5 +130,18 @@ it as a diagnostic. Pausing the torrent calls off one you regret.
 outliving its clients is the design, so a freshly built TUI may attach to
 a daemon started days ago. The wire format has no version handshake: a
 field the old daemon has never heard of arrives as a zero value, which
-shows up as something quietly missing rather than an error. Restart the
-daemon after upgrading.
+shows up as something quietly missing rather than an error.
+
+The TUI and `torrnado status` compare the daemon's build with their own and
+say when the two differ. The TUI puts `! daemon differs` in the sidebar's
+daemon block for as long as it is true, and names both builds in the status
+line when it first attaches; `status` ends with a Warning section. The fix
+is to restart the daemon: `torrnado stop`, and the next command starts a
+fresh one. Nothing else checks - the other commands do not otherwise wait to
+hear from the daemon, and would pay for it on every call.
+
+The check is strict on purpose. A patch release is often compatible, but the
+same build is the only thing known to be, and the advice after any upgrade is
+to restart the daemon anyway. It also cannot tell which of the two is the
+older, so it does not claim that restarting will help - it will only if the
+daemon is the older one.

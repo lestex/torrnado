@@ -59,6 +59,8 @@ last being a daemon busy enough with a hash check to miss a connection,
 which is worth knowing precisely because mistaking it for a dead one is
 how two engines end up on a single data directory. `--quiet` prints
 nothing and reports the answer as its exit status, for shell conditions.
+When the daemon is not the build running the command, it ends with a
+warning saying so - see [Non-goals and caveats](../reference/caveats.md).
 
 `torrnado stop` asks that same daemon to shut down - over the socket it
 is already listening on - and waits for it to exit, which is when it has

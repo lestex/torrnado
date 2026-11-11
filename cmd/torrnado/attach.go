@@ -44,6 +44,7 @@ func runAttach(cmd *cobra.Command, args []string) error {
 		ThemesDir: themesDir,
 		Player:    cfg.Player,
 		Opener:    cfg.Opener,
+		Version:   currentBuild().String(),
 	})
 	// WithMouseCellMotion gives clicks, releases and the wheel; "all
 	// motion" would add hover, which nothing here uses and which fewer

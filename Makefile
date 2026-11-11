@@ -84,7 +84,16 @@ test-race: ## Run all tests with the race detector
 # (the script refuses to run outside that container anyway).
 E2E_TESTS := $(filter-out e2e/systemd_test.sh,$(wildcard e2e/*_test.sh))
 
+# A second build of the same source, stamped as an earlier release. One e2e
+# test starts a daemon from it and talks to that daemon with the real
+# binary - the situation after an upgrade, where the daemon is older than
+# the client. Built here rather than by the test: the tests give themselves
+# a throwaway HOME so they cannot touch a real daemon, and a go build under
+# a throwaway HOME has no module cache to build from.
+E2E_OLD := $(BINARY)-e2e-old
+
 e2e: build ## Drive the built binary through the shell tests
+	@$(GO) build -ldflags "-X main.version=0.0.1-e2e-old -X main.commit=000000e2e000" -o $(E2E_OLD) ./cmd/torrnado
 	@for t in $(E2E_TESTS); do \
 		echo "== $$t"; \
 		bash "$$t" || exit 1; \
@@ -196,5 +205,5 @@ formula: ## Print the Homebrew formula for a released tag (make formula TAG=v0.1
 	@contrib/homebrew/render.sh $(TAG)
 
 clean: ## Remove build artifacts
-	rm -f $(BINARY) coverage.out
+	rm -f $(BINARY) $(E2E_OLD) coverage.out
 	rm -rf site

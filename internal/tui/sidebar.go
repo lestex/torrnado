@@ -136,6 +136,9 @@ func (m Model) buildSidebar(p panes) (lines []string, rowEntry []int) {
 	// at the bottom of the sidebar so the footer can stay one line.
 	g := m.global
 	stats := []string{m.daemonHeading(w)}
+	if line, ok := m.skewLine(w); ok {
+		stats = append(stats, line)
+	}
 	if line, ok := m.vpnLine(w); ok {
 		stats = append(stats, line)
 	}
@@ -204,6 +207,9 @@ func (m Model) daemonBlockRows() int {
 	if _, ok := m.vpnLine(0); ok {
 		rows++
 	}
+	if _, ok := m.skewLine(0); ok {
+		rows++
+	}
 	return rows
 }
 
@@ -221,6 +227,23 @@ func (m Model) diskLine(w int) string {
 		return m.styles.Error.Render(truncate("free: "+free+" - held", w))
 	}
 	return m.styles.Muted.Render(truncate("free: "+free, w))
+}
+
+// skewLine flags a daemon that is not this build, and whether there is
+// anything to flag.
+//
+// Drawn only when the two differ, like vpnLine, and in the warning style
+// rather than the error one: the daemon is working, it is just not the
+// version this interface was built against, so something it was never
+// told about may be quietly missing. The words are short because the
+// sidebar is narrow; what the two builds are, and the fix, went out as a
+// status message the first time it was noticed, and `torrnado status`
+// says it at length.
+func (m Model) skewLine(w int) (string, bool) {
+	if m.versionNote == "" {
+		return "", false
+	}
+	return m.styles.Warning.Render(truncate("! daemon differs", w)), true
 }
 
 // vpnLine reports the VPN guard, and whether there is anything to report.

@@ -434,6 +434,44 @@ custom_pid=$(lsof -t "$CUSTOM_SOCK" 2>/dev/null | head -1)
 [ -n "$custom_pid" ] && kill "$custom_pid" 2>/dev/null
 
 echo
+echo "a daemon of another build"
+
+# The daemon outlives its clients, so a client routinely meets one that is
+# not its own build. A second binary from the same source, stamped as an
+# earlier release, stands in for the daemon someone left running before an
+# upgrade. `make e2e` builds it; run the script by hand without it and this
+# section says so rather than failing.
+OLD="$REPO_ROOT/torrnado-e2e-old"
+if [ -x "$OLD" ]; then
+	# Short names, and no nesting: a macOS socket path tops out near 104
+	# characters, and this temp directory already spends most of them. The
+	# data directory is $SKEW itself, so the socket is $SKEW/torrnado/.
+	SKEW="$E2E_TMP/sk"
+	mkdir -p "$SKEW" "$E2E_TMP/skh"
+	skew_env() { env HOME="$E2E_TMP/skh" XDG_DATA_HOME="$SKEW" "$@"; }
+	# This daemon is not the one setup_env knows about, so it needs its own
+	# cleanup - and it must run even if the script is interrupted.
+	stop_skew() { skew_env "$TORRNADO" stop >/dev/null 2>&1; }
+	trap 'stop_skew; teardown' EXIT
+
+	# The old binary starts a daemon from itself.
+	skew_env "$OLD" list >/dev/null 2>&1
+	out=$(skew_env "$TORRNADO" status 2>&1)
+	assert_contains "status names the daemon's build" "$out" "0.0.1-e2e-old"
+	assert_contains "status warns that it is not this build" "$out" "Warning"
+	assert_contains "...and says how to restart it" "$out" "torrnado stop"
+	assert_success "an older daemon can still be stopped by a newer client" skew_env "$TORRNADO" stop
+	stop_skew
+
+	# The same build is not warned about: the daemon the rest of this script
+	# has been using is this binary's own.
+	out=$("$TORRNADO" status 2>&1)
+	assert_not_contains "a daemon of this build is not warned about" "$out" "Warning"
+else
+	echo "  skip  no $OLD - 'make e2e' builds it"
+fi
+
+echo
 echo "shutdown"
 
 pid=$(daemon_pid)
