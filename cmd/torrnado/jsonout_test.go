@@ -224,11 +224,15 @@ func decodeStatus(t *testing.T, st statusJSON) map[string]any {
 
 var statusNow = time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
 
-func TestStatusJSONKeysAreTheContract(t *testing.T) {
-	got := keysOf(decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{}, engine.GlobalStats{}, false, statusNow)))
+// statusClient is the build "this" torrnado is, in the status tests.
+const statusClient = clientBuild
 
-	want := []string{"answering", "disk", "listen_port", "lock", "pid", "running",
-		"socket", "started_at", "transfers", "uptime_seconds", "version", "vpn"}
+func TestStatusJSONKeysAreTheContract(t *testing.T) {
+	got := keysOf(decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{}, engine.GlobalStats{}, false, statusNow, statusClient)))
+
+	want := []string{"answering", "client_version", "disk", "listen_port", "lock", "pid",
+		"running", "socket", "started_at", "transfers", "uptime_seconds", "version",
+		"version_skew", "vpn"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("status keys changed:\n got  %v\n want %v", got, want)
 	}
@@ -236,7 +240,7 @@ func TestStatusJSONKeysAreTheContract(t *testing.T) {
 
 func TestStatusWhenNothingIsRunning(t *testing.T) {
 	st := buildStatusJSON("/run/torrnado.sock", ipc.DaemonStatus{LockPath: "/run/torrnado.sock.lock"},
-		engine.GlobalStats{}, false, statusNow)
+		engine.GlobalStats{}, false, statusNow, statusClient)
 	m := decodeStatus(t, st)
 
 	if m["running"] != false || m["answering"] != false {
@@ -256,7 +260,7 @@ func TestStatusWhenNothingIsRunning(t *testing.T) {
 // means two engines on one data directory - so it is its own answer.
 func TestARunningDaemonThatDoesNotAnswerIsNotADeadOne(t *testing.T) {
 	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true, PID: 4242, LockPath: "/s.lock"},
-		engine.GlobalStats{}, false, statusNow))
+		engine.GlobalStats{}, false, statusNow, statusClient))
 
 	if m["running"] != true || m["answering"] != false {
 		t.Errorf("running=%v answering=%v, want true and false", m["running"], m["answering"])
@@ -277,7 +281,7 @@ func TestAnAnsweringDaemonReportsItself(t *testing.T) {
 		VPNRequired: true, VPNActive: true, VPNInterface: "utun4",
 		DiskFreeBytes: 100, DiskTotalBytes: 1000, DiskLow: true, MinFreeSpace: 200,
 	}
-	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true, PID: 7}, g, true, statusNow))
+	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true, PID: 7}, g, true, statusNow, statusClient))
 
 	if m["answering"] != true || m["version"] != "0.10.1 (da4134de07be)" || m["listen_port"] != 51413.0 {
 		t.Errorf("identity: %v", m)
@@ -301,7 +305,7 @@ func TestAnAnsweringDaemonReportsItself(t *testing.T) {
 // ordinary. What it cannot say is null, not a made-up zero.
 func TestADaemonTooOldToReportItselfGivesNullsNotInventions(t *testing.T) {
 	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true, PID: 7},
-		engine.GlobalStats{NumTorrents: 3}, true, statusNow))
+		engine.GlobalStats{NumTorrents: 3}, true, statusNow, statusClient))
 
 	for _, key := range []string{"version", "started_at", "uptime_seconds", "listen_port", "disk"} {
 		if m[key] != nil {
@@ -315,7 +319,7 @@ func TestADaemonTooOldToReportItselfGivesNullsNotInventions(t *testing.T) {
 
 func TestAnUnpidedDaemonHasANullPID(t *testing.T) {
 	// A daemon from before the pid was recorded.
-	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true}, engine.GlobalStats{}, true, statusNow))
+	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: true}, engine.GlobalStats{}, true, statusNow, statusClient))
 	if m["pid"] != nil {
 		t.Errorf("pid = %v, want null rather than 0", m["pid"])
 	}
@@ -324,7 +328,7 @@ func TestAnUnpidedDaemonHasANullPID(t *testing.T) {
 func TestThePIDAndAnswerCannotContradictRunning(t *testing.T) {
 	// Not running, yet "answering": the probe should never have been made,
 	// but if it somehow was, nothing running cannot be answering.
-	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: false}, engine.GlobalStats{Version: "x"}, true, statusNow))
+	m := decodeStatus(t, buildStatusJSON("/s", ipc.DaemonStatus{Running: false}, engine.GlobalStats{Version: "x"}, true, statusNow, statusClient))
 	if m["answering"] != false || m["version"] != nil {
 		t.Errorf("a daemon that is not running answered: %v", m)
 	}
@@ -345,5 +349,78 @@ func TestContradictoryFlagsAreRefused(t *testing.T) {
 	}
 	if err := checkStatusFlags(false, true); err != nil || checkStatusFlags(true, false) != nil {
 		t.Errorf("a single flag refused")
+	}
+}
+
+// ---- version skew in status
+
+func skewOf(t *testing.T, info ipc.DaemonStatus, daemon string, answering bool, client string) map[string]any {
+	t.Helper()
+	return decodeStatus(t, buildStatusJSON("/s", info, engine.GlobalStats{Version: daemon}, answering, statusNow, client))
+}
+
+// A mismatch is exactly what a script wants to branch on: restart the daemon
+// if it is stale. It is the same comparison the TUI and the text report make.
+func TestADaemonOfAnotherBuildIsSkewedInTheJSON(t *testing.T) {
+	m := skewOf(t, ipc.DaemonStatus{Running: true, PID: 7}, daemonBuild, true, statusClient)
+
+	if m["version_skew"] != true {
+		t.Errorf("version_skew = %v, want true", m["version_skew"])
+	}
+	if m["version"] != daemonBuild || m["client_version"] != statusClient {
+		t.Errorf("the two builds are not both said: version=%v client_version=%v", m["version"], m["client_version"])
+	}
+}
+
+func TestTheSameBuildIsFalseNotNull(t *testing.T) {
+	// false is an answer - "checked, and the same" - where null would say
+	// nothing was compared.
+	m := skewOf(t, ipc.DaemonStatus{Running: true, PID: 7}, statusClient, true, statusClient)
+
+	if m["version_skew"] != false {
+		t.Errorf("version_skew = %v, want false", m["version_skew"])
+	}
+}
+
+// A daemon older than the version field reports nothing, and that is not
+// "unknown, so fine": it is by definition not this build.
+func TestADaemonTooOldToReportItsVersionIsSkewed(t *testing.T) {
+	m := skewOf(t, ipc.DaemonStatus{Running: true, PID: 7}, "", true, statusClient)
+
+	if m["version_skew"] != true || m["version"] != nil {
+		t.Errorf("version_skew=%v version=%v, want true and null", m["version_skew"], m["version"])
+	}
+}
+
+// Nothing to compare against, so nothing is claimed either way.
+func TestSkewIsNullWhenThereIsNoDaemonToCompare(t *testing.T) {
+	for name, tc := range map[string]struct {
+		info      ipc.DaemonStatus
+		answering bool
+	}{
+		"nothing running":        {ipc.DaemonStatus{}, false},
+		"running, not answering": {ipc.DaemonStatus{Running: true, PID: 7}, false},
+	} {
+		m := skewOf(t, tc.info, daemonBuild, tc.answering, statusClient)
+		if m["version_skew"] != nil {
+			t.Errorf("%s: version_skew = %v, want null", name, m["version_skew"])
+		}
+		// This build is a fact about the caller and does not wait on a daemon.
+		if m["client_version"] != statusClient {
+			t.Errorf("%s: client_version = %v, want this build even with nothing running", name, m["client_version"])
+		}
+	}
+}
+
+// A client that cannot say what it is has nothing to compare, and "not
+// skewed" would be a claim about a comparison that never happened.
+func TestAClientThatCannotNameItselfClaimsNothing(t *testing.T) {
+	m := skewOf(t, ipc.DaemonStatus{Running: true, PID: 7}, daemonBuild, true, "")
+
+	if m["version_skew"] != nil {
+		t.Errorf("version_skew = %v, want null", m["version_skew"])
+	}
+	if m["client_version"] != "" {
+		t.Errorf("client_version = %v, want the empty string it was given", m["client_version"])
 	}
 }

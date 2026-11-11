@@ -216,6 +216,8 @@ assert_contains "status --json says a daemon is running" "$out" '"running": true
 assert_contains "...and answering" "$out" '"answering": true'
 assert_contains "...and which process it is" "$out" "\"pid\": $(daemon_pid),"
 assert_contains "...and where it is listening" "$out" "\"socket\": \"$SOCKET\""
+assert_contains "...and which build this torrnado is" "$out" '"client_version":'
+assert_contains "a daemon of this build is not skewed" "$out" '"version_skew": false'
 assert_failure "--json with --watch is refused" "$TORRNADO" list --json --watch
 assert_failure "--json with --quiet is refused" "$TORRNADO" status --json --quiet
 
@@ -226,6 +228,8 @@ out=$(XDG_DATA_HOME="$E2E_TMP/empty-data" "$TORRNADO" status --json 2>&1)
 rc=$?
 assert_contains "with no daemon, running is false" "$out" '"running": false'
 assert_contains "...and nothing is answering" "$out" '"answering": false'
+assert_contains "...so there is no mismatch to report" "$out" '"version_skew": null'
+assert_contains "...though this build is still said" "$out" '"client_version":'
 if [ "$rc" -eq 0 ]; then
 	pass "...and the exit status is still 0"
 else
@@ -460,6 +464,9 @@ if [ -x "$OLD" ]; then
 	assert_contains "status names the daemon's build" "$out" "0.0.1-e2e-old"
 	assert_contains "status warns that it is not this build" "$out" "Warning"
 	assert_contains "...and says how to restart it" "$out" "torrnado stop"
+	out=$(skew_env "$TORRNADO" status --json 2>&1)
+	assert_contains "status --json flags the mismatch" "$out" '"version_skew": true'
+	assert_contains "...and names the daemon's build" "$out" '"version": "0.0.1-e2e-old'
 	assert_success "an older daemon can still be stopped by a newer client" skew_env "$TORRNADO" stop
 	stop_skew
 
