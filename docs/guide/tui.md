@@ -33,7 +33,10 @@ highlighted border, and it's where `j`/`k` go:
   the filter clears any selection, and so does changing the search: the
   batch operations act on what is marked rather than on what is drawn, so
   a mark left armed under a filter or search that hides it would reach a
-  torrent that is not on screen.
+  torrent that is not on screen. Its bottom block reports the daemon: the
+  listen port, DHT nodes and free space, the VPN guard when it is on, and
+  `! daemon differs` when the daemon is not the build this interface is -
+  see [the caveats](../reference/caveats.md).
 - **List** shows one torrent per line. Progress is a column - a bar
   followed by its percentage - rather than an underline beneath the name.
   A wide enough pane also shows size, status, both speeds and the ETA; a

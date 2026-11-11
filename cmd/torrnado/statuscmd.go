@@ -133,7 +133,33 @@ func writeStatusReport(out io.Writer, cfg config.Config, info ipc.DaemonStatus) 
 		fmt.Fprintf(w, "  disk free\t%s of %s\n",
 			format.Bytes(global.DiskFreeBytes), format.Bytes(global.DiskTotalBytes))
 	}
+	writeVersionSkew(w, currentBuild().String(), global)
 	return w.Flush()
+}
+
+// writeVersionSkew says so when the daemon is not the build this command
+// is, and nothing when it is.
+//
+// It is here because the daemon outlives its clients by design and the wire
+// has no handshake: a field the daemon has never heard of arrives as its
+// zero value, which reads as something quietly missing rather than as an
+// error, and `status` is where someone goes to ask what is going on.
+//
+// The advice is hedged on purpose. Build strings are not ordered, so this
+// cannot tell whether the daemon is the older of the two - and restarting
+// it only helps if it is.
+func writeVersionSkew(w io.Writer, client string, global engine.GlobalStats) {
+	note, skewed := engine.VersionSkew(client, global.Version)
+	if !skewed {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Warning")
+	fmt.Fprintf(w, "  %s\n", note)
+	fmt.Fprintln(w, "  A client newer than its daemon can find things quietly missing: a field")
+	fmt.Fprintln(w, "  the daemon has never heard of arrives as zero, not as an error. If the")
+	fmt.Fprintln(w, "  daemon is the older, `torrnado stop` ends it and the next command starts")
+	fmt.Fprintln(w, "  one that matches.")
 }
 
 // probeDaemon connects and waits for the first pushed event, which is

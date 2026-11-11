@@ -8,6 +8,7 @@
 package tui
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -115,6 +116,17 @@ type Model struct {
 	torrents []engine.TorrentSnapshot
 	global   engine.GlobalStats
 
+	// clientVersion is this build, to compare with what the daemon
+	// reports. Empty means "not given", and then nothing is compared.
+	clientVersion string
+	// versionNote is why the daemon is not this build, or empty when it
+	// is. Kept rather than recomputed because the sidebar draws from it on
+	// every frame.
+	versionNote string
+	// skewSaid records that the mismatch has been announced once. The
+	// sidebar line stays; the message does not repeat on every tick.
+	skewSaid bool
+
 	// daemonDown records that the event stream has ended. One-way: the
 	// client does not redial, so a daemon that comes back needs the TUI
 	// restarted, and a dot that went green again would be lying.
@@ -221,6 +233,11 @@ type Options struct {
 	Player string
 	// Opener is the command used to show a torrent's folder.
 	Opener string
+	// Version is this build's version string, as the daemon builds its
+	// own: the same text means the same binary. The interface compares it
+	// with the daemon's and says so when they differ, because the daemon
+	// outlives its clients and nothing else notices. Empty skips the check.
+	Version string
 }
 
 // New builds the initial Model. The client and its Events() channel must
@@ -234,8 +251,36 @@ func New(o Options) Model {
 		player:    o.Player,
 		opener:    o.Opener,
 		selected:  map[engine.TorrentID]bool{},
+
+		clientVersion: o.Version,
 	}
 	return m.applyTheme(o.Theme)
+}
+
+// noteVersionSkew compares this build with the daemon's, keeps the answer
+// for the sidebar, and says so once.
+//
+// Said once because the condition does not change for the life of the
+// connection - a daemon cannot become another build - so repeating it on
+// every tick would only bury whatever else wanted the status line. The
+// sidebar carries it for as long as it is true.
+//
+// Run on every event rather than once at start, because the first event is
+// the first the model has heard of the daemon's version at all: before it,
+// the version is empty and would read as a daemon too old to report one.
+func (m *Model) noteVersionSkew() tea.Cmd {
+	note, skewed := engine.VersionSkew(m.clientVersion, m.global.Version)
+	if !skewed {
+		m.versionNote = ""
+		return nil
+	}
+	m.versionNote = note
+	if m.skewSaid {
+		return nil
+	}
+	m.skewSaid = true
+	return m.setStatus(errStatus(fmt.Errorf(
+		"%s - `torrnado stop` restarts the daemon on the next launch", note)))
 }
 
 func (m Model) Init() tea.Cmd {
