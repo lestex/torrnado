@@ -138,7 +138,8 @@ shows up as something quietly missing rather than an error.
 The TUI and `torrnado status` compare the daemon's build with their own and
 say when the two differ. The TUI puts `! daemon differs` in the sidebar's
 daemon block for as long as it is true, and names both builds in the status
-line when it first attaches; `status` ends with a Warning section. The fix
+line when it first attaches; `status` ends with a Warning section, and
+`status --json` reports it as `version_skew`. The fix
 is to restart the daemon: `torrnado stop`, and the next command starts a
 fresh one. Nothing else checks - the other commands do not otherwise wait to
 hear from the daemon, and would pay for it on every call.

@@ -148,7 +148,16 @@ type statusJSON struct {
 	Lock      string `json:"lock"`
 	// Version is the daemon's own build string, null for a daemon too old
 	// to report it - which is ordinary, since it outlives its clients.
-	Version       *string        `json:"version"`
+	Version *string `json:"version"`
+	// ClientVersion is the build of the torrnado that ran this command,
+	// and is always present: it is a fact about the caller, not something
+	// the daemon has to answer for.
+	ClientVersion string `json:"client_version"`
+	// VersionSkew is whether the daemon is a different build from that one,
+	// the same comparison the TUI and the text report make. true includes a
+	// daemon too old to report a version at all. null when there is nothing
+	// to compare: no daemon, one that did not answer, or no client version.
+	VersionSkew   *bool          `json:"version_skew"`
 	StartedAt     *time.Time     `json:"started_at"`
 	UptimeSeconds *int64         `json:"uptime_seconds"`
 	ListenPort    *int           `json:"listen_port"`
@@ -183,13 +192,15 @@ type diskJSON struct {
 }
 
 // buildStatusJSON assembles the report from what was observed. Pure, with
-// the clock passed in, so a test can pin an uptime.
-func buildStatusJSON(socket string, info ipc.DaemonStatus, global engine.GlobalStats, answering bool, now time.Time) statusJSON {
+// the clock and the client's own build passed in, so a test can pin an
+// uptime and a version.
+func buildStatusJSON(socket string, info ipc.DaemonStatus, global engine.GlobalStats, answering bool, now time.Time, client string) statusJSON {
 	st := statusJSON{
-		Running:   info.Running,
-		Answering: info.Running && answering,
-		Socket:    socket,
-		Lock:      info.LockPath,
+		Running:       info.Running,
+		Answering:     info.Running && answering,
+		Socket:        socket,
+		Lock:          info.LockPath,
+		ClientVersion: client,
 	}
 	if info.PID != 0 {
 		pid := info.PID
@@ -202,6 +213,12 @@ func buildStatusJSON(socket string, info ipc.DaemonStatus, global engine.GlobalS
 	if global.Version != "" {
 		v := global.Version
 		st.Version = &v
+	}
+	// Left null for a client that cannot say what it is: there is nothing
+	// to compare, and "not skewed" would be a claim.
+	if client != "" {
+		_, skewed := engine.VersionSkew(client, global.Version)
+		st.VersionSkew = &skewed
 	}
 	if !global.StartedAt.IsZero() {
 		at := global.StartedAt.UTC()
@@ -245,7 +262,7 @@ func writeStatusJSON(out io.Writer, socket string, info ipc.DaemonStatus) error 
 	if info.Running {
 		global, answering = probeDaemon(socket)
 	}
-	return encodeJSON(out, buildStatusJSON(socket, info, global, answering, time.Now()))
+	return encodeJSON(out, buildStatusJSON(socket, info, global, answering, time.Now(), currentBuild().String()))
 }
 
 // checkListFlags refuses what has no sensible meaning, before anything

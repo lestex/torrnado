@@ -326,6 +326,8 @@ reports about itself is `null` unless it answered.
   "socket": "/home/you/.local/share/torrnado/daemon.sock",
   "lock": "/home/you/.local/share/torrnado/daemon.sock.lock",
   "version": "0.10.1 (da4134de07be)",
+  "client_version": "0.10.1 (da4134de07be)",
+  "version_skew": false,
   "started_at": "2026-11-11T01:12:42.574174Z",
   "uptime_seconds": 3600,
   "listen_port": 51413,
@@ -343,7 +345,19 @@ reports about itself is `null` unless it answered.
 
 `version`, `started_at`, `uptime_seconds` and `listen_port` are `null` from a
 daemon too old to report them, which is ordinary: a daemon outlives the
-clients that talk to it. `pid` is `null` when it cannot be named, and `disk`
+clients that talk to it.
+
+`client_version` is the build of the torrnado that ran the command, and is
+always there. `version_skew` compares it with the daemon's, the same check the
+TUI and the text report make: `true` when the daemon is a different build -
+which includes one too old to report a version at all - `false` when it is the
+same, and `null` when there is nothing to compare, because no daemon answered.
+That makes the stale-daemon-after-an-upgrade case something a script can act on:
+
+```sh
+# restart a daemon left running across an upgrade (the next command starts a fresh one)
+torrnado status --json | jq -e '.version_skew' >/dev/null && torrnado stop
+``` `pid` is `null` when it cannot be named, and `disk`
 when the filesystem cannot be read. `vpn.active` only means something while
 `vpn.required` is true.
 
