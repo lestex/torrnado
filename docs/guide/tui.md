@@ -52,8 +52,12 @@ mode, just the movement/action idioms.
 
 `?` and `h` both open the reference, and the footer says so in its right
 corner whenever it has nothing else to report - so the keys are reachable
-without knowing a key. With no torrents yet, the list says what to do
-next rather than only that it is empty:
+without knowing a key. The reference's header also says which build you are
+running, which is the quickest way to answer "what version is this?" without
+leaving the interface. If the daemon is a different build, it says that too,
+since the reference replaces the panes and the sidebar's warning is out of
+sight while it is open. With no torrents yet, the list says what to do next
+rather than only that it is empty:
 
 ```
  no torrents yet

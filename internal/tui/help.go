@@ -91,7 +91,7 @@ func (m Model) renderHelp(width, height int) string {
 	body := m.helpBody(width, height, nav, actions, paletteHelp())
 
 	var b strings.Builder
-	b.WriteString(m.helpHeader(height, strings.Count(body, "\n")+1))
+	b.WriteString(m.helpHeader(width, height, strings.Count(body, "\n")+1))
 	b.WriteString("\n\n")
 	b.WriteString(body)
 
@@ -198,16 +198,68 @@ const (
 // helpHeader is the mark beside the wordmark, dropped for a one-line
 // title when the keys would not otherwise fit: this screen exists to show
 // the reference, not the logo.
-func (m Model) helpHeader(height, bodyLines int) string {
-	// The mark's rows, the blank line under it, and the note at the foot.
+//
+// It also says which build this is. The help screen is where someone goes
+// to find out what they are running, and it replaces the panes, so the
+// sidebar's daemon line is not on screen while it is open - which makes
+// this the one place a daemon that is not this build can still be said.
+// The version sits under the wordmark, which is exactly as many lines as
+// the mark is tall, so it costs the keys nothing; the warning is a fourth
+// line and is counted in the budget below, not assumed.
+func (m Model) helpHeader(width, height, bodyLines int) string {
 	mark := branding.LogoLines(branding.Logo)
-	if height > 0 && bodyLines+len(mark)+2 > height {
+	// Beside the mark, with its width and the gap taken off, so a long
+	// build string is cut here rather than wrapped by the pane - a wrapped
+	// header line would push a row of the reference off the bottom.
+	fit := width - branding.Width(branding.Logo) - 3
+
+	words := []string{
+		m.styles.Title.Render("torrnado"),
+		m.styles.Muted.Render("keys & commands"),
+	}
+	if m.clientVersion != "" {
+		words = append(words, m.styles.Muted.Render(truncate(m.clientVersion, fit)))
+	}
+	if m.versionNote != "" {
+		words = append(words, m.styles.Warning.Render(truncate(m.versionNote, fit)))
+	}
+
+	rows := max(len(mark), len(words))
+	if height > 0 && bodyLines+rows+2 > height {
+		return m.helpTitleLine(width)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Center,
+		m.styles.Title.Render(branding.Logo), "   ", strings.Join(words, "\n"))
+}
+
+// helpTitleLine is the one-line header: the title, the build, and a flag
+// if the daemon is not that build.
+//
+// Falls back to the bare title when the whole line would not fit the
+// pane, because a wrapped title costs a row and this form exists for the
+// moments when there is none to spare.
+func (m Model) helpTitleLine(width int) string {
+	plain := "torrnado"
+	if m.clientVersion != "" {
+		plain += " " + m.clientVersion
+	}
+	plain += " - keys"
+	if m.versionNote != "" {
+		plain += " - daemon differs"
+	}
+	if width > 0 && lipgloss.Width(plain) > width {
 		return m.styles.Title.Render("torrnado - keys")
 	}
-	words := m.styles.Title.Render("torrnado") + "\n" +
-		m.styles.Muted.Render("keys & commands")
-	return lipgloss.JoinHorizontal(lipgloss.Center,
-		m.styles.Title.Render(branding.Logo), "   ", words)
+
+	line := m.styles.Title.Render("torrnado")
+	if m.clientVersion != "" {
+		line += m.styles.Muted.Render(" " + m.clientVersion)
+	}
+	line += m.styles.Title.Render(" - keys")
+	if m.versionNote != "" {
+		line += m.styles.Warning.Render(" - daemon differs")
+	}
+	return line
 }
 
 func writeHelpSection(b *strings.Builder, m Model, title string, entries []helpEntry, width int) {
