@@ -15,7 +15,7 @@ in the TUI you can do from a shell script.
 ```
 torrnado                              attach the TUI (spawns a daemon if needed)
 torrnado daemon                       run the engine in the foreground
-torrnado status                       is a daemon running, and what is it doing; --quiet
+torrnado status                       is a daemon running, and what is it doing; --quiet, --json
 torrnado stop                         shut the running daemon down; --timeout
 torrnado add <sources...>             add torrent(s); --save-path, --paused, --files
 torrnado remove <id...>               remove; --delete-data
@@ -30,6 +30,7 @@ torrnado move <id> <new-directory>
 torrnado label <name> <id...>         file torrents under a label (--clear removes it)
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
+torrnado list --json                  the same as a JSON array, for scripts
 torrnado preview <id> <file-index>    print a stream URL; --play opens it
 torrnado open <id...>                 open the torrent's folder
 torrnado config                       where the config lives, and what is in effect
@@ -227,3 +228,128 @@ If nothing matches, nothing is downloaded and the log says so at warning
 level. Widening it back to everything would defeat the point of asking,
 and a torrent quietly fetching what you excluded is worse than one that
 fetches nothing and tells you.
+
+## Machine-readable output
+
+`list` and `status` take `--json`, for a script to read instead of a table to
+scrape. The shapes below are a contract: a key is not renamed or removed
+except as a change the changelog marks as breaking, and a test fails if one
+changes by accident.
+
+A few conventions hold everywhere. Sizes are bytes and rates are bytes per
+second, as plain numbers. A fraction is 0 to 1, not a percentage. Times are
+RFC 3339, in UTC. Keys are never left out. And `null` means *not known*,
+used wherever zero would be a different answer: no ratio yet is not a ratio
+of nought, and an unknown ETA is not an ETA of now.
+
+### `torrnado list --json`
+
+An array with one object per torrent - `[]` when there are none, never
+`null`. For example:
+
+```json
+[
+  {
+    "id": "6a66e9f7ac06546d2b8c85a59b0c4011a6910cdf",
+    "name": "debian-12.iso",
+    "state": "downloading",
+    "paused": false,
+    "progress": 0.4213,
+    "size": 662700032,
+    "completed": 279191552,
+    "downloaded": 279191552,
+    "uploaded": 41943040,
+    "download_rate": 9740800,
+    "upload_rate": 262144,
+    "ratio": 0.15,
+    "peers": 31,
+    "seeds": 12,
+    "eta_seconds": 39,
+    "check_progress": null,
+    "label": "linux",
+    "save_path": "/home/you/Downloads/torrnado",
+    "data_dir": "/home/you/Downloads/torrnado",
+    "added_at": "2026-11-11T01:13:44.06344Z",
+    "download_limit": 0,
+    "upload_limit": 0,
+    "error": ""
+  }
+]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `id` | the hex info hash, as every command takes it |
+| `state` | one of `checking`, `queued`, `paused`, `downloading`, `seeding`, `error`, `blocked` (held by the VPN guard), `low_disk` (held by the free-space guard), `unknown` |
+| `paused` | whether the torrent is paused. **Read this, not `state`**: a paused torrent being hash-checked reports `checking`, so `state` alone would call it running |
+| `progress` | 0 to 1 |
+| `size` | total bytes; `0` until a magnet's metadata arrives |
+| `completed` | bytes on disk and wanted |
+| `downloaded`, `uploaded` | totals for the life of the torrent, across restarts |
+| `download_rate`, `upload_rate` | current bytes per second |
+| `ratio` | uploaded over downloaded. `null` when nothing has been downloaded, which is also how a torrent seeding data that was already on disk looks |
+| `peers`, `seeds` | connected peers, and how many of them are seeds |
+| `eta_seconds` | `null` when it is not known: the speed is negligible, or there is nothing left to wait for |
+| `check_progress` | 0 to 1 while a hash check is running, otherwise `null` |
+| `label` | `""` when unlabelled |
+| `save_path`, `data_dir` | where it saves, and the directory holding its files |
+| `added_at` | `null` for a daemon too old to record it |
+| `download_limit`, `upload_limit` | this torrent's cap in bytes per second; `0` for none |
+| `error` | `""` when there is none |
+
+`--json` cannot be combined with `--watch`: a watch redraws a table, and
+there is no single document to print.
+
+```sh
+# names of everything downloading
+torrnado list --json | jq -r '.[] | select(.state == "downloading") | .name'
+
+# remove what has finished, by id
+torrnado list --json | jq -r '.[] | select(.progress == 1) | .id' | xargs torrnado remove
+```
+
+### `torrnado status --json`
+
+One object. Whether a daemon is *running* and whether it is *answering* are
+separate fields, because they are separate facts: a daemon that holds its
+lock but does not answer is most likely busy hash-checking, and taking it for
+a dead one means two engines on one data directory. Everything the daemon
+reports about itself is `null` unless it answered.
+
+```json
+{
+  "running": true,
+  "answering": true,
+  "pid": 83427,
+  "socket": "/home/you/.local/share/torrnado/daemon.sock",
+  "lock": "/home/you/.local/share/torrnado/daemon.sock.lock",
+  "version": "0.10.1 (da4134de07be)",
+  "started_at": "2026-11-11T01:12:42.574174Z",
+  "uptime_seconds": 3600,
+  "listen_port": 51413,
+  "transfers": {
+    "torrents": 2,
+    "download_rate": 0,
+    "upload_rate": 0,
+    "download_limit": 0,
+    "upload_limit": 0
+  },
+  "vpn": { "required": false, "active": false, "interface": "" },
+  "disk": { "free_bytes": 234632028160, "total_bytes": 494384795648, "low": false, "min_free_bytes": 0 }
+}
+```
+
+`version`, `started_at`, `uptime_seconds` and `listen_port` are `null` from a
+daemon too old to report them, which is ordinary: a daemon outlives the
+clients that talk to it. `pid` is `null` when it cannot be named, and `disk`
+when the filesystem cannot be read. `vpn.active` only means something while
+`vpn.required` is true.
+
+Like the text report, it never starts a daemon, and the exit status is `0`
+whether or not one is running - the answer is in the document. For a shell
+condition use `--quiet` instead, which prints nothing and exits `1` when
+nothing is running. The two cannot be combined.
+
+```sh
+torrnado status --json | jq -e '.answering' >/dev/null || echo "daemon is not answering"
+```
