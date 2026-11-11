@@ -115,6 +115,12 @@ internal/tui      bubbletea Model. Three panes (status sidebar, torrent
 cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
                   and one subcommand per engine operation as a scriptable
                   passthrough to the same IPC the TUI uses.
+                  A torrent argument is a full id, the front of one (four
+                  characters or more) or a name, and must pick exactly one
+                  torrent. That is resolved here (resolve.go) against a
+                  List rather than in the daemon, so it works with a daemon
+                  of any version and the wire protocol stays out of it. Tab
+                  completion offers ids and never spawns a daemon.
 ```
 
 Dependency order is strict and one-directional: `format`, `engine` and

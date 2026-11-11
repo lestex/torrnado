@@ -40,20 +40,37 @@ func withClient(fn func(*ipc.Client) error) error {
 	return fn(client)
 }
 
-// eachTorrent runs fn for every id given, reporting failures as it goes
-// but carrying on. One bad id should not stop the rest, though the exit
-// status still has to reflect that something went wrong.
-func eachTorrent(ids []string, fn func(*ipc.Client, engine.TorrentID) error) error {
+// torrentArgHelp is what every command that takes a torrent says about
+// how to name one, so the rule is stated the same way wherever it applies.
+const torrentArgHelp = "A torrent is named by its full id, the start of its id (at least four\n" +
+	"characters) or its name, and must pick out exactly one of them: an\n" +
+	"argument that matches two is refused, with the candidates listed."
+
+// eachTorrent runs fn for every torrent named, reporting failures as it
+// goes but carrying on. One bad argument should not stop the rest, though
+// the exit status still has to reflect that something went wrong.
+//
+// What is typed is an id, the front of one, or a name - see resolveID.
+// An argument that cannot be resolved is a failure like any other: it is
+// reported by what was typed, and the torrents that did resolve are still
+// acted on.
+func eachTorrent(args []string, fn func(*ipc.Client, engine.TorrentID) error) error {
 	return withClient(func(c *ipc.Client) error {
 		var failed int
-		for _, id := range ids {
-			if err := fn(c, engine.TorrentID(id)); err != nil {
-				fmt.Printf("failed on %s: %v\n", id, err)
+		for _, r := range resolveArgs(c, args) {
+			if r.Err != nil {
+				fmt.Printf("failed on %s: %v\n", r.Arg, r.Err)
+				failed++
+				continue
+			}
+			r.announce(os.Stderr)
+			if err := fn(c, r.ID); err != nil {
+				fmt.Printf("failed on %s: %v\n", r.Arg, err)
 				failed++
 			}
 		}
 		if failed > 0 {
-			return fmt.Errorf("%d of %d failed", failed, len(ids))
+			return fmt.Errorf("%d of %d failed", failed, len(args))
 		}
 		return nil
 	})
@@ -65,7 +82,10 @@ func newRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <torrent-id>...",
 		Short: "Remove one or more torrents",
-		Args:  cobra.MinimumNArgs(1),
+		Long: "Removes torrents from the list. Their files are kept unless --delete-data\n" +
+			"is given.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.Remove(id, deleteData)
@@ -86,8 +106,9 @@ func newPurgeCmd() *cobra.Command {
 		Long: "Deletes the downloaded files and keeps the torrent, paused and at\n" +
 			"zero, with its save path, rate limits and place in the list intact.\n" +
 			"For freeing space without losing the entry - resuming downloads it\n" +
-			"again.",
-		Args: cobra.MinimumNArgs(1),
+			"again.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.PurgeData(id)
@@ -107,8 +128,9 @@ func newOpenCmd() *cobra.Command {
 		Long: "Opens the directory holding the torrent's files - its own folder for\n" +
 			"a multi-file torrent, the save path for a single-file one - using the\n" +
 			"`opener` command from config.toml.\n\n" +
-			"The program is detached, so it outlives this command.",
-		Args: cobra.MinimumNArgs(1),
+			"The program is detached, so it outlives this command.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, err := loadConfig()
 			if err != nil {
@@ -139,9 +161,11 @@ func newOpenCmd() *cobra.Command {
 // happens to be in.
 func newPauseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "pause <torrent-id>...",
-		Short: "Pause one or more torrents",
-		Args:  cobra.MinimumNArgs(1),
+		Use:               "pause <torrent-id>...",
+		Short:             "Pause one or more torrents",
+		Long:              "Pauses torrents, and keeps them paused until resumed.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.SetPaused(id, true)
@@ -152,9 +176,11 @@ func newPauseCmd() *cobra.Command {
 
 func newResumeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "resume <torrent-id>...",
-		Short: "Resume one or more torrents",
-		Args:  cobra.MinimumNArgs(1),
+		Use:               "resume <torrent-id>...",
+		Short:             "Resume one or more torrents",
+		Long:              "Resumes paused torrents.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.SetPaused(id, false)
@@ -165,9 +191,11 @@ func newResumeCmd() *cobra.Command {
 
 func newRecheckCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "recheck <torrent-id>...",
-		Short: "Re-verify downloaded data against the torrent's piece hashes",
-		Args:  cobra.MinimumNArgs(1),
+		Use:               "recheck <torrent-id>...",
+		Short:             "Re-verify downloaded data against the torrent's piece hashes",
+		Long:              "Re-verifies a torrent's downloaded data against its piece hashes.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return eachTorrent(args, func(c *ipc.Client, id engine.TorrentID) error {
 				return c.ForceRecheck(id)
@@ -183,8 +211,9 @@ func newPriorityCmd() *cobra.Command {
 		Long: "Sets how badly one file's data is wanted. File indexes are the\n" +
 			"positions shown by the detail view, counting from zero.\n\n" +
 			"Note that \"low\" is accepted but stored as \"normal\": the torrent\n" +
-			"library has no level between \"not wanted\" and \"wanted\".",
-		Args: cobra.ExactArgs(3),
+			"library has no level between \"not wanted\" and \"wanted\".\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, 0),
+		Args:              cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			idx, err := strconv.Atoi(args[1])
 			if err != nil {
@@ -195,7 +224,11 @@ func newPriorityCmd() *cobra.Command {
 				return fmt.Errorf("unknown priority %q (want: none, low, normal, high, now)", args[2])
 			}
 			return withClient(func(c *ipc.Client) error {
-				return c.SetFilePriority(engine.TorrentID(args[0]), idx, prio)
+				id, err := resolveOne(c, args[0])
+				if err != nil {
+					return err
+				}
+				return c.SetFilePriority(id, idx, prio)
 			})
 		},
 	}
@@ -234,7 +267,11 @@ func newLimitCmd() *cobra.Command {
 					} else {
 						down = bps
 					}
-					return c.SetTorrentRateLimit(engine.TorrentID(torrentID), up, down)
+					id, err := resolveOne(c, torrentID)
+					if err != nil {
+						return err
+					}
+					return c.SetTorrentRateLimit(id, up, down)
 				}
 				if direction == "up" {
 					return c.SetGlobalUploadLimit(bps)
@@ -243,7 +280,8 @@ func newLimitCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&torrentID, "torrent", "", "limit only this torrent (approximate)")
+	cmd.Flags().StringVar(&torrentID, "torrent", "", "limit only this torrent (approximate); an id, the start of one, or a name")
+	_ = cmd.RegisterFlagCompletionFunc("torrent", completeTorrents(0, -1))
 	return cmd
 }
 
@@ -252,11 +290,16 @@ func newMoveCmd() *cobra.Command {
 		Use:   "move <torrent-id> <new-directory>",
 		Short: "Move a torrent's downloaded data to a new directory",
 		Long: "Moves the files, then re-verifies them in place. The torrent is\n" +
-			"re-added internally, which resets any custom per-file priorities.",
-		Args: cobra.ExactArgs(2),
+			"re-added internally, which resets any custom per-file priorities.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeMoveArgs,
+		Args:              cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withClient(func(c *ipc.Client) error {
-				return c.MoveStorage(engine.TorrentID(args[0]), args[1])
+				id, err := resolveOne(c, args[0])
+				if err != nil {
+					return err
+				}
+				return c.MoveStorage(id, args[1])
 			})
 		},
 	}
@@ -274,8 +317,9 @@ func newPreviewCmd() *cobra.Command {
 			"finishes. Asking for it resumes the torrent and raises the file's\n" +
 			"priority, since a paused or unwanted file cannot stream.\n\n" +
 			"The URL carries a token and is only valid for the life of the daemon\n" +
-			"that issued it.",
-		Args: cobra.ExactArgs(2),
+			"that issued it.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, 0),
+		Args:              cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			idx, err := strconv.Atoi(args[1])
 			if err != nil {
@@ -286,7 +330,11 @@ func newPreviewCmd() *cobra.Command {
 				return err
 			}
 			return withClient(func(c *ipc.Client) error {
-				url, err := c.PreviewURL(engine.TorrentID(args[0]), idx)
+				id, err := resolveOne(c, args[0])
+				if err != nil {
+					return err
+				}
+				url, err := c.PreviewURL(id, idx)
 				if err != nil {
 					return err
 				}

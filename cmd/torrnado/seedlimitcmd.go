@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lestex/torrnado/internal/config"
-	"github.com/lestex/torrnado/internal/engine"
 	"github.com/lestex/torrnado/internal/ipc"
 )
 
@@ -35,8 +34,9 @@ func newSeedLimitCmd() *cobra.Command {
 			"the only way one torrent can opt out of a default that would\n" +
 			"otherwise stop it.\n\n" +
 			"Stopping is a pause: it survives a restart, and resuming the torrent\n" +
-			"starts it seeding again.",
-		Args: cobra.MinimumNArgs(1),
+			"starts it seeding again.\n\n" + torrentArgHelp,
+		ValidArgsFunction: completeTorrents(0, -1),
+		Args:              cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if ratioFlag == "" && timeFlag == "" {
 				return fmt.Errorf("give --ratio, --time, or both")
@@ -51,8 +51,12 @@ func newSeedLimitCmd() *cobra.Command {
 			}
 
 			return withClient(func(c *ipc.Client) error {
-				for _, id := range args {
-					if err := c.SetSeedLimit(engine.TorrentID(id), ratio, seedTime); err != nil {
+				for _, arg := range args {
+					id, err := resolveOne(c, arg)
+					if err != nil {
+						return err
+					}
+					if err := c.SetSeedLimit(id, ratio, seedTime); err != nil {
 						return err
 					}
 					fmt.Fprintf(cmd.OutOrStdout(), "seed limit set: %s\n", id)

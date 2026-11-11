@@ -214,6 +214,95 @@ assert_contains "the other torrents are untouched" "$out" "Second"
 assert_failure "removing an unknown id fails" "$TORRNADO" remove "not-a-real-id"
 
 echo
+echo "naming a torrent"
+
+# Two torrents whose ids share a front, so there is something to be
+# ambiguous about. Their names share a word for the same reason.
+TWIN_1=ab12000000000000000000000000000000000001
+TWIN_2=ab12000000000000000000000000000000000002
+"$TORRNADO" add "magnet:?xt=urn:btih:${TWIN_1}&dn=Twin+One" "magnet:?xt=urn:btih:${TWIN_2}&dn=Twin+Two" >/dev/null 2>&1
+
+# The front of an id. d134b8 is the sample torrent's and nobody else's.
+#
+# State is asserted on that torrent because it has metadata: one without
+# reads as "checking" whatever else is true of it, so a paused magnet
+# could not show that a pause took.
+assert_success "the start of an id names a torrent" "$TORRNADO" pause d134b8
+out=$("$TORRNADO" list 2>&1)
+assert_contains "the prefix paused the torrent it names" "$(echo "$out" | grep "hello.txt")" "paused"
+assert_not_contains "...and only that one" "$(echo "$out" | grep "Third")" "paused"
+"$TORRNADO" resume d134b8 >/dev/null 2>&1
+
+# A name, whole or part, in any case.
+assert_success "a whole name names a torrent" "$TORRNADO" pause "hello.txt"
+out=$("$TORRNADO" list 2>&1)
+assert_contains "pausing by name took effect" "$(echo "$out" | grep "hello.txt")" "paused"
+assert_success "part of a name, in any case, names a torrent" "$TORRNADO" resume "HELLO"
+out=$("$TORRNADO" list 2>&1)
+assert_not_contains "resuming by name took effect" "$(echo "$out" | grep "hello.txt")" "paused"
+
+# Hex is case-insensitive and ids are stored in lower case.
+assert_success "a full id in capitals still works" "$TORRNADO" pause "$(echo "$IH_B" | tr 'a-f' 'A-F')"
+"$TORRNADO" resume "$IH_B" >/dev/null 2>&1
+
+# What it picked is said on stderr, so a script reading stdout never sees it.
+err=$("$TORRNADO" pause bbbb 2>&1 >/dev/null)
+assert_contains "stderr says which torrent a prefix picked" "$err" "Second"
+out=$("$TORRNADO" pause bbbb 2>/dev/null)
+if [ -z "$out" ]; then
+	pass "stdout carries nothing extra"
+else
+	fail "stdout carries nothing extra" "got: $out"
+fi
+"$TORRNADO" resume bbbb >/dev/null 2>&1
+
+# Two matches is a question, not a coin toss.
+out=$("$TORRNADO" pause ab12 2>&1)
+assert_failure "an ambiguous prefix is refused" "$TORRNADO" pause ab12
+assert_contains "the refusal says it matched two" "$out" "2 torrents"
+assert_contains "...and names the first" "$out" "Twin One"
+assert_contains "...and the second" "$out" "Twin Two"
+out=$("$TORRNADO" pause Twin 2>&1)
+assert_failure "an ambiguous name is refused" "$TORRNADO" pause Twin
+assert_contains "the refusal lists the candidates" "$out" "Twin Two"
+assert_failure "a name matching nothing is refused" "$TORRNADO" pause "no such torrent"
+
+# One bad argument does not spoil the rest: the good one is still acted on,
+# and the exit status still says something failed.
+assert_failure "a batch with one bad argument fails" "$TORRNADO" pause d134b8 "no such torrent"
+out=$("$TORRNADO" list 2>&1)
+assert_contains "...but the resolvable one was paused" "$(echo "$out" | grep "hello.txt")" "paused"
+"$TORRNADO" resume d134b8 >/dev/null 2>&1
+
+# The other commands that take a torrent.
+assert_success "limit --torrent takes a prefix" "$TORRNADO" limit up 1M --torrent d134b8
+assert_success "priority takes a prefix" "$TORRNADO" priority d134b8 0 normal
+assert_success "seed-limit takes a name" "$TORRNADO" seed-limit --ratio 2 hello
+assert_success "label takes a name" "$TORRNADO" label tv hello
+out=$("$TORRNADO" list 2>&1)
+assert_contains "the label landed on the named torrent" "$(echo "$out" | grep "hello.txt")" "tv"
+
+# remove most of all: it is the one that cannot be undone.
+assert_success "remove takes a name" "$TORRNADO" remove "Twin Two"
+out=$("$TORRNADO" list 2>&1)
+assert_not_contains "the named torrent is gone" "$out" "Twin Two"
+assert_contains "its twin is untouched" "$out" "Twin One"
+"$TORRNADO" remove "Twin One" >/dev/null 2>&1
+
+# Completion offers full ids, described by name, and no file names.
+comp=$("$TORRNADO" __complete pause "" 2>/dev/null)
+assert_contains "completion offers an id" "$comp" "$IH_C"
+assert_contains "...described by its name" "$comp" "Third"
+assert_contains "...and asks the shell for no file names" "$comp" ":4"
+comp=$("$TORRNADO" __complete pause "bbbb" 2>/dev/null)
+assert_contains "completion filters by what is typed" "$comp" "$IH_B"
+assert_not_contains "...leaving out what does not match" "$comp" "$IH_C"
+comp=$("$TORRNADO" __complete pause "$IH_B" "" 2>/dev/null)
+assert_not_contains "completion leaves out a torrent already given" "$comp" "$IH_B"
+comp=$("$TORRNADO" __complete priority "$SAMPLE_IH" "" 2>/dev/null)
+assert_not_contains "a position that is not a torrent offers no ids" "$comp" "$IH_C"
+
+echo
 echo "configuration"
 
 # A config file names the socket, so a daemon started with one is only
@@ -301,5 +390,15 @@ if [ -S "$SOCKET" ]; then
 else
 	pass "daemon removes its socket on the way out"
 fi
+
+# Pressing TAB must not be what starts a daemon. The one that was running
+# has just been stopped, so this is the moment to ask.
+comp=$("$TORRNADO" __complete pause "" 2>/dev/null)
+if [ ! -S "$SOCKET" ] && [ -z "$(daemon_pid)" ]; then
+	pass "completing with no daemon running does not start one"
+else
+	fail "completing with no daemon running does not start one" "something holds $SOCKET"
+fi
+assert_not_contains "...and offers no ids" "$comp" "$IH_C"
 
 summary
