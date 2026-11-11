@@ -199,17 +199,20 @@ const (
 // title when the keys would not otherwise fit: this screen exists to show
 // the reference, not the logo.
 //
-// It also says which build this is. The help screen is where someone goes
-// to find out what they are running, and it replaces the panes, so the
-// sidebar's daemon line is not on screen while it is open - which makes
-// this the one place a daemon that is not this build can still be said.
-// The version sits under the wordmark, which is exactly as many lines as
-// the mark is tall, so it costs the keys nothing; the warning is a fourth
-// line and is counted in the budget below, not assumed.
+// It also says which build this is, and which the daemon is. The help
+// screen is where someone goes to find out what they are running, and it
+// replaces the panes, so the sidebar's daemon line is not on screen while
+// it is open - this is the one place a daemon that is not this build can
+// still be said.
+//
+// All of that is one line, "v0.10.1 | daemon v0.10.1", under the
+// wordmark: as many lines as the mark is tall, so it costs the keys
+// nothing, and a mismatch is the daemon half changing colour rather than
+// a further line to make room for.
 func (m Model) helpHeader(width, height, bodyLines int) string {
 	mark := branding.LogoLines(branding.Logo)
 	// Beside the mark, with its width and the gap taken off, so a long
-	// build string is cut here rather than wrapped by the pane - a wrapped
+	// version is cut here rather than wrapped by the pane - a wrapped
 	// header line would push a row of the reference off the bottom.
 	fit := width - branding.Width(branding.Logo) - 3
 
@@ -217,11 +220,8 @@ func (m Model) helpHeader(width, height, bodyLines int) string {
 		m.styles.Title.Render("torrnado"),
 		m.styles.Muted.Render("keys & commands"),
 	}
-	if m.clientVersion != "" {
-		words = append(words, m.styles.Muted.Render(truncate(m.clientVersion, fit)))
-	}
-	if m.versionNote != "" {
-		words = append(words, m.styles.Warning.Render(truncate(m.versionNote, fit)))
+	if v := m.helpVersions(fit); v != "" {
+		words = append(words, v)
 	}
 
 	rows := max(len(mark), len(words))
@@ -232,34 +232,109 @@ func (m Model) helpHeader(width, height, bodyLines int) string {
 		m.styles.Title.Render(branding.Logo), "   ", strings.Join(words, "\n"))
 }
 
-// helpTitleLine is the one-line header: the title, the build, and a flag
-// if the daemon is not that build.
+// helpTitleLine is the one-line header: the title, the versions, "keys".
 //
 // Falls back to the bare title when the whole line would not fit the
 // pane, because a wrapped title costs a row and this form exists for the
 // moments when there is none to spare.
 func (m Model) helpTitleLine(width int) string {
+	client, daemon, skewed := m.versionParts()
 	plain := "torrnado"
-	if m.clientVersion != "" {
-		plain += " " + m.clientVersion
+	if client != "" {
+		plain += " " + client
+		if daemon != "" {
+			plain += " | " + daemon
+		}
 	}
 	plain += " - keys"
-	if m.versionNote != "" {
-		plain += " - daemon differs"
-	}
 	if width > 0 && lipgloss.Width(plain) > width {
 		return m.styles.Title.Render("torrnado - keys")
 	}
 
 	line := m.styles.Title.Render("torrnado")
-	if m.clientVersion != "" {
-		line += m.styles.Muted.Render(" " + m.clientVersion)
+	if client != "" {
+		line += m.styles.Muted.Render(" " + client)
+		if daemon != "" {
+			line += m.styles.Muted.Render(" | ") + m.daemonStyle(skewed).Render(daemon)
+		}
 	}
-	line += m.styles.Title.Render(" - keys")
-	if m.versionNote != "" {
-		line += m.styles.Warning.Render(" - daemon differs")
+	return line + m.styles.Title.Render(" - keys")
+}
+
+// helpVersions is the line under the wordmark, or "" when there is no
+// version to show. Cut to fit rather than wrapped; a line too long for
+// its room loses its colours, since a truncated half-styled string is the
+// worse outcome of the two.
+func (m Model) helpVersions(fit int) string {
+	client, daemon, skewed := m.versionParts()
+	if client == "" {
+		return ""
 	}
-	return line
+	plain := client
+	if daemon != "" {
+		plain += " | " + daemon
+	}
+	if lipgloss.Width(plain) > fit {
+		return m.styles.Muted.Render(truncate(plain, fit))
+	}
+	if daemon == "" {
+		return m.styles.Muted.Render(client)
+	}
+	return m.styles.Muted.Render(client+" | ") + m.daemonStyle(skewed).Render(daemon)
+}
+
+// daemonStyle: the daemon's half is the one that changes colour, because a
+// daemon that is not this build is a warning and not an error - it works,
+// it is just not what this interface was built against.
+func (m Model) daemonStyle(skewed bool) lipgloss.Style {
+	if skewed {
+		return m.styles.Warning
+	}
+	return m.styles.Muted
+}
+
+// versionParts is what the header says about the two builds: this one,
+// and the daemon's as "daemon v0.10.1", each as short as it can be while
+// still telling them apart. The daemon part is empty until the daemon has
+// been heard from - before the first event its version is simply not known,
+// and showing nothing is truer than showing a blank.
+func (m Model) versionParts() (client, daemon string, skewed bool) {
+	client = shortVersion(m.clientVersion)
+	if client == "" {
+		return "", "", false
+	}
+	skewed = m.versionNote != ""
+
+	switch {
+	case m.global.Version != "":
+		d := shortVersion(m.global.Version)
+		// The same release can be two different builds - a rebuilt client
+		// over a daemon left running - and then the short forms read as
+		// equal beside a warning that says they are not. Say the commits.
+		if skewed && d == client {
+			return m.clientVersion, "daemon " + m.global.Version, true
+		}
+		return client, "daemon " + d, skewed
+	case skewed:
+		// A daemon older than the version field says nothing at all, which
+		// is not the same as not having spoken yet.
+		return client, "daemon too old", true
+	}
+	return client, "", false
+}
+
+// shortVersion is a version string as people say it: the release, without
+// the commit the build string appends - "0.10.1 (da4134de07be)" is
+// "v0.10.1". Release builds are stamped without the leading v and a build
+// from a working tree has one, so it is added to anything that starts with
+// a digit and left off what is not a version at all, such as "dev".
+func shortVersion(full string) string {
+	v, _, _ := strings.Cut(full, " (")
+	v = strings.TrimSpace(v)
+	if v != "" && v[0] >= '0' && v[0] <= '9' {
+		v = "v" + v
+	}
+	return v
 }
 
 func writeHelpSection(b *strings.Builder, m Model, title string, entries []helpEntry, width int) {
