@@ -142,3 +142,33 @@ jobs:
           torrnado version | tee version.txt
           grep -q "${TAG#v}" version.txt
           test -f "$(brew --prefix)/share/man/man1/torrnado.1"
+
+      # A service block is only Ruby until something renders it, and `brew
+      # audit` does not: it would pass one that produced a unit that cannot
+      # run. So it is rendered the way `brew services` would, on each
+      # platform's own format, and the parts that matter are checked - the
+      # command, and above all the restart policy. "Always restart" would
+      # have launchd undo `torrnado stop` within seconds, which is exactly
+      # what a wrong keep_alive looks like and exactly what a lint cannot
+      # see. Rendering starts nothing, so it needs no user session.
+      #
+      # The tap name goes in through the shell, not ENV: `brew ruby` scrubs the
+      # environment, so ENV.fetch("TEST_TAP") inside it is a KeyError.
+      - name: The service definition
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew ruby -e "puts Formulary.factory('$TEST_TAP/torrnado').service.to_plist" | tee service.out
+            grep -q '<string>daemon</string>' service.out
+            # The case worth a message of its own, checked first so it is the
+            # one reported: a bare KeepAlive true.
+            if grep -A1 '<key>KeepAlive</key>' service.out | grep -q '<true/>'; then
+              echo "::error::KeepAlive is true, so launchd would restart a daemon that was stopped on purpose"; exit 1
+            fi
+            # Restart on an unsuccessful exit only: SuccessfulExit false.
+            grep -A1 '<key>SuccessfulExit</key>' service.out | grep -q '<false/>'
+          else
+            brew ruby -e "puts Formulary.factory('$TEST_TAP/torrnado').service.to_systemd_unit" | tee service.out
+            grep -q '^ExecStart=.*"daemon"' service.out
+            grep -q '^Restart=on-failure$' service.out
+          fi
+          grep -q 'torrnado.log' service.out

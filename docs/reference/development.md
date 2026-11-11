@@ -149,7 +149,8 @@ It also writes the Homebrew formula to
 `contrib/homebrew/render.sh` renders it from the checksums of that same
 tag, and `formula.yml` then lints it and installs it for real on Linux and
 macOS - `brew style`, `brew audit --strict`, `brew install`, `brew test` -
-before the `tap` job commits it. Nothing reaches the tap unless that
+and renders its service definition on each platform to check the restart
+policy, before the `tap` job commits it. Nothing reaches the tap unless that
 passed. That commit lands in a different repository, which the workflow's
 automatic `GITHUB_TOKEN` cannot write to - it is scoped to this one - so
 it needs a PAT with `contents:write` on the tap, stored here as the
