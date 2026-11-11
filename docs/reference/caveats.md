@@ -86,6 +86,9 @@ daemon start. A torrent that was already finished when the daemon started
 does not re-run it, which is what stops a restart re-notifying or
 re-unpacking everything ever downloaded.
 
+Recipes for a desktop notification, and what the hook is given, are in
+[When a torrent finishes](../guide/configuration.md#when-a-torrent-finishes).
+
 **Seeding limits stop a torrent, they do not hold it.** `[seed_limit]`
 pauses a torrent once it has finished downloading and then reaches a
 ratio or a seeding time, whichever comes first. That is deliberately a
