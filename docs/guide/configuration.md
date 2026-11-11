@@ -244,7 +244,7 @@ notifications are allowed for Script Editor in System Settings.
 
 ## Searching
 
-`torrnado find` goes through a Jackett server you run. It is off until you
+`torrnado find`, and `f` in the interface, go through a Jackett server you run. It is off until you
 enable it, and with it off the command says `search is not configured`
 rather than failing obscurely:
 

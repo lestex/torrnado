@@ -104,7 +104,7 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// the box on top would land on whatever happens to be behind it. The
 	// keyboard already works this way: handleKey checks the overlays
 	// before anything else.
-	if m.showHelp || m.themePicker {
+	if m.showHelp || m.themePicker || m.findState != findClosed {
 		return m, nil
 	}
 	if m.width == 0 || m.height == 0 {
