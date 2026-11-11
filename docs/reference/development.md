@@ -22,12 +22,15 @@ internal/config          TOML config, XDG paths, validation.
 internal/theme           built-in themes + TOML theme overrides.
 internal/batch           expands add-command arguments (dirs, globs,
                        magnet-list files) into a flat source list.
+internal/indexer         Jackett search client behind `torrnado find`; the daemon
+                       owns it and clients reach it over ipc.
 internal/format          byte/rate/ratio/ETA formatting shared by the TUI
                        and `torrnado list`.
 ```
 
-Dependency order is strict and one-directional: `format` and `engine` have
-no internal dependencies; `ipc` depends only on `engine`; `config` depends
+Dependency order is strict and one-directional: `format`, `engine` and
+`indexer` have no internal dependencies; `ipc` depends on `engine` and
+`indexer`; `config` depends
 on `format`; `tui` depends on `engine`, `ipc`, `config`, `theme` and
 `batch`; `cmd` depends on everything. Nothing in `engine` or `ipc` imports
 `tui` or `cmd` - if you find yourself wanting to, the abstraction has

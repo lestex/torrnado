@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Method names the daemon-side engine operation a Request invokes.
@@ -35,6 +36,7 @@ const (
 	MethodList                   Method = "List"
 	MethodDetail                 Method = "Detail"
 	MethodPreviewURL             Method = "PreviewURL"
+	MethodSearch                 Method = "Search"
 	MethodSetLabel               Method = "SetLabel"
 	MethodShutdown               Method = "Shutdown"
 )
@@ -72,6 +74,9 @@ type Request struct {
 	Label string
 
 	NewDir string
+
+	// Query is the search text for MethodSearch.
+	Query string
 }
 
 // Response is the reply envelope. Err is set (and OK false) on failure;
@@ -94,6 +99,9 @@ type Response struct {
 	// URL is the loopback stream URL for PreviewURL. The bytes never
 	// cross this socket - see internal/stream for why they cannot.
 	URL string
+
+	// Results answers MethodSearch, best-first.
+	Results []indexer.Result
 }
 
 type msgKind byte
@@ -118,3 +126,9 @@ type message struct {
 // callTimeout bounds how long a client waits for a reply to a Request
 // before giving up.
 const callTimeout = 30 * time.Second
+
+// searchTimeout bounds a search, which is slower than any other call:
+// Jackett answers when its slowest tracker has. It sits above
+// indexer.DefaultTimeout so the daemon's own report of a slow tracker
+// arrives before the client gives up on the daemon.
+const searchTimeout = 2 * time.Minute

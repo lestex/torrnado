@@ -125,7 +125,19 @@ func runDaemon() error {
 	}
 	defer stm.Close()
 
-	srv, err := ipc.Serve(cfg.DaemonSocket, eng, stm.URL)
+	// Search is opt-in: with search.jackett.enabled off there is no
+	// searcher, and a search answers by naming the keys to set.
+	var serveOpts []ipc.Option
+	searcher, err := newSearcher(cfg)
+	if err != nil {
+		return fmt.Errorf("search: %w", err)
+	}
+	if searcher != nil {
+		serveOpts = append(serveOpts, ipc.WithSearcher(searcher))
+		lg.Info("search enabled", "url", cfg.Search.Jackett.URL)
+	}
+
+	srv, err := ipc.Serve(cfg.DaemonSocket, eng, stm.URL, serveOpts...)
 	if err != nil {
 		return fmt.Errorf("start ipc server: %w", err)
 	}

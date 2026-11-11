@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 )
 
 // Server accepts client connections on a Unix domain socket and
@@ -22,6 +24,8 @@ type Server struct {
 	// rather than taking the stream server itself, so this package still
 	// depends on nothing but engine. Nil disables the method.
 	previewURL func(engine.TorrentID, int) string
+	// searcher answers MethodSearch. Nil means search is not configured.
+	searcher Searcher
 	// lock is held open for the daemon's lifetime; closing it is what
 	// releases the exclusive flock.
 	lock *os.File
@@ -52,7 +56,7 @@ type Server struct {
 // socket - see acquireDaemonLock for why probing is not sound.
 // previewURL may be nil, which disables MethodPreviewURL.
 func Serve(socketPath string, eng *engine.Engine,
-	previewURL func(engine.TorrentID, int) string,
+	previewURL func(engine.TorrentID, int) string, opts ...Option,
 ) (*Server, error) {
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create socket dir: %w", err)
@@ -82,6 +86,9 @@ func Serve(socketPath string, eng *engine.Engine,
 		lock:       lock,
 		conns:      map[net.Conn]struct{}{},
 		shutdown:   make(chan struct{}),
+	}
+	for _, o := range opts {
+		o(s)
 	}
 	s.wg.Add(1)
 	go s.acceptLoop()
@@ -177,6 +184,11 @@ func (s *Server) handleConn(conn net.Conn) {
 	dec := gob.NewDecoder(conn)
 	enc := gob.NewEncoder(conn)
 
+	// Cancelled when this connection ends, so a search nobody is waiting
+	// for any more stops asking Jackett.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Two goroutines now write to this connection: this one replying to
 	// calls, and the event pump below. A gob stream is a sequence of
 	// framed values and cannot be written concurrently, so every write
@@ -208,6 +220,14 @@ func (s *Server) handleConn(conn net.Conn) {
 			return // client disconnected
 		}
 		if msg.Kind != kindCall || msg.Req == nil {
+			continue
+		}
+		// A search can take a minute. Everything else on this connection -
+		// the list the TUI redraws from, a pause - must not wait behind it,
+		// and replies carry Seq so the client matches them out of order.
+		if msg.Req.Method == MethodSearch {
+			req := msg.Req
+			go func() { _ = send(message{Kind: kindReply, Resp: s.search(ctx, req)}) }()
 			continue
 		}
 		resp := s.dispatch(msg.Req)
@@ -386,5 +406,46 @@ func (s *Server) dispatch(req *Request) *Response {
 	default:
 		resp.Err = fmt.Sprintf("unknown method %q", req.Method)
 	}
+	return resp
+}
+
+// Searcher is what answers MethodSearch. Defined here rather than taken
+// from the indexer so a test can stand in for it and this package does not
+// care what sits behind it.
+type Searcher interface {
+	Search(ctx context.Context, query string) ([]indexer.Result, error)
+}
+
+// Option configures Serve.
+type Option func(*Server)
+
+// WithSearcher turns search on. Without it MethodSearch reports that
+// search is not configured, which is the normal state of a daemon whose
+// config has search.jackett.enabled off.
+func WithSearcher(s Searcher) Option { return func(srv *Server) { srv.searcher = s } }
+
+// NotConfiguredMsg is what a daemon with no searcher answers, and what
+// the clients show. It names the keys, because "not configured" alone
+// does not say what to configure.
+const NotConfiguredMsg = "search is not configured - set search.jackett.enabled, url and api_key in the config, then restart the daemon (torrnado stop)"
+
+func (s *Server) search(ctx context.Context, req *Request) *Response {
+	resp := &Response{Seq: req.Seq}
+	if s.searcher == nil {
+		resp.Err = NotConfiguredMsg
+		return resp
+	}
+	q := strings.TrimSpace(req.Query)
+	if q == "" {
+		resp.Err = "empty search query"
+		return resp
+	}
+	results, err := s.searcher.Search(ctx, q)
+	if err != nil {
+		resp.Err = err.Error()
+		return resp
+	}
+	resp.OK = true
+	resp.Results = results
 	return resp
 }

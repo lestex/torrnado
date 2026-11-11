@@ -93,6 +93,19 @@ internal/launch   Starts an external program on a path or URL and leaves
                   command may place the argument itself with %f, which is
                   substituted after the split so a path with a space in it
                   stays one argument.
+internal/indexer  Jackett search client: one GET to
+                  /api/v2.0/indexers/all/results, parsed into []Result,
+                  sorted seeders-first. Stdlib only, no cache, no retry
+                  (a retry only delays the message saying what to fix),
+                  errors are typed (`Kind`) and carry the config key to
+                  fix. A count the tracker did not report is `Unknown`
+                  (-1), never 0. The daemon builds one only when
+                  `search.jackett.enabled` is true and hands it to the
+                  ipc server as an `ipc.Searcher`; with it off a search
+                  answers `ipc.NotConfiguredMsg`. Search is answered off
+                  the connection goroutine (replies carry Seq) with its
+                  own `searchTimeout`, so a slow Jackett never freezes
+                  the list a TUI redraws from.
 internal/vpn      Reports whether traffic leaves through a tunnel, for the
                   `vpn.required` guard. Stdlib only: a UDP dial (which
                   sends nothing) gives the interface the route table would
@@ -124,7 +137,8 @@ cmd/torrnado      cobra CLI: daemon lifecycle (spawn/attach/foreground),
 ```
 
 Dependency order is strict and one-directional: `format`, `engine` and
-`vpn` have no internal deps; `ipc` depends only on `engine`; `config`
+`vpn` and `indexer` have no internal deps; `ipc` depends only on `engine`
+and `indexer` (for the `Result` type on the wire); `config`
 depends on `format`; `tui` depends on `engine`, `ipc`, `config`, `theme`,
 `batch`; `cmd` depends on everything. `engine` taking its VPN check as a
 `func() VPNStatus` rather than importing `vpn` is what keeps that first

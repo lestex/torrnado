@@ -28,6 +28,7 @@ torrnado limit <up|down> <rate>       global by default; --torrent <id> for per-
 torrnado seed-limit <id...>           --ratio / --time; when this torrent stops seeding
 torrnado move <id> <new-directory>
 torrnado label <name> <id...>         file torrents under a label (--clear removes it)
+torrnado find <query...>              search through Jackett; --limit, --json, --link N
 torrnado list                         tabular snapshot of every torrent
 torrnado list --watch                 redraw live until interrupted (-w)
 torrnado list --json                  the same as a JSON array, for scripts
@@ -243,6 +244,38 @@ second, as plain numbers. A fraction is 0 to 1, not a percentage. Times are
 RFC 3339, in UTC. Keys are never left out. And `null` means *not known*,
 used wherever zero would be a different answer: no ratio yet is not a ratio
 of nought, and an unknown ETA is not an ETA of now.
+
+## Searching
+
+`torrnado find` searches through [Jackett](https://github.com/Jackett/Jackett),
+a service you run yourself that holds the per-tracker setup and
+credentials. torrnado never talks to a tracker, so a tracker that needs a
+login or a browser challenge is Jackett's concern, not ours.
+
+Search is off until you turn it on, and says so when it is not:
+
+```
+$ torrnado find ubuntu
+error: search is not configured - set search.jackett.enabled, url and api_key in the config, then restart the daemon (torrnado stop)
+```
+
+See [Searching](configuration.md#searching) for the keys. The daemon does the
+searching, so it has to be restarted after the keys change.
+
+```sh
+torrnado find ubuntu 24.04              # a table, best-seeded first
+torrnado find ubuntu --limit 0          # every result, not the first 25
+torrnado find ubuntu --link 1           # one result's magnet or URL, nothing else
+torrnado add "$(torrnado find ubuntu --link 1)"
+torrnado find ubuntu --json | jq -r '.[0].link' | xargs torrnado add
+```
+
+A count a tracker did not report prints as `-`, not `0`: zero seeders means
+a torrent that will never finish, and a tracker that keeps its counts to
+itself should not be made to say so. In `--json` the fields are `title`,
+`size` (bytes), `seeders`, `leechers` (`-1` when not reported), `tracker`
+and `link` (a `magnet:` URI or a `.torrent` URL, empty if there was
+neither).
 
 ### `torrnado list --json`
 

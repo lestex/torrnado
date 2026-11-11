@@ -2,7 +2,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime"
 	"sort"
@@ -47,6 +49,25 @@ type SeedLimits struct {
 	// Time stops a torrent once it has been seeding for this long,
 	// counted from when it completed. Zero is off.
 	Time Duration `toml:"time"`
+}
+
+// Search holds the search sources. Only Jackett exists, behind its own
+// table so a second source can sit beside it without renaming anything.
+type Search struct {
+	Jackett Jackett `toml:"jackett"`
+}
+
+// Jackett configures searching through a Jackett server the user runs.
+//
+// Search is off until Enabled is set, and Enabled with no URL or key is an
+// error rather than a quiet off: a user who turned it on wants to be told
+// what is missing. The keys are inert while it is false, so they can be
+// written down ahead of time.
+type Jackett struct {
+	Enabled bool   `toml:"enabled"`
+	URL     string `toml:"url"`
+	// APIKey is a secret: `torrnado config` reports only whether it is set.
+	APIKey string `toml:"api_key"`
 }
 
 // VPN gates transfers on the system being connected to a VPN.
@@ -137,6 +158,7 @@ type Config struct {
 	Port      PortRange         `toml:"port"`
 	Network   Network           `toml:"network"`
 	VPN       VPN               `toml:"vpn"`
+	Search    Search            `toml:"search"`
 	Log       Logging           `toml:"log"`
 	Keybinds  map[string]string `toml:"keybinds"`
 }
@@ -342,6 +364,20 @@ func (c Config) Validate() error {
 	for i, name := range c.VPN.Interfaces {
 		if strings.TrimSpace(name) == "" {
 			return fmt.Errorf("vpn.interfaces[%d]: must not be empty", i)
+		}
+	}
+
+	// Only checked once it is turned on: an opt-in section left empty has
+	// to pass, or the config `torrnado init` writes would not load.
+	if j := c.Search.Jackett; j.Enabled {
+		if strings.TrimSpace(j.URL) == "" {
+			return errors.New("search.jackett.url: required when search.jackett.enabled is true, e.g. \"http://localhost:9117\"")
+		}
+		if u, err := url.Parse(strings.TrimSpace(j.URL)); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("search.jackett.url: %q is not an http(s) URL", j.URL)
+		}
+		if strings.TrimSpace(j.APIKey) == "" {
+			return errors.New("search.jackett.api_key: required when search.jackett.enabled is true (Jackett's dashboard shows it top right)")
 		}
 	}
 
