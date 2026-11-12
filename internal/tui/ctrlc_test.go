@@ -45,6 +45,26 @@ func TestCtrlCQuitsFromEveryModeThatSwallowsKeys(t *testing.T) {
 		quitsOnCtrlC(t, pickerModel(t, t.TempDir()))
 	})
 
+	t.Run("find overlay, loaded", func(t *testing.T) {
+		m := findModel()
+		m.findState = findLoaded
+		quitsOnCtrlC(t, m)
+	})
+
+	// A search in flight is the state most likely to be mistaken for a
+	// hang, so it is the one that most needs the key to work.
+	t.Run("find overlay, still searching", func(t *testing.T) {
+		m := findModel()
+		m.findState = findLoading
+		quitsOnCtrlC(t, m)
+	})
+
+	t.Run("find prompt", func(t *testing.T) {
+		m := testModel("a")
+		m.mode = modeFind
+		quitsOnCtrlC(t, m)
+	})
+
 	t.Run("search prompt", func(t *testing.T) {
 		m := testModel("a")
 		m.mode = modeSearch

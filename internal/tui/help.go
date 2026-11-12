@@ -80,6 +80,7 @@ func (m Model) renderHelp(width, height int) string {
 		{km.ToggleMouse, "hand the mouse back to the terminal, to select and copy text"},
 		{km.Preview, "stream to your player: the file under the cursor, or the biggest one"},
 		{km.Open, "open the torrent's folder in your file manager"},
+		{km.Find, "search for new torrents to add (needs search.jackett enabled)"},
 		{keyPair(km.Help, km.HelpAlt), "show this screen"},
 		{km.Quit, "quit (the daemon keeps running)"},
 		{"ctrl+c", "the same, from any prompt or overlay"},

@@ -88,6 +88,7 @@ rather than only that it is empty:
 | `:`                | open the command palette                           |
 | `v`                | stream to your player: the file under the cursor, or the torrent's biggest |
 | `o`                | open the torrent's folder in your file manager      |
+| `f`                | search for torrents to add, through Jackett        |
 | `h`, `?`           | keybind & command reference                        |
 | `q`                | quit the TUI (the daemon keeps running)             |
 | ++ctrl+c++         | the same, from anywhere - including a prompt or an overlay, and not rebindable |
@@ -113,9 +114,39 @@ always apply to the list's selection or cursor row.
 | `:move <dir>`                                           | move the cursor row's data to a new directory |
 | `:label [name]`                                         | file the selection (or cursor row) under a label; no name clears it |
 | `:sort name\|size\|progress\|ratio\|eta\|added\|down\|up [desc]` | change list sort order |
+| `:find [query]`                                         | search for torrents, as `f` does; with a query it searches straight away |
 | `:theme [name]`                                         | open the theme picker, or switch straight to a named theme |
 | `:help`                                                 | the same reference `h` opens, for when you are already at the prompt |
 | `:q` / `:quit`                                          | quit the TUI                              |
+
+## Searching for torrents
+
+++f++ opens a `find:` prompt at the bottom; type a query and press ++enter++.
+The daemon asks Jackett, and the results appear in a window over the panes -
+over them rather than in place of the list, so the sidebar and the detail
+pane still describe the torrents you actually have.
+
+```
+┌ find  ubuntu 24.04 ───────────────────────────────────────────┐
+│    TITLE                         SIZE     SEEDS  PEERS  TRACKER │
+│ >1 ubuntu-24.04.iso              5.8GiB   1243   87     official│
+│  2 ubuntu-24.04-live-server      2.6GiB   310    12     other   │
+└─────────────────────────────────────────────────────────────────┘
+ enter add · j/k move · f new search · esc close
+```
+
+++enter++ adds the highlighted result the same way `:add` does, and closes
+the window. ++f++ again searches anew with the last query already typed, which
+is the one-keystroke fix for a typo. ++space++ is not bound here: it marks a
+torrent everywhere else, and adding one by a stray key while scrolling is a
+surprise worth avoiding. A count the tracker did not report shows as `-`,
+not `0`. A result with no magnet or download link is listed, marked
+`(no link)`, and cannot be added.
+
+Search is off until `search.jackett.enabled` is set - see
+[Searching](configuration.md#searching). With it off the window says so
+and names the keys to set, so the default state teaches the fix. The same
+search is available from a shell as [`torrnado find`](cli.md#searching).
 
 ## Choosing which files to download
 

@@ -16,6 +16,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lestex/torrnado/internal/engine"
+	"github.com/lestex/torrnado/internal/indexer"
 	"github.com/lestex/torrnado/internal/ipc"
 	"github.com/lestex/torrnado/internal/theme"
 )
@@ -97,6 +98,10 @@ const (
 	modeNormal inputMode = iota
 	modeSearch
 	modeCommand
+	// modeFind takes a query for Jackett, which is a different thing from
+	// modeSearch: that one filters the torrents already loaded, this one
+	// asks a server about torrents we have never seen.
+	modeFind
 )
 
 // Model is the root bubbletea model.
@@ -175,6 +180,18 @@ type Model struct {
 	// applied, so checkThemeFile can tell when it has been rewritten.
 	themeStamp fileStamp
 
+	// The find overlay: what was asked, what came back, and a sequence
+	// number so a reply the user has walked away from is dropped rather
+	// than reopening the window. finder is nil only in a model built
+	// without a client, so it must never be assigned a typed nil.
+	finder      finder
+	findState   findState
+	findQuery   string
+	findResults []indexer.Result
+	findCursor  int
+	findErr     error
+	findSeq     int
+
 	// pendingDD is a "d" waiting for its partner, for vim's dd chord.
 	pendingDD bool
 	pendingAt time.Time
@@ -250,7 +267,9 @@ func New(o Options) Model {
 		themesDir: o.ThemesDir,
 		player:    o.Player,
 		opener:    o.Opener,
-		selected:  map[engine.TorrentID]bool{},
+		// Never nil: o.Client.Events() above already requires a client.
+		finder:   o.Client,
+		selected: map[engine.TorrentID]bool{},
 
 		clientVersion: o.Version,
 	}

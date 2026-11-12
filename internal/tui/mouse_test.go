@@ -357,6 +357,8 @@ func TestOverlaysSwallowTheMouse(t *testing.T) {
 	}{
 		{"theme picker", func(m *Model) { m.themePicker = true }},
 		{"help", func(m *Model) { m.showHelp = true }},
+		{"find overlay", func(m *Model) { m.findState = findLoaded }},
+		{"find overlay, searching", func(m *Model) { m.findState = findLoading }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := mouseModel("a", "b", "c", "d")
