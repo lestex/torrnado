@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/anacrolix/dht/v2 v2.23.1-0.20260525063928-ec3a9bd99456
 	github.com/anacrolix/log v0.17.1-0.20251118025802-918f1157b7bb
-	github.com/anacrolix/torrent v1.62.0
+	github.com/anacrolix/torrent v1.63.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.1
@@ -28,7 +28,7 @@ require (
 	github.com/anacrolix/go-utp v0.0.0-20260908033909-9f1664acf866 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
-	github.com/anacrolix/missinggo/v2 v2.11.0 // indirect
+	github.com/anacrolix/missinggo/v2 v2.12.0 // indirect
 	github.com/anacrolix/mmsg v1.0.1 // indirect
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/stm v0.5.0 // indirect
@@ -39,7 +39,6 @@ require (
 	github.com/benbjohnson/immutable v0.4.1-0.20221220213129-8932b999621d // indirect
 	github.com/bits-and-blooms/bitset v1.24.2 // indirect
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
